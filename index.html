@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>页面导航</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; background:#0d1117; color:#e6edf3; padding: 40px; text-align:center; }
+  h1 { margin-bottom: 30px; font-size: 22px; }
+  #buttons { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; max-width: 600px; margin: 0 auto; }
+  button { padding: 14px 26px; font-size: 16px; border: none; border-radius: 8px; background:#238636; color:#fff; cursor:pointer; transition: background 0.15s; }
+  button:hover { background:#2ea043; }
+  #status { color:#8b949e; margin-top: 24px; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>选择要打开的页面</h1>
+<div id="buttons"></div>
+<div id="status">正在检测可用页面...</div>
+
+<script>
+  const MAX_CHECK = 50;       // 最多探测到第几号
+  const MAX_MISS_STREAK = 5;  // 连续这么多个编号都不存在，就停止继续探测
+
+  async function fileExists(url) {
+    try {
+      const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      return res.ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function buildButtons() {
+    const container = document.getElementById('buttons');
+    const status = document.getElementById('status');
+    let found = 0;
+    let missStreak = 0;
+
+    for (let i = 1; i <= MAX_CHECK; i++) {
+      const filename = `${i}.html`;
+      const exists = await fileExists(filename);
+      if (exists) {
+        missStreak = 0;
+        found++;
+        const btn = document.createElement('button');
+        btn.textContent = `打开 ${filename}`;
+        btn.onclick = () => { window.location.href = filename; };
+        container.appendChild(btn);
+      } else {
+        missStreak++;
+        if (missStreak >= MAX_MISS_STREAK) break;
+      }
+    }
+
+    status.textContent = found > 0 ? `共找到 ${found} 个页面` : '未找到任何编号页面，请检查文件名是否为 1.html、2.html…';
+  }
+
+  buildButtons();
+</script>
+</body>
+</html>
