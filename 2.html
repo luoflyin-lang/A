@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EconQuest · 经济学与金融学闯关</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#0e1117;color:#e6edf3;line-height:1.6}
+header{padding:14px 18px;background:linear-gradient(90deg,#132033,#1b2a1f);border-bottom:1px solid #263041;position:sticky;top:0;z-index:9}
+h1{font-size:18px;margin:0 0 6px}
+.small{font-size:12px;color:#93a1b3}
+.bar{height:8px;background:#1e2734;border-radius:6px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,#3fb950,#58a6ff)}
+nav{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;background:#111722;border-bottom:1px solid #222b38;position:sticky;top:78px;z-index:8}
+nav button{background:#1b2431;color:#c9d6e4;border:1px solid #2a3441;border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer}
+nav button.on{background:#1f6feb;color:#fff;border-color:#1f6feb}
+main{max-width:860px;margin:0 auto;padding:16px}
+.card{background:#161b22;border:1px solid #262d38;border-radius:12px;padding:14px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.mod{background:#161b22;border:1px solid #262d38;border-radius:12px;padding:12px;cursor:pointer;transition:.15s}
+.mod:hover{border-color:#1f6feb;transform:translateY(-2px)}
+.mod.lock{opacity:.45;cursor:not-allowed}
+.mod b{display:block;font-size:15px}
+button.b{background:#1f6feb;color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:14px;cursor:pointer;margin:4px 6px 4px 0}
+button.b.g{background:#238636}button.b.y{background:#9e6a03}button.b.r{background:#a1242e}button.b.o{background:#26303d;color:#c9d6e4}
+button.b:disabled{opacity:.4;cursor:default}
+.opt{display:block;width:100%;text-align:left;background:#1b2431;color:#e6edf3;border:1px solid #2a3441;border-radius:10px;padding:11px 13px;margin:7px 0;font-size:14px;cursor:pointer}
+.opt:hover{border-color:#58a6ff}
+.opt.ok{background:#12381f;border-color:#3fb950}
+.opt.no{background:#3d1418;border-color:#f85149}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:#22303f;color:#8fb8e8;margin-right:6px}
+.tag.gold{background:#3a2f08;color:#e3b341}
+input[type=range]{width:100%}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{border-bottom:1px solid #232c38;padding:5px 4px;text-align:right}
+td:first-child,th:first-child{text-align:left}
+.kv{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:#a9b8c9}
+.big{font-size:26px;font-weight:700}
+.hint{font-size:13px;color:#9aa8b8;background:#121a24;border-left:3px solid #1f6feb;padding:8px 10px;border-radius:0 8px 8px 0;margin:8px 0}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pill{font-size:12px;background:#1b2431;border:1px solid #2a3441;border-radius:8px;padding:4px 8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎮 EconQuest · 经济学与金融学闯关</h1>
+  <div class="small" id="hstat"></div>
+  <div class="bar"><i id="hbar" style="width:0"></i></div>
+</header>
+<nav id="nav"></nav>
+<main id="app"></main>
+<script>
+/* ================= 课程数据 ================= */
+const DB=[
+{id:"m1",name:"第1章 微观基础",icon:"🧭",intro:"你刚接手一家街角咖啡店，先学会像经济学家一样思考。",
+cards:[
+["稀缺与权衡","资源有限、欲望无限，所以任何选择都有代价。经济学的第一性原理不是钱，而是‘取舍’。"],
+["机会成本","选择的真实成本 = 放弃的最高价值替代方案（含隐性成本，如你的时间）。会计只算花掉的钱，经济学还算没赚到的钱。"],
+["边际思维","决策看‘再多一单位’的边际收益 vs 边际成本，而不是平均值。已经花掉且收不回的是沉没成本，与未来决策无关。"],
+["供给与需求","价格上升→需求量减少、供给量增加。注意区分‘需求量变动’（沿曲线移动，价格引起）与‘需求变动’（曲线移动，收入/偏好/替代品引起）。"],
+["弹性","弹性 = 需求量变化% ÷ 价格变化%。缺乏弹性（<1，如汽油、药品）涨价总收入反而增加；富有弹性（>1，如某品牌零食）涨价总收入下降。"],
+["价格管制","价格上限低于均衡→短缺、排队、黑市、质量下降；价格下限高于均衡→过剩（如最低工资对低技能岗位的影响）。"]],
+qs:[
+["你花200元买了演唱会门票，同一时段本可以加班赚300元。去看演唱会的机会成本是？",["200元票价","300元放弃的加班收入（还要算上票价的另一用途）","500元","零，因为票已经买了"],1,"机会成本是放弃的最高价值替代方案。票钱是已发生支出，真正被‘牺牲’的是那300元收入。"],
+["电影开场10分钟你发现片子很烂，票不可退。经济学上正确做法是？",["必须看完，否则票钱白花","只比较‘继续看’的未来收益与成本，不好看就走","看完一半再走以对冲","取决于票价高低"],1,"票价是沉没成本，不进入边际决策。只看往后的边际收益 vs 边际成本（你的时间）。"],
+["咖啡豆价格大涨，对咖啡的供给曲线影响是？",["右移（供给增加）","左移（供给减少），均衡价上升、均衡量下降","不动，只是需求下降","变成垂直线"],1,"投入品成本上升使每一价格下的供给量减少，曲线左移。"],
+["汽油需求在短期缺乏弹性，意味着？",["涨价后需求量降幅小于涨价幅度，卖方总收入上升","涨价后没人买","需求曲线水平","弹性与收入无关"],0,"缺乏弹性时，价格上升带来的收入增加超过销量损失。这也是为什么能源税容易转嫁给消费者。"],
+["政府把租金上限定在均衡租金之下，最可能出现？",["住房供给增加","房源短缺、排队与地下加价，长期新建减少","租金自动回到均衡","房东利润上升"],1,"价格上限造成量的短缺与非价格配给，长期抑制供给投资。"],
+["下列哪一项会让‘需求曲线’整体右移（而非沿曲线移动）？",["该商品自身降价","消费者收入上升（正常品）","生产成本下降","政府对卖方征税"],1,"自身价格变化是沿曲线移动；收入、偏好、替代/互补品价格变化才使曲线移动。"]]},
+
+{id:"m2",name:"第2章 市场结构与失灵",icon:"⚖️",intro:"市场很强大，但会失灵。你现在是反垄断与环保听证会的顾问。",
+cards:[
+["完全竞争","多买多卖、产品同质、自由进出。企业是价格接受者，短期 P=MC，长期 P=MC=最低平均成本，经济利润为零（会计利润可为正）。"],
+["垄断与市场力量","垄断者按 MR=MC 定产量再抬价，结果是产量偏低、价格偏高，产生无谓损失。垄断的来源：规模经济、网络效应、专利、行政许可。"],
+["外部性","负外部性（污染）使社会成本>私人成本，产量高于社会最优；解法：庇古税、可交易排放权、明确产权（科斯）。正外部性（教育、疫苗）则需补贴。"],
+["公共品与公地悲剧","公共品非排他、非竞争（国防、灯塔）→ 搭便车 → 私人供给不足。共有资源（渔场）竞争但非排他 → 过度使用。"],
+["博弈论","囚徒困境：各自最优导致集体最差；纳什均衡未必帕累托最优。重复博弈、声誉与惩罚机制可支撑合作（这正是合同与监管的逻辑）。"],
+["信息不对称","逆向选择发生在交易前（柠檬市场、保险只有病人买）；道德风险发生在交易后（有保险后开车更莽）。解法：信号（保修、学历）、筛选、免赔额、监督。"]],
+qs:[
+["完全竞争行业的长期均衡特征是？",["价格高于平均成本，利润为正","P=MC=最低平均成本，经济利润为零","企业可以任意定价","产量低于社会最优"],1,"自由进出把经济利润竞争掉，长期停在效率最高的成本点。"],
+["工厂向河里排污却不承担下游损失，这属于？",["正外部性，产量不足","负外部性，产量高于社会最优","公共品问题","道德风险"],1,"私人成本低于社会成本，市场会‘生产过多’污染性产出。"],
+["庇古税的核心作用是？",["惩罚企业以增加财政收入","把外部成本内部化，使私人成本≈社会成本","直接禁止污染","补贴受害者"],1,"用价格纠正边际激励，让污染者面对真实的社会成本。"],
+["下列最接近纯公共品的是？",["付费流媒体会员","国防与灯塔","公共渔场里的鱼","高速公路的收费车道"],1,"非排他+非竞争才是纯公共品；渔场是共有资源，收费道路可排他。"],
+["二手车‘柠檬问题’的根源是？",["道德风险","交易前的信息不对称造成逆向选择，好车被挤出市场","垄断定价","外部性"],1,"卖方比买方更了解车况，买家只肯出平均价，优质车退出，市场质量下滑。"],
+["囚徒困境中双方都选择‘背叛’，这一结果是？",["帕累托最优","纳什均衡但非帕累托最优","既非均衡也非最优","垄断均衡"],1,"给定对方策略无人愿改变（均衡），但双方合作本可更好（非最优）。"]]},
+
+{id:"m3",name:"第3章 宏观经济学",icon:"🌐",intro:"你被任命为统计局与总理府的联合分析师，先学会读懂一个国家。",
+cards:[
+["GDP 三种算法","生产法（增加值之和）、支出法（C+I+G+NX）、收入法（工资+利润+租金+税）。只算本期新生产的最终产品：二手交易、中间品、转移支付都不计。"],
+["名义 vs 实际","实际 GDP 剔除价格变动。GDP 平减指数 = 名义/实际×100。人均实际 GDP 增长才是生活水平改善的近似。"],
+["失业","摩擦性（找工作中）、结构性（技能不匹配）、周期性（需求不足）。自然失业率 = 摩擦+结构；失业率下降也可能因为人退出劳动力（看劳动参与率）。"],
+["通胀","CPI 有替代偏差、质量偏差。需求拉动（钱多）vs 成本推动（供给冲击）。温和通胀润滑经济，通缩+债务=债务紧缩螺旋，最难治。"],
+["AD-AS 与产出缺口","短期 AD 右移→产出↑价格↑；供给冲击使 AS 左移→滞胀（产出↓价格↑），这时货币政策面临两难。长期产出由技术、资本、人口决定。"],
+["乘数","边际消费倾向 MPC=c 时，简单支出乘数=1/(1−c)。但有税收、进口、挤出与预期，现实乘数通常远小于教科书值（衰退期更大，繁荣期更小）。"]],
+qs:[
+["下列哪一项计入今年的 GDP？",["二手房的成交总价","今年新生产并卖出的汽车","给失业者的救济金","股票买卖差价"],1,"GDP 只统计本期新生产的最终产品与服务；二手交易和转移支付不算生产。"],
+["名义 GDP 增长 8%、通胀 6%，实际增长约为？",["14%","约2%","6%","无法判断"],1,"实际增长≈名义增长−通胀率，约2%。"],
+["煤矿工人因产业转型长期失业，属于？",["摩擦性失业","结构性失业","周期性失业","隐性就业"],1,"技能与岗位需求不匹配即结构性失业，需再培训而非单纯刺激需求。"],
+["国际油价暴涨引发的短期后果最接近？",["产出上升、价格下降","总供给左移，出现产出下降+通胀上升的滞胀","总需求右移","通缩"],1,"成本推动型冲击让央行两难：抗通胀会加深衰退。"],
+["MPC=0.8 时简单支出乘数约为？",["0.8","1.25","5","8"],2,"1/(1−0.8)=5。现实中因税收、进口与挤出会显著更小。"],
+["失业率下降，但同时劳动参与率大幅下降，说明？",["就业形势明确改善","可能是灰心劳动者退出统计，需谨慎解读","通胀必然上升","GDP 一定增长"],1,"失业率的分母是劳动力，人退出统计也会让数字变好看。"]]},
+
+{id:"m4",name:"第4章 货币与银行",icon:"🏦",intro:"你走进央行的地下金库：钱到底是从哪来的？",
+cards:[
+["货币是什么","职能：交换媒介、记账单位、价值储藏。层次：M0 现金 < M1 现金+活期 < M2 +定期与储蓄。现代经济中绝大部分货币是银行存款，即债务。"],
+["银行如何创造货币","部分准备金制度下，银行放贷即创造存款。理论货币乘数 = 1/准备率（10% → 最多10倍），实际受资本充足率、贷款需求与现金漏损限制。"],
+["央行工具","政策利率与走廊、公开市场操作、准备金率、再贴现、QE（买长期资产压低长端利率、扩表）与前瞻指引。目标：物价稳定+金融稳定（有的还含就业）。"],
+["名义 vs 实际利率","费雪方程：名义 i ≈ 实际 r + 预期通胀 π。通胀超预期时借款人受益、储户受损。实际利率才决定投资与储蓄决策。"],
+["收益率曲线","期限结构反映增长与通胀预期+期限溢价。长端低于短端（倒挂）历史上是衰退的强预警信号，因为市场预期央行未来必须降息。"],
+["银行挤兑与最后贷款人","银行天然期限错配（短借长贷），信心一失即挤兑。存款保险+央行作为最后贷款人（对有偿付能力但缺流动性者放款）是防线；代价是道德风险，故需资本与监管。"]],
+qs:[
+["准备率10%、无现金漏损，1000元基础货币最多支持多少存款？",["1100元","约10000元","100元","1000元"],1,"货币乘数=1/0.1=10，这是理论上限，现实中远低于此。"],
+["费雪方程告诉我们？",["名义利率≈实际利率+预期通胀","实际利率恒定","通胀与利率无关","名义利率=汇率变化"],0,"所以看到‘利率5%’要先问通胀多少，才知道钱是真涨还是虚涨。"],
+["量化宽松（QE）的本质是？",["央行直接给居民发现金","央行购买（多为长期）资产、压低长端利率并扩张自身资产负债表","提高准备金率","财政部发债"],1,"QE 作用于价格（长端利率与风险溢价）与预期，不等于财政转移。"],
+["收益率曲线倒挂通常被视为？",["经济过热信号","衰退预警信号","通缩已结束","与宏观无关的技术现象"],1,"市场在为未来降息定价，历史命中率高但并非必然。"],
+["预期通胀上升而名义利率不变，则实际利率？",["上升，有利储户","下降，有利借款人","不变","变为零"],1,"r=i−π，π↑而 i 不变则 r↓，债务实际负担减轻。"],
+["央行作为‘最后贷款人’的经典准则是？",["救助所有亏损机构","对有偿付能力但暂缺流动性的机构放款，并有惩罚性利率与合格抵押品","只救大银行","完全不干预"],1,"白芝浩原则：救流动性、不救破产，避免道德风险。"]]},
+
+{id:"m5",name:"第5章 财政与政策取舍",icon:"🏛️",intro:"预算会议开始了，你要在增长、通胀与债务之间做选择。",
+cards:[
+["预算与自动稳定器","财政赤字=支出−收入。失业保险、累进税等在衰退时自动扩张、繁荣时自动收缩，无需立法，是最快的稳定器。"],
+["税收效率","税收产生无谓损失，弹性越大损失越大；宽税基、低税率、少扭曲通常更优。拉弗曲线说明税率过高会反而减少收入，但拐点位置有争议。"],
+["债务可持续性","关键看利率 r 与名义增长 g 的关系：r<g 时债务/GDP 更容易稳定；r>g 则需要基本盈余。真正的风险是币种错配与再融资风险，而非绝对数字。"],
+["菲利普斯曲线","短期存在通胀-失业取舍；长期曲线垂直于自然失业率，靠通胀换就业只会推高预期（滞胀的教训）。故央行独立与预期锚定极重要。"],
+["政策时滞与挤出","认知、决策、执行、见效四重时滞使逆周期调节容易‘打歪’。政府大量借款可能推高利率、挤出私人投资（充分就业时尤甚）。"],
+["李嘉图等价与再分配","若理性家庭预期减税=未来加税，就会储蓄而非消费，刺激失效（现实只是部分成立）。政策评估要看‘谁受益、谁承担、代际如何分配’。"]],
+qs:[
+["下列哪一项是自动稳定器？",["临时基建刺激计划","失业保险与累进所得税","央行降息","减税一次性红包"],1,"随经济周期自动增减，无需新决策。"],
+["债务/GDP 更容易稳定的条件是？",["名义利率高于名义增长率","名义利率低于名义增长率","绝对债务规模小于1万亿","财政永远盈余"],1,"r<g 时增长自动稀释债务；r>g 需要基本盈余来止血。"],
+["关于长期菲利普斯曲线，正确的是？",["垂直，货币政策无法长期压低失业率","水平，通胀无成本","向下倾斜且长期有效","取决于税率"],0,"长期只有自然失业率，试图长期换取就业只会得到更高通胀。"],
+["税收无谓损失最大的情形是？",["供需都极缺乏弹性","供需都富有弹性","只有需求缺乏弹性","税率为零"],1,"弹性越大，行为扭曲越多，损失的交易越多。"],
+["挤出效应指？",["进口挤出出口","政府借款推高利率，抑制私人投资","外资挤出内资","通胀挤出储蓄"],1,"在接近充分就业、资金供给受限时更明显。"],
+["若居民预期今天的减税意味着明天加税，则？",["消费大幅上升","储蓄上升、刺激效果被削弱（李嘉图等价）","通胀立刻飙升","财政乘数变大"],1,"预期把跨期约束纳入决策，这是政策评估必须考虑的一层。"]]},
+
+{id:"m6",name:"第6章 国际经济学",icon:"🚢",intro:"你成了一国的贸易与外汇谈判代表。",
+cards:[
+["比较优势","依据是机会成本相对更低，而非绝对生产率。双方专业化再交易可同时受益；但收益分配不均——赢家分散、输家集中，这是贸易政治学的根源。"],
+["关税与配额","关税抬高国内价格：生产者剩余↑、消费者剩余↓↓、政府收入↑，净福利下降（无谓损失）。配额把税收变成配额租，更不透明。"],
+["国际收支","经常账户 + 资本/金融账户 ≈ 0。经常账户赤字必然对应净资本流入，也等于本国投资>储蓄，本身不必然是坏事，关键看借来的钱干什么。"],
+["汇率决定","长期看购买力平价与生产率；中期看利率平价（高利率货币远期贴水）与风险溢价；短期看资本流动与预期，波动极大。"],
+["三元悖论","固定汇率、资本自由流动、独立货币政策三者只能选二。这解释了港元（放弃独立货币政策）、多数发达国（放弃固定汇率）的制度选择。"],
+["货币危机","典型链条：本币高估+外债+短期资本流入 → 信心逆转 → 资本外逃 → 汇率与储备崩塌。1997 亚洲、2018 土耳其都是变体。储备、汇率弹性与本币融资是缓冲。"]],
+qs:[
+["一国生产两种商品都比别国慢，还能从贸易中获益吗？",["不能，绝对劣势就没有贸易机会","能，只要存在比较优势（机会成本相对更低）","只能靠补贴","取决于汇率制度"],1,"比较优势看的是相对机会成本，绝对劣势方仍可专业化并获益。"],
+["对进口商品加征关税的典型后果？",["国内价格上升，消费者剩余下降，产生无谓损失","国内价格下降","净福利必然上升","只影响外国企业"],0,"关税本质是对本国消费者征税、补贴本国受保护产业。"],
+["一国经常账户长期赤字通常对应？",["金融账户盈余，即净资本流入","金融账户也赤字","外汇储备必然上升","必然发生危机"],0,"国际收支恒等式使二者互为镜像；风险取决于债务币种与用途。"],
+["根据利率平价，高利率货币的远期通常？",["升水","贴水（远期贬值）","与利差无关","固定不变"],1,"否则存在无风险套利。高息货币的‘息差收益’常被贬值抵消（carry trade 风险）。"],
+["三元悖论说明一国不能同时拥有？",["高增长、低通胀、低失业","固定汇率、资本自由流动、独立货币政策","顺差、储备、低债务","关税、补贴、配额"],1,"这是理解各国货币制度选择的钥匙。"],
+["本币实际有效汇率大幅贬值，短期内最可能？",["出口竞争力提升、进口成本上升","进口变便宜","外债负担减轻","通胀下降"],0,"贬值改善价格竞争力，但抬高进口与外债成本（传导取决于定价货币与弹性）。"]]},
+
+{id:"m7",name:"第7章 公司金融",icon:"🏭",intro:"你坐进了投委会：这个项目到底该不该投？",
+cards:[
+["时间价值","PV = FV/(1+r)^n。金融学的第一原理：不同时间、不同风险的现金流必须折现到同一尺度才能比较。折现率就是机会成本。"],
+["NPV 与 IRR","NPV>0 才创造价值，是首选准则。IRR 直观但在非常规现金流下可能多解、在规模不同的项目间会误导，且隐含‘再投资于 IRR’的假设。"],
+["资本成本 WACC","WACC = E/V·Re + D/V·Rd·(1−t)。折现率上升，估值下降（这就是为什么加息会压估值，尤其是远期现金流为主的成长股）。"],
+["MM 定理与资本结构","无税无摩擦时资本结构不影响企业价值；引入税盾后债务有价值，但破产成本、代理成本与财务弹性构成上限，于是存在目标杠杆区间。"],
+["股利与回购","派息与回购都是把现金还给股东，本身不创造价值，但有强烈信号与纪律作用（现金多而机会少时返还优于乱并购）。"],
+["报表与自由现金流","资产负债表=存量，利润表=应计口径，现金流量表=真金白银。FCF ≈ 经营现金流 − 资本支出。利润可以修饰，现金难以长期造假。"]],
+qs:[
+["折现率10%，一年后的110元现值是？",["110元","100元","99元","121元"],1,"110/1.1=100。这就是时间价值的最小单元。"],
+["项目取舍最可靠的准则是？",["IRR 最高者","NPV>0 且最大者","回收期最短者","营收增速最快者"],1,"NPV 直接度量价值创造；IRR 在非常规现金流与规模差异下会失效。"],
+["WACC 上升，其他不变，公司估值？",["上升","下降，且远期现金流占比高的公司跌得更多","不变","取决于营收"],1,"折现率是分母，久期越长越敏感——这就是利率与成长股估值的关系。"],
+["MM 定理（无税、无摩擦）的结论是？",["债务越多价值越高","资本结构不影响企业价值","股权融资总是更便宜","分红越多越好"],1,"价值来自资产的现金流，融资方式只是切蛋糕的方式。"],
+["债务的‘税盾’价值来自？",["利息可在税前扣除","银行贷款利率低","债权人不参与决策","债务无需偿还"],0,"税盾是真实价值来源，但被破产与代理成本抵消，故杠杆有最优区间。"],
+["自由现金流最接近哪一项？",["净利润","经营活动现金流 − 资本支出","营业收入 − 成本","净利润 + 分红"],1,"股东真正可分配的钱，是估值模型的输入。"]]},
+
+{id:"m8",name:"第8章 投资与资产定价",icon:"📈",intro:"你开始管理自己的钱——市场先生每天都来报价。",
+cards:[
+["风险与收益","预期高收益是承担系统性风险的报酬，不是聪明的报酬。波动率、最大回撤、破产风险是三种不同的风险，最后一种不可逆。"],
+["分散化","分散化只能消除非系统性（公司特有）风险，市场风险无法分散。相关性在危机中会一起趋近于1，这是‘分散化失效’的真相。"],
+["CAPM 与 β","E(R)=Rf+β(E(Rm)−Rf)。β=1.5 表示市场涨1%该资产预期涨1.5%。CAPM 是思维框架而非精确预测。"],
+["有效市场","弱式（历史价格已反映→技术分析无效）、半强式（公开信息已反映→公开基本面分析难获超额）、强式（含内幕）。推论：多数人应用低成本指数化。"],
+["因子与费用","规模、价值、动量、质量、低波动等因子有长期证据但会长期跑输、拥挤失效。费用与税是唯一确定的负收益：年费1.5%持续30年会吃掉约三分之一以上终值。"],
+["债券与久期","债券价格与利率反向；久期越长越敏感（久期≈利率变动1%时价格变动%）。凸性、信用风险与再投资风险构成债券三大变量。72法则：72/年化收益≈翻倍年数。"]],
+qs:[
+["分散化投资主要消除哪类风险？",["系统性（市场）风险","非系统性（公司特有）风险","通胀风险","所有风险"],1,"市场风险无法分散，只能通过资产配置与时间来管理。"],
+["某股票 β=1.5，市场上涨1%，其预期变动？",["上涨0.67%","上涨1.5%","下跌1.5%","无关"],1,"β 度量对市场因子的敏感度，也意味着下跌时同样放大。"],
+["若市场是半强式有效，则以下哪种做法难以持续获得超额收益？",["利用公开财报与技术图形分析","承担更多系统性风险","降低费用","资产配置"],0,"公开信息已被价格反映；能稳定获益的是降费、控税与风险预算。"],
+["利率上升1%时，下列哪种债券价格跌幅最大？",["1年期短债","30年期长债","货币基金","浮动利率债"],1,"久期越长利率敏感性越高，这是2022年债市大跌的核心原因。"],
+["年化收益8%，本金大约多少年翻倍？",["约5年","约9年","约15年","约20年"],1,"72法则：72/8=9年。"],
+["关于投资费用，正确的是？",["费用相对收益微不足道","费用是确定的负收益，长期复利下侵蚀巨大","高费用意味着高收益","只在短期有影响"],1,"收益不确定，费用百分之百确定。这是最可靠的‘阿尔法’。"]]},
+
+{id:"m9",name:"第9章 衍生品与风险管理",icon:"🧨",intro:"你进入交易台：这里的工具能对冲风险，也能让你归零。",
+cards:[
+["远期与期货","锁定未来价格。期货标准化、交易所交易、有保证金与逐日盯市（控制信用风险）。基差风险指对冲工具与现货不完全匹配。"],
+["期权基础","看涨=买入权，看跌=卖出权。买方最大损失=期权费，收益理论无限；卖方收权利金但承担巨大甚至无限风险。价值=内在价值+时间价值。"],
+["定价直觉","Black-Scholes 五要素：标的价、行权价、到期时间、无风险利率、波动率。波动率上升使看涨与看跌都升值（不确定性本身有价格）；时间价值随到期衰减（Theta）。"],
+["对冲 vs 投机","同一工具，用途决定性质：有现货敞口时是对冲（农民卖出期货、进口商买入外汇远期），无敞口时是方向性投机。"],
+["杠杆的数学","10倍杠杆下标的跌10%权益归零；−50%后需+100%才回本。波动性拖累使高杠杆在震荡市中必然衰减。风险管理第一条：先控制爆仓概率。"],
+["互换与信用衍生品","利率互换换现金流（固定换浮动）；CDS 本质是违约保险。2008 显示：衍生品把风险重新分配，也可能把风险集中到看不见的对手方（系统性风险）。"]],
+qs:[
+["买入一份看涨期权，最大可能损失是？",["标的全部价值","支付的期权费","无限","行权价"],1,"买方风险有限、收益不封顶；卖方相反。"],
+["隐含波动率上升，看涨与看跌期权价值？",["看涨升、看跌降","两者都上升","两者都下降","不变"],1,"期权是对不确定性的定价，波动率越高两侧都更值钱。"],
+["农民担心三个月后谷价下跌，最直接的对冲是？",["买入谷物期货","卖出谷物期货或买入看跌期权","卖出看跌期权","什么都不做"],1,"用衍生品建立与现货相反的敞口，锁定价格。"],
+["期货‘逐日盯市’的主要目的是？",["提高杠杆","及时结算盈亏、控制对手方信用风险","减少税负","稳定现货价格"],1,"每日划转保证金，避免亏损累积成违约。"],
+["CDS 的本质是？",["股票期权","针对信用违约的保险合约","利率互换","外汇远期"],1,"买方付费换取违约赔付；卖方赚保费但承担尾部风险。"],
+["10倍杠杆下标的下跌10%，你的权益？",["下跌10%","归零（被强制平仓）","下跌1%","不受影响"],1,"杠杆放大的是波动与破产概率，不是期望收益。"]]},
+
+{id:"m10",name:"第10章 行为金融与危机史",icon:"🧠",intro:"最后一关：你最大的对手是自己的大脑与人群的情绪。",
+cards:[
+["前景理论","人对‘参考点’的变化而非绝对财富有反应；损失厌恶使同等金额的亏损痛感约为盈利快感的2倍，导致在亏损区反而更爱冒险。"],
+["常见偏差","锚定、可得性、确认偏误、过度自信（交易过频）、处置效应（早卖赚的、死抱亏的）、心理账户、近期偏差。对策：规则化、清单、事前写下决策理由。"],
+["羊群与反身性","信息瀑布使个体理性汇成群体非理性；索罗斯的反身性指价格反过来改变基本面（融资便利→扩张→盈利改善→价格更高，直到反转）。"],
+["泡沫解剖","明斯基五阶段：置换（新事物）→ 繁荣 → 狂热（杠杆与叙事）→ 获利离场 → 恐慌。‘这次不一样’是最贵的一句话。"],
+["危机案例","1929 杠杆+紧缩政策失误；1997 亚洲固定汇率+短期外债；2008 房贷证券化+评级失真+高杠杆+批发融资挤兑；2020 流动性冲击被政策快速兜住。"],
+["活下来的原则","控制杠杆、保留流动性缓冲、承认不可预测（尾部风险）、把决策规则写在冷静时。资深不是预测得准，而是错的时候仍能留在桌上。"]],
+qs:[
+["损失厌恶指的是？",["厌恶所有风险","同等金额的损失痛苦大于收益的快乐","偏好确定收益","厌恶波动"],1,"这解释了持有亏损资产不肯止损、以及保险与免赔额设计。"],
+["处置效应的表现是？",["过早卖出盈利资产、长期持有亏损资产","频繁买入热门股","只买指数","过度分散"],0,"参考点依赖+损失厌恶共同作用的结果。"],
+["‘明斯基时刻’描述？",["央行降息时刻","债务驱动的乐观突然转为被迫去杠杆与抛售","通胀见顶","财报季"],1,"稳定本身孕育不稳定：越平静，杠杆越高，脆弱性越大。"],
+["2008 危机的核心链条最接近？",["财政赤字过高","次级房贷证券化+评级失真+高杠杆+批发融资挤兑","关税战","石油禁运"],1,"风险被打包分散却集中在杠杆与短期融资的节点上。"],
+["现代版‘银行挤兑’通常发生在？",["储户排队取现金","回购与批发融资市场的资金方集体撤资","股市下跌","债券违约"],1,"2008 与 2023 硅谷银行都显示：挤兑现在以电子化、机构化速度发生。"],
+["面对不可预测的尾部风险，最稳健的做法是？",["提高杠杆以加快回本","控制杠杆并保留流动性缓冲","全部押注单一赛道","依赖精确预测模型"],1,"先保证生存，才有复利。这是全课程最重要的一条。"]]}
+];
+
+const TITLES=[[1,"经济学门外汉"],[3,"财经入门学徒"],[5,"市场观察员"],[8,"初级分析师"],[11,"高级分析师"],[14,"研究主管"],[18,"首席经济学家"],[22,"学派奠基人"],[27,"诺奖候选人"]];
+const ACH=[
+["a1","开学第一天","完成任意一章的知识卡"],
+["a2","首次通关","通过任意一章的 Boss 关"],
+["a3","连击达人","单局连续答对 10 题"],
+["a4","复习自律","累计完成 50 次间隔复习"],
+["a5","三栖玩家","完成三个模拟器各至少一局"],
+["a6","十级学者","等级达到 10"],
+["a7","全章通关","十章 Boss 全部通过"],
+["a8","资深经济学家","毕业大考 27 分以上"]
+];
+
+/* ================= 存档 ================= */
+const LS="econquest_v1";
+let S=(function(){try{const o=JSON.parse(localStorage.getItem(LS));if(o&&o.v===1)return o}catch(e){}
+ return {v:1,xp:0,srs:{},prog:{},ach:[],rev:0,ans:0,right:0,bestCombo:0,sims:{},grad:0}})();
+function save(){localStorage.setItem(LS,JSON.stringify(S))}
+function lvl(){return Math.floor(Math.sqrt(S.xp/60))+1}
+function xpAt(l){return Math.pow(l-1,2)*60}
+function title(){let t=TITLES[0][1];TITLES.forEach(function(p){if(lvl()>=p[0])t=p[1]});return t}
+function P(id){if(!S.prog[id])S.prog[id]={learn:0,drill:0,boss:0};return S.prog[id]}
+function unlocked(i){return i===0||P(DB[i-1].id).boss>0}
+function allBoss(){return DB.every(function(m){return P(m.id).boss>0})}
+function addXp(n){S.xp+=n;save()}
+function ach(id){if(S.ach.indexOf(id)<0){S.ach.push(id);save();toast("🏆 解锁成就："+ACH.filter(function(a){return a[0]===id})[0][1])}}
+function checkAch(){if(S.rev>=50)ach("a4");if(lvl()>=10)ach("a6");if(allBoss())ach("a7");
+ if(S.bestCombo>=10)ach("a3");if(S.sims.mk&&S.sims.cb&&S.sims.pf)ach("a5");save()}
+
+/* ================= 间隔复习 (Leitner) ================= */
+const INT=[0,1,2,4,8,16,35];
+function srsUpd(key,ok){const c=S.srs[key]||{b:0,n:0};c.b=ok?Math.min(6,c.b+1):1;c.n++;c.due=Date.now()+INT[c.b]*864e5;S.srs[key]=c;save()}
+function dueItems(){const out=[];for(const k in S.srs){if(S.srs[k].due<=Date.now()){const p=k.split(":");const m=DB.filter(function(x){return x.id===p[0]})[0];if(m&&m.qs[+p[1]])out.push({key:k,q:m.qs[+p[1]],mod:m.name})}}return out}
+
+/* ================= 工具 ================= */
+function el(h){const d=document.createElement("div");d.innerHTML=h;return d.firstElementChild}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
+function toast(t){const d=el('<div style="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#1f6feb;color:#fff;padding:9px 16px;border-radius:20px;font-size:13px;z-index:99">'+t+'</div>');document.body.appendChild(d);setTimeout(function(){d.remove()},2200)}
+function fmt(n){return n.toLocaleString("zh-CN",{maximumFractionDigits:0})}
+function pct(x){return (x*100).toFixed(1)+"%"}
+
+/* ================= 头部 / 导航 ================= */
+const TABS=[["home","🏠 学院"],["review","🔁 复习"],["sim","🧪 模拟器"],["endless","♾️ 无尽挑战"],["me","🎖️ 档案"]];
+let view="home";
+function head(){
+ const l=lvl(),cur=S.xp-xpAt(l),need=xpAt(l+1)-xpAt(l);
+ document.getElementById("hstat").textContent="Lv."+l+" "+title()+" · XP "+S.xp+"/"+xpAt(l+1)+" · 正确率 "+(S.ans?Math.round(S.right/S.ans*100):0)+"% · 待复习 "+dueItems().length+" 张";
+ document.getElementById("hbar").style.width=Math.min(100,cur/need*100)+"%";
+}
+function nav(){const n=document.getElementById("nav");n.innerHTML="";TABS.forEach(function(t){const b=el('<button'+(view===t[0]?' class="on"':'')+'>'+t[1]+'</button>');b.onclick=function(){view=t[0];render()};n.appendChild(b)})}
+function render(){head();nav();const a=document.getElementById("app");a.innerHTML="";
+ if(view==="home")home(a);else if(view==="review")review(a);else if(view==="sim")sims(a);else if(view==="endless")endless(a);else me(a)}
+
+/* ================= 学院首页 ================= */
+function home(a){
+ const d=dueItems().length;
+ if(d>0)a.appendChild(el('<div class="card"><b>🔁 今天有 '+d+' 张卡到期</b><div class="small">遗忘曲线正在生效——先复习再学新内容，效率最高。</div><button class="b g" onclick="view=\'review\';render()">开始复习</button></div>'));
+ a.appendChild(el('<div class="card"><b>📚 课程地图</b><div class="small">按顺序解锁：每章 学习卡片 → 刷题练习 → Boss 关（6题对5题）。</div></div>'));
+ const g=el('<div class="grid"></div>');
+ DB.forEach(function(m,i){
+  const p=P(m.id),ok=unlocked(i);
+  const stars=(p.learn?"⭐":"☆")+(p.drill>=10?"⭐":"☆")+(p.boss?"⭐":"☆");
+  const c=el('<div class="mod'+(ok?'':' lock')+'"><b>'+m.icon+' '+m.name+'</b><div class="small">'+(ok?stars+' · 已练 '+p.drill+' 题':'🔒 通过上一章解锁')+'</div></div>');
+  if(ok)c.onclick=function(){modView(m,i)};
+  g.appendChild(c)});
+ a.appendChild(g);
+ if(allBoss()){const gr=el('<div class="card"><b>🎓 毕业大考</b><div class="small">30 题跨章综合，27 分以上颁发「资深经济学家」证书。最好成绩：'+S.grad+'/30</div><button class="b y">开始大考</button></div>');
+  gr.querySelector("button").onclick=graduation;a.appendChild(gr)}
+}
+function modView(m,i){const a=document.getElementById("app");a.innerHTML="";
+ const p=P(m.id);
+ a.appendChild(el('<div class="card"><b>'+m.icon+' '+m.name+'</b><div class="small">'+m.intro+'</div></div>'));
+ const box=el('<div class="card"></div>');
+ box.appendChild(el('<div><span class="tag">知识卡 '+m.cards.length+' 张</span><span class="tag">题库 '+m.qs.length+' 题</span><span class="tag">已练 '+p.drill+'</span></div>'));
+ const b1=el('<button class="b">📖 学习卡片</button>');b1.onclick=function(){learn(m,0)};
+ const b2=el('<button class="b g">✏️ 刷题练习</button>');b2.onclick=function(){quiz({items:pick(m,5),title:m.name+" · 练习",xp:10,after:function(r){P(m.id).drill+=r.n;save()}})};
+ const b3=el('<button class="b r">⚔️ Boss 关（限时）</button>');
+ b3.onclick=function(){quiz({items:pick(m,6),title:m.name+" · BOSS",xp:16,time:30,boss:true,after:function(r){
+   if(r.right>=5){if(!P(m.id).boss){P(m.id).boss=1;addXp(60);toast("🎉 通关！下一章已解锁 (+60XP)")}else toast("再次通关 ✔");ach("a2")}else toast("未通关：需答对 5 题，再练练");checkAch();save()}})};
+ box.appendChild(b1);box.appendChild(b2);box.appendChild(b3);
+ const bk=el('<button class="b o">返回</button>');bk.onclick=function(){render()};box.appendChild(bk);
+ a.appendChild(box);
+}
+function pick(m,n){const idx=shuffle(m.qs.map(function(_,i){return i})).slice(0,n);
+ return idx.map(function(i){return {key:m.id+":"+i,q:m.qs[i],mod:m.name}})}
+function learn(m,i){const a=document.getElementById("app");a.innerHTML="";
+ const c=m.cards[i];
+ a.appendChild(el('<div class="card"><div class="small">'+m.name+' · 知识卡 '+(i+1)+'/'+m.cards.length+'</div><h2 style="margin:6px 0">'+c[0]+'</h2><div>'+c[1]+'</div></div>'));
+ const nav2=el('<div class="card"></div>');
+ if(i>0){const b=el('<button class="b o">← 上一张</button>');b.onclick=function(){learn(m,i-1)};nav2.appendChild(b)}
+ if(i<m.cards.length-1){const b=el('<button class="b">下一张 →</button>');b.onclick=function(){learn(m,i+1)};nav2.appendChild(b)}
+ else{const b=el('<button class="b g">学完了，去刷题</button>');b.onclick=function(){if(!P(m.id).learn){P(m.id).learn=1;addXp(30);ach("a1");toast("+30 XP")}
+  quiz({items:pick(m,5),title:m.name+" · 练习",xp:10,after:function(r){P(m.id).drill+=r.n;save()}})};nav2.appendChild(b)}
+ const bk=el('<button class="b o">返回本章</button>');bk.onclick=function(){modView(m,0)};nav2.appendChild(bk);
+ a.appendChild(nav2);head();
+}
+
+/* ================= 通用答题引擎 ================= */
+let Q=null,timer=null;
+function quiz(cfg){Q={items:cfg.items,i:0,right:0,n:0,combo:0,best:0,lives:cfg.lives||0,xp:cfg.xp||10,time:cfg.time||0,
+ title:cfg.title||"练习",after:cfg.after,wrong:[],mult:cfg.mult||1,endless:!!cfg.endless,refill:cfg.refill};qStep()}
+function qStep(){
+ if(timer){clearInterval(timer);timer=null}
+ const a=document.getElementById("app");a.innerHTML="";
+ if(Q.endless&&Q.i>=Q.items.length&&Q.refill)Q.items=Q.items.concat(Q.refill());
+ if(Q.i>=Q.items.length||(Q.lives<0)){return qEnd()}
+ const it=Q.items[Q.i],q=it.q;
+ const opts=shuffle(q[1].map(function(t,i){return {t:t,i:i}}));
+ const hd=el('<div class="card"><div class="kv"><span>'+Q.title+'</span><span>第 '+(Q.i+1)+' 题</span><span>✅ '+Q.right+'</span><span>🔥 连击 '+Q.combo+'</span>'+(Q.lives?'<span>❤️ '+Q.lives+'</span>':'')+'<span id="tm"></span></div></div>');
+ a.appendChild(hd);
+ a.appendChild(el('<div class="card"><div class="small">'+(it.mod||"")+'</div><div style="font-size:16px;margin-top:4px">'+q[0]+'</div></div>'));
+ const wrap=el('<div class="card"></div>');
+ opts.forEach(function(o,k){const b=el('<button class="opt">'+(k+1)+'. '+o.t+'</button>');
+  b.onclick=function(){answer(it,o.i===q[2],wrap,opts,q)};wrap.appendChild(b)});
+ a.appendChild(wrap);
+ if(Q.time){let t=Q.time;document.getElementById("tm").textContent="⏱ "+t+"s";
+  timer=setInterval(function(){t--;const e=document.getElementById("tm");if(e)e.textContent="⏱ "+t+"s";
+   if(t<=0){clearInterval(timer);timer=null;answer(it,false,wrap,opts,q,true)}},1000)}
+ head();
+}
+function answer(it,ok,wrap,opts,q,timeout){
+ if(timer){clearInterval(timer);timer=null}
+ Array.prototype.forEach.call(wrap.children,function(b,k){b.disabled=true;
+  if(opts[k].i===q[2])b.className="opt ok";else b.className="opt"});
+ Q.n++;S.ans++;if(ok){Q.right++;S.right++;Q.combo++;Q.best=Math.max(Q.best,Q.combo);
+  if(Q.combo>S.bestCombo)S.bestCombo=Q.combo;
+  addXp(Math.round(Q.xp*Q.mult*(1+Math.min(Q.combo,10)*0.1)))}
+ else{Q.combo=0;Q.wrong.push({q:q,mod:it.mod});if(Q.lives)Q.lives--;if(Q.lives===0)Q.lives=-1}
+ if(it.key){srsUpd(it.key,ok);S.rev++}
+ save();checkAch();
+ const fb=el('<div class="card"><b>'+(ok?'✅ 正确':(timeout?'⏰ 超时':'❌ 答错'))+'</b><div class="hint">'+q[3]+'</div></div>');
+ const b=el('<button class="b">继续 →</button>');b.onclick=function(){Q.i++;qStep()};fb.appendChild(b);
+ document.getElementById("app").appendChild(fb);
+ fb.scrollIntoView({behavior:"smooth",block:"end"});
+ head();
+}
+function qEnd(){
+ const a=document.getElementById("app");a.innerHTML="";
+ const rate=Q.n?Math.round(Q.right/Q.n*100):0;
+ a.appendChild(el('<div class="card"><div class="small">'+Q.title+' 结算</div><div class="big">'+Q.right+' / '+Q.n+'（'+rate+'%）</div><div class="small">最高连击 '+Q.best+' · 当前 Lv.'+lvl()+' '+title()+'</div></div>'));
+ if(Q.wrong.length){const w=el('<div class="card"><b>📌 错题回顾（已排入复习队列）</b></div>');
+  Q.wrong.forEach(function(x){w.appendChild(el('<div style="margin-top:10px"><div>'+x.q[0]+'</div><div class="small">✅ '+x.q[1][x.q[2]]+'</div><div class="hint">'+x.q[3]+'</div></div>'))});a.appendChild(w)}
+ const btns=el('<div class="card"></div>');
+ const b1=el('<button class="b">回学院</button>');b1.onclick=function(){view="home";render()};
+ const b2=el('<button class="b g">去复习</button>');b2.onclick=function(){view="review";render()};
+ btns.appendChild(b1);btns.appendChild(b2);a.appendChild(btns);
+ if(Q.after)Q.after({right:Q.right,n:Q.n});
+ head();
+}
+
+/* ================= 复习 ================= */
+function review(a){
+ const d=dueItems();
+ const boxes=[0,0,0,0,0,0,0];for(const k in S.srs)boxes[S.srs[k].b]++;
+ a.appendChild(el('<div class="card"><b>🔁 间隔复习（Leitner 盒子）</b><div class="small">答对升级、间隔变长（1/2/4/8/16/35 天）；答错回到第1盒，短期内反复出现。这是对抗遗忘曲线的核心系统。</div>'+
+  '<div class="flex" style="margin-top:8px">'+[1,2,3,4,5,6].map(function(i){return '<span class="pill">第'+i+'盒 '+boxes[i]+'</span>'}).join("")+'</div></div>'));
+ if(!Object.keys(S.srs).length){a.appendChild(el('<div class="card">还没有卡片。先去学院做几道题，做过的题会自动进入复习队列。</div>'));return}
+ if(!d.length){a.appendChild(el('<div class="card">🎉 今天没有到期卡片。可以去「无尽挑战」或模拟器，也可以选择下面的强化复习。</div>'));}
+ const c=el('<div class="card"></div>');
+ if(d.length){const b=el('<button class="b g">开始今日复习（'+d.length+' 张）</button>');
+  b.onclick=function(){quiz({items:shuffle(d).slice(0,20),title:"每日复习",xp:14})};c.appendChild(b)}
+ const b2=el('<button class="b o">随机强化 10 张（不看到期）</button>');
+ b2.onclick=function(){const all=[];for(const k in S.srs){const p=k.split(":");const m=DB.filter(function(x){return x.id===p[0]})[0];if(m)all.push({key:k,q:m.qs[+p[1]],mod:m.name})}
+  quiz({items:shuffle(all).slice(0,10),title:"强化复习",xp:8})};
+ c.appendChild(b2);a.appendChild(c);
+}
+
+/* ================= 模拟器 ================= */
+function sims(a){
+ a.appendChild(el('<div class="card"><b>🧪 模拟器：把概念变成手感</b><div class="small">每局参数与随机冲击都不同，可无限重玩。这是本游戏可复玩性的主要来源。</div></div>'));
+ const list=[["mk","⚖️ 市场均衡实验室","调价格、找均衡、加税，直观看到短缺、过剩、税负转嫁与无谓损失。",market],
+ ["cb","🏦 央行行长（8回合）","面对通胀与产出缺口设定政策利率，体会时滞、菲利普斯曲线与泰勒规则。",cbank],
+ ["pf","📈 投资生涯（20年）","在随机宏观情景中做资产配置，感受复利、回撤、通胀与分散化。",folio]];
+ list.forEach(function(x){const c=el('<div class="card"><b>'+x[1]+'</b><div class="small">'+x[2]+'</div><div class="small">最好成绩：'+(S.sims[x[0]]!=null?S.sims[x[0]]:"未玩")+'</div></div>');
+  const b=el('<button class="b">开始</button>');b.onclick=x[3];c.appendChild(b);a.appendChild(c)});
+}
+
+/* ---- 市场实验室 ---- */
+let mk=null;
+function market(){
+ const b=1+Math.floor(Math.random()*4),d=1+Math.floor(Math.random()*4);
+ const pe=6+Math.floor(Math.random()*15),qe=30+Math.floor(Math.random()*50);
+ mk={b:b,d:d,a:qe+b*pe,c:qe-d*pe,pe:pe,qe:qe,p:pe+(Math.random()<0.5?-4:4),tax:0,done:false};
+ mkRender();
+}
+function mkRender(){
+ const a=document.getElementById("app");a.innerHTML="";
+ const Qd=Math.max(0,mk.a-mk.b*mk.p),Qs=Math.max(0,mk.c+mk.d*mk.p);
+ const gap=Qs-Qd;
+ a.appendChild(el('<div class="card"><b>⚖️ 市场均衡实验室</b><div class="small">本局需求 Qd = '+mk.a+' − '+mk.b+'P，供给 Qs = '+mk.c+' + '+mk.d+'P（隐藏均衡待你发现）。移动价格看市场反应。</div></div>'));
+ const c=el('<div class="card"><div class="big">价格 P = '+mk.p.toFixed(1)+'</div>'+
+  '<div class="kv"><span>需求量 '+Qd.toFixed(1)+'</span><span>供给量 '+Qs.toFixed(1)+'</span><span>'+(Math.abs(gap)<0.5?'≈ 市场清算 ✅':(gap>0?'过剩 '+gap.toFixed(1)+'（价格偏高）':'短缺 '+(-gap).toFixed(1)+'（价格偏低）'))+'</span></div></div>');
+ const r=el('<input type="range" min="1" max="40" step="0.5" value="'+mk.p+'">');
+ r.oninput=function(){mk.p=parseFloat(r.value);mkRender()};c.appendChild(r);
+ a.appendChild(c);
+ const g=el('<div class="card"><b>提交你认为的均衡价格</b><div class="small">误差 ≤0.5 得满分奖励。</div></div>');
+ const inp=el('<input style="background:#0e1117;color:#e6edf3;border:1px solid #2a3441;border-radius:8px;padding:8px;width:120px" placeholder="如 12.5">');
+ const sb=el('<button class="b g">提交</button>');
+ sb.onclick=function(){const v=parseFloat(inp.value);if(isNaN(v))return toast("请输入数字");
+  const err=Math.abs(v-mk.pe);const sc=err<=0.5?100:Math.max(0,Math.round(100-err*12));
+  S.sims.mk=Math.max(S.sims.mk||0,sc);addXp(20+Math.round(sc/4));save();checkAch();
+  mk.done=true;mkResult(sc,err)};
+ g.appendChild(inp);g.appendChild(sb);a.appendChild(g);
+ const t=el('<div class="card"><b>🧾 加一道从量税（对卖方征收）</b><div class="small">税额 t = '+mk.tax.toFixed(1)+'</div></div>');
+ const tr=el('<input type="range" min="0" max="10" step="0.5" value="'+mk.tax+'">');
+ tr.oninput=function(){mk.tax=parseFloat(tr.value);mkRender()};t.appendChild(tr);
+ if(mk.tax>0){const Pb=(mk.a-mk.c+mk.d*mk.tax)/(mk.b+mk.d),Ps=Pb-mk.tax,Qn=Math.max(0,mk.a-mk.b*Pb);
+  const dwl=0.5*mk.tax*Math.max(0,mk.qe-Qn);
+  const buyerShare=(Pb-mk.pe)/mk.tax;
+  t.appendChild(el('<div class="kv" style="margin-top:6px"><span>买方支付 '+Pb.toFixed(2)+'</span><span>卖方实收 '+Ps.toFixed(2)+'</span><span>成交量 '+Qn.toFixed(1)+'（原 '+mk.qe+'）</span><span>税收 '+(mk.tax*Qn).toFixed(1)+'</span><span>无谓损失 ≈ '+dwl.toFixed(1)+'</span></div>'+
+   '<div class="hint">买方承担了约 '+pct(Math.max(0,Math.min(1,buyerShare)))+' 的税负。谁弹性更小，谁就承担更多——税由谁缴纳并不决定谁真正承担。</div>'));}
+ a.appendChild(t);
+ const bk=el('<div class="card"></div>');const b1=el('<button class="b o">换一局</button>');b1.onclick=market;
+ const b2=el('<button class="b o">返回</button>');b2.onclick=function(){view="sim";render()};
+ bk.appendChild(b1);bk.appendChild(b2);a.appendChild(bk);head();
+}
+function mkResult(sc,err){
+ const a=document.getElementById("app");
+ a.appendChild(el('<div class="card"><b>结果：'+sc+' 分</b><div class="small">真实均衡 P*='+mk.pe+'，Q*='+mk.qe+'，你的误差 '+err.toFixed(2)+'。</div>'+
+ '<div class="hint">解法：令 '+mk.a+'−'+mk.b+'P = '+mk.c+'+'+mk.d+'P → P* = ('+mk.a+'−'+mk.c+')/('+mk.b+'+'+mk.d+') = '+mk.pe+'。价格的唯一工作，就是让人们愿意买的量与愿意卖的量相等。</div></div>'));
+}
+
+/* ---- 央行行长 ---- */
+let cb=null;
+function cbank(){cb={t:1,pi:3+Math.random()*4,y:(Math.random()*3-0.5),loss:0,hist:[],shockNote:""};cbRender()}
+function cbRender(){
+ const a=document.getElementById("app");a.innerHTML="";
+ a.appendChild(el('<div class="card"><b>🏦 央行行长 · 第 '+cb.t+'/8 回合</b><div class="small">目标：通胀 2%、产出缺口 0。损失 = Σ[(π−2)² + 0.5·缺口²]，越低越好。中性实际利率约 1%。</div></div>'));
+ a.appendChild(el('<div class="card"><div class="kv"><span class="big">π = '+cb.pi.toFixed(2)+'%</span><span class="big">缺口 = '+cb.y.toFixed(2)+'%</span></div>'+
+  '<div class="small">累计损失 '+cb.loss.toFixed(1)+'</div>'+(cb.shockNote?'<div class="hint">'+cb.shockNote+'</div>':'')+
+  '<div class="hint">提示（泰勒规则直觉）：名义利率 ≈ π + 1 + 0.5(π−2) + 0.5·缺口。政策有一期时滞，别过度反应也别不作为。</div></div>'));
+ const c=el('<div class="card"><b>设定政策名义利率</b><div id="rv" class="big">4.0%</div></div>');
+ const r=el('<input type="range" min="0" max="16" step="0.25" value="4">');
+ r.oninput=function(){document.getElementById("rv").textContent=parseFloat(r.value).toFixed(2)+"%"};
+ const taylor=cb.pi+1+0.5*(cb.pi-2)+0.5*cb.y;
+ const b=el('<button class="b g">决策并进入下一回合</button>');
+ b.onclick=function(){cbStep(parseFloat(r.value))};
+ const b2=el('<button class="b o">按泰勒规则（'+taylor.toFixed(2)+'%）</button>');
+ b2.onclick=function(){cbStep(taylor)};
+ c.appendChild(r);c.appendChild(b);c.appendChild(b2);a.appendChild(c);
+ if(cb.hist.length){const t=el('<div class="card"><b>历史</b><table><tr><th>回合</th><th>利率</th><th>通胀</th><th>缺口</th></tr></table></div>');
+  const tb=t.querySelector("table");cb.hist.forEach(function(h){tb.appendChild(el('<tr><td>'+h.t+'</td><td>'+h.r.toFixed(2)+'</td><td>'+h.pi.toFixed(2)+'</td><td>'+h.y.toFixed(2)+'</td></tr>'))});a.appendChild(t)}
+ const bk=el('<div class="card"></div>');const bb=el('<button class="b o">放弃返回</button>');bb.onclick=function(){view="sim";render()};bk.appendChild(bb);a.appendChild(bk);head();
+}
+function cbStep(r){
+ const real=r-cb.pi;
+ const sh=Math.random();let note="";let eps=(Math.random()-0.5)*1.0,pshock=0;
+ if(sh<0.12){eps-=2.2;note="⚠️ 外需骤降：出口订单大幅下滑（需求冲击）。"}
+ else if(sh<0.24){pshock+=2.0;eps-=0.6;note="⚠️ 能源价格暴涨：成本推动型通胀（供给冲击，两难时刻）。"}
+ else if(sh<0.34){eps+=1.6;note="📈 财政扩张与地产回暖，需求偏热。"}
+ const y=0.55*cb.y-0.9*(real-1.0)+eps;
+ const pi=0.72*cb.pi+0.28*2+0.35*y+pshock+(Math.random()-0.5)*0.5;
+ cb.hist.push({t:cb.t,r:r,pi:pi,y:y});
+ cb.loss+=Math.pow(pi-2,2)+0.5*Math.pow(y,2);
+ cb.pi=pi;cb.y=y;cb.shockNote=note;cb.t++;
+ if(cb.t>8)cbEnd();else cbRender();
+}
+function cbEnd(){
+ const a=document.getElementById("app");a.innerHTML="";
+ const L=cb.loss,sc=Math.max(0,Math.round(100-L*1.6));
+ S.sims.cb=Math.max(S.sims.cb||0,sc);addXp(25+Math.round(sc/3));save();checkAch();
+ let g=L<20?"A · 教科书级软着陆":L<40?"B · 稳健，略有摇摆":L<70?"C · 波动偏大，注意时滞":"D · 政策过度反应或过度迟疑";
+ a.appendChild(el('<div class="card"><b>任期结束</b><div class="big">'+sc+' 分（损失 '+L.toFixed(1)+'）· '+g+'</div>'+
+ '<div class="hint">复盘要点：①实际利率（i−π）才影响需求；②政策有时滞，看的是未来而非当下；③供给冲击下通胀与产出反向，必须选择优先目标并守住预期锚；④连续大幅调整往往制造新的波动。</div></div>'));
+ const t=el('<div class="card"><table><tr><th>回合</th><th>利率</th><th>通胀</th><th>缺口</th></tr></table></div>');
+ const tb=t.querySelector("table");cb.hist.forEach(function(h){tb.appendChild(el('<tr><td>'+h.t+'</td><td>'+h.r.toFixed(2)+'</td><td>'+h.pi.toFixed(2)+'</td><td>'+h.y.toFixed(2)+'</td></tr>'))});a.appendChild(t);
+ const bk=el('<div class="card"></div>');const b1=el('<button class="b">再来一任</button>');b1.onclick=cbank;
+ const b2=el('<button class="b o">返回</button>');b2.onclick=function(){view="sim";render()};bk.appendChild(b1);bk.appendChild(b2);a.appendChild(bk);head();
+}
+
+/* ---- 投资生涯 ---- */
+const REG=[["繁荣",0.18,0.02,0.03,0.030,0.30],["温和增长",0.09,0.04,0.02,0.021,0.32],["衰退",-0.20,0.09,0.015,0.008,0.20],["高通胀/滞胀",-0.06,-0.03,0.045,0.070,0.18]];
+let pf=null;
+function folio(){pf={y:1,w:100000,real:100000,cpi:1,peak:100000,dd:0,st:60,bd:30,hist:[]};pfRender()}
+function pfRender(){
+ const a=document.getElementById("app");a.innerHTML="";
+ a.appendChild(el('<div class="card"><b>📈 投资生涯 · 第 '+pf.y+'/20 年</b><div class="small">起始 10 万，每年追加 1 万。宏观情景随机，目标是 20 年后的<b>实际</b>（扣通胀）财富，同时控制最大回撤。</div></div>'));
+ a.appendChild(el('<div class="card"><div class="kv"><span class="big">名义 '+fmt(pf.w)+'</span><span class="big">实际 '+fmt(pf.w/pf.cpi)+'</span></div><div class="small">累计通胀 '+pct(pf.cpi-1)+' · 最大回撤 '+pct(pf.dd)+'</div></div>'));
+ const c=el('<div class="card"><b>今年配置</b><div id="al" class="kv"></div></div>');
+ const rs=el('<input type="range" min="0" max="100" step="5" value="'+pf.st+'">');
+ const rb=el('<input type="range" min="0" max="100" step="5" value="'+pf.bd+'">');
+ function upd(){pf.st=parseInt(rs.value);pf.bd=Math.min(parseInt(rb.value),100-pf.st);rb.value=pf.bd;
+  document.getElementById("al").innerHTML='<span class="pill">股票 '+pf.st+'%</span><span class="pill">债券 '+pf.bd+'%</span><span class="pill">现金 '+(100-pf.st-pf.bd)+'%</span>'}
+ rs.oninput=upd;rb.oninput=upd;
+ c.appendChild(el('<div class="small">股票比例</div>'));c.appendChild(rs);
+ c.appendChild(el('<div class="small">债券比例</div>'));c.appendChild(rb);
+ const b=el('<button class="b g">度过这一年 →</button>');b.onclick=pfStep;c.appendChild(b);
+ a.appendChild(c);upd();
+ if(pf.hist.length){const t=el('<div class="card"><b>历史</b><table><tr><th>年</th><th>情景</th><th>股</th><th>债</th><th>组合</th><th>实际财富</th></tr></table></div>');
+  const tb=t.querySelector("table");pf.hist.slice(-10).forEach(function(h){tb.appendChild(el('<tr><td>'+h.y+'</td><td>'+h.r+'</td><td>'+pct(h.s)+'</td><td>'+pct(h.b)+'</td><td>'+pct(h.p)+'</td><td>'+fmt(h.rw)+'</td></tr>'))});a.appendChild(t)}
+ const bk=el('<div class="card"></div>');const bb=el('<button class="b o">放弃返回</button>');bb.onclick=function(){view="sim";render()};bk.appendChild(bb);a.appendChild(bk);head();
+}
+function pfStep(){
+ let x=Math.random(),acc=0,R=REG[1];
+ for(let i=0;i<REG.length;i++){acc+=REG[i][5];if(x<=acc){R=REG[i];break}}
+ const s=R[1]+(Math.random()-0.5)*0.22,b=R[2]+(Math.random()-0.5)*0.05,ca=R[3],inf=R[4]+(Math.random()-0.5)*0.01;
+ const ws=pf.st/100,wb=pf.bd/100,wc=1-ws-wb;
+ const p=ws*s+wb*b+wc*ca-0.003;
+ pf.w=pf.w*(1+p)+10000;pf.cpi*=(1+inf);
+ pf.peak=Math.max(pf.peak,pf.w);pf.dd=Math.max(pf.dd,(pf.peak-pf.w)/pf.peak);
+ pf.hist.push({y:pf.y,r:R[0],s:s,b:b,p:p,rw:pf.w/pf.cpi});
+ pf.y++;if(pf.y>20)pfEnd();else pfRender();
+}
+function pfEnd(){
+ const a=document.getElementById("app");a.innerHTML="";
+ const real=pf.w/pf.cpi,invested=100000+10000*20;
+ const sc=Math.max(0,Math.round(real/1000-pf.dd*200));
+ S.sims.pf=Math.max(S.sims.pf||0,sc);addXp(25+Math.min(60,Math.round(sc/20)));save();checkAch();
+ a.appendChild(el('<div class="card"><b>20 年结束</b><div class="big">实际财富 '+fmt(real)+'（累计投入 '+fmt(invested)+'）</div>'+
+  '<div class="small">名义 '+fmt(pf.w)+' · 累计通胀 '+pct(pf.cpi-1)+' · 最大回撤 '+pct(pf.dd)+' · 评分 '+sc+'</div>'+
+  '<div class="hint">复盘要点：①名义收益骗人，实际（扣通胀）才是购买力；②现金看似安全，长期被通胀慢性侵蚀；③高股票比例期望更高但回撤更深——能否拿住才是真约束；④每年0.3%的费用与摩擦，20年也会吃掉可观终值；⑤加仓（持续投入）与时间是普通人最大的优势。</div></div>'));
+ const t=el('<div class="card"><table><tr><th>年</th><th>情景</th><th>组合收益</th><th>实际财富</th></tr></table></div>');
+ const tb=t.querySelector("table");pf.hist.forEach(function(h){tb.appendChild(el('<tr><td>'+h.y+'</td><td>'+h.r+'</td><td>'+pct(h.p)+'</td><td>'+fmt(h.rw)+'</td></tr>'))});a.appendChild(t);
+ const bk=el('<div class="card"></div>');const b1=el('<button class="b">再活一遍</button>');b1.onclick=folio;
+ const b2=el('<button class="b o">返回</button>');b2.onclick=function(){view="sim";render()};bk.appendChild(b1);bk.appendChild(b2);a.appendChild(bk);head();
+}
+
+/* ================= 无尽挑战 ================= */
+function poolAll(){const out=[];DB.forEach(function(m,i){if(unlocked(i))m.qs.forEach(function(q,j){out.push({key:m.id+":"+j,q:q,mod:m.name})})});return out}
+function endless(a){
+ const MODS=[["⚡ 极速","每题 12 秒，XP ×1.6",{time:12,mult:1.6}],
+ ["💎 高压","只有 1 条命，XP ×2.2",{lives:1,mult:2.2}],
+ ["🎯 标准","3 条命，XP ×1.2",{lives:3,mult:1.2}],
+ ["🌪️ 混沌","20 秒 + 2 条命，XP ×1.8",{time:20,lives:2,mult:1.8}]];
+ a.appendChild(el('<div class="card"><b>♾️ 无尽挑战</b><div class="small">题目从已解锁章节随机抽取并无限续接，直到用完生命。选择一个词条开始（每局题序与选项都会重新随机）。</div></div>'));
+ MODS.forEach(function(m){const c=el('<div class="card"><b>'+m[0]+'</b><div class="small">'+m[1]+'</div></div>');
+  const b=el('<button class="b r">开始</button>');
+  b.onclick=function(){const cfg=m[2];
+   quiz({items:shuffle(poolAll()),title:"无尽挑战 "+m[0],xp:12,time:cfg.time||0,lives:cfg.lives||0,mult:cfg.mult,
+    endless:true,refill:function(){return shuffle(poolAll())}})};
+  c.appendChild(b);a.appendChild(c)});
+ a.appendChild(el('<div class="card"><div class="small">当前已解锁题库：'+poolAll().length+' 题。通关更多章节可扩大题池。</div></div>'));
+}
+
+/* ================= 毕业大考 ================= */
+function graduation(){
+ const all=[];DB.forEach(function(m){m.qs.forEach(function(q,j){all.push({key:m.id+":"+j,q:q,mod:m.name})})});
+ quiz({items:shuffle(all).slice(0,30),title:"🎓 毕业大考",xp:20,time:40,after:function(r){
+  S.grad=Math.max(S.grad,r.right);save();
+  if(r.right>=27){ach("a8");addXp(300);toast("🎓 恭喜！资深经济学家认证通过 (+300XP)")}
+  else toast("得分 "+r.right+"/30，27 分及格。先回去复习错题再战。");checkAch()}});
+}
+
+/* ================= 档案 ================= */
+function me(a){
+ const done=DB.filter(function(m){return P(m.id).boss>0}).length;
+ a.appendChild(el('<div class="card"><b>🎖️ 学习档案</b><div class="big">Lv.'+lvl()+' '+title()+'</div>'+
+  '<div class="kv"><span>XP '+S.xp+'</span><span>累计答题 '+S.ans+'</span><span>正确率 '+(S.ans?Math.round(S.right/S.ans*100):0)+'%</span><span>最高连击 '+S.bestCombo+'</span><span>复习次数 '+S.rev+'</span><span>通关章节 '+done+'/10</span><span>大考最好 '+S.grad+'/30</span></div>'+
+  (S.ach.indexOf("a8")>=0?'<div class="hint">🎓 已获得「资深经济学家」认证。接下来靠间隔复习与模拟器保持手感。</div>':'')+'</div>'));
+ const ac=el('<div class="card"><b>🏆 成就</b></div>');
+ ACH.forEach(function(x){const got=S.ach.indexOf(x[0])>=0;
+  ac.appendChild(el('<div style="margin-top:6px'+(got?'':';opacity:.45')+'">'+(got?'✅':'🔒')+' <b>'+x[1]+'</b> <span class="small">'+x[2]+'</span></div>'))});
+ a.appendChild(ac);
+ a.appendChild(el('<div class="card"><b>📅 建议节奏（对抗遗忘的用法）</b><div class="small">1）每天先清「今日复习」；2）再学 1 章知识卡+练习；3）有把握时打 Boss；4）每周至少玩 1 局模拟器；5）十章通关后每周一次无尽挑战 + 大考重刷。坚持 6–8 周即可覆盖本科级经济学与金融学主干。</div></div>'));
+ const rs=el('<div class="card"><b>⚙️ 存档</b><div class="small">进度保存在本浏览器本地（localStorage）。清除浏览器数据会丢失。</div></div>');
+ const b1=el('<button class="b o">导出存档</button>');
+ b1.onclick=function(){const s=JSON.stringify(S);if(navigator.clipboard)navigator.clipboard.writeText(s);prompt("存档 JSON（可手动复制保存）：",s)};
+ const b2=el('<button class="b o">导入存档</button>');
+ b2.onclick=function(){const s=prompt("粘贴存档 JSON：");if(!s)return;try{const o=JSON.parse(s);if(o&&o.v===1){S=o;save();toast("导入成功");render()}else toast("版本不匹配")}catch(e){toast("格式错误")}};
+ const b3=el('<button class="b r">重置全部进度</button>');
+ b3.onclick=function(){if(confirm("确定清空所有进度？")){localStorage.removeItem(LS);S={v:1,xp:0,srs:{},prog:{},ach:[],rev:0,ans:0,right:0,bestCombo:0,sims:{},grad:0};render()}};
+ rs.appendChild(b1);rs.appendChild(b2);rs.appendChild(b3);a.appendChild(rs);
+}
+
+/* ================= 快捷键与启动 ================= */
+document.addEventListener("keydown",function(e){
+ if(e.key>="1"&&e.key<="4"){const o=document.querySelectorAll(".opt");const i=parseInt(e.key)-1;
+  if(o[i]&&!o[i].disabled)o[i].click()}
+});
+render();
+</script>
+</body>
+</html>
