@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>偏差大陆 · 行为金融学游戏化学习系统</title>
+<style>
+:root{--bg:#0b0e14;--bg2:#121722;--bg3:#1a2130;--line:#26303f;--tx:#e6edf6;--tx2:#93a2b8;--ac:#4dd6c1;--ac2:#7c8cff;--warn:#ffb347;--bad:#ff5d73;--good:#3ddc97}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC','PingFang SC','Microsoft Yahei',sans-serif;line-height:1.65}
+body{max-width:900px;margin:0 auto;padding:0 14px 90px}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0b0e14 70%,rgba(11,14,20,.85));padding:10px 0 8px;border-bottom:1px solid var(--line)}
+.hrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.lv{font-weight:700;font-size:15px;color:var(--ac)}
+.pill{background:var(--bg3);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--tx2)}
+.bar{height:8px;background:var(--bg3);border-radius:999px;overflow:hidden;margin-top:8px;border:1px solid var(--line)}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));width:0;transition:width .6s cubic-bezier(.2,.9,.2,1)}
+nav{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:0 0 auto;background:var(--bg2);color:var(--tx2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;font-size:13px;cursor:pointer}
+nav button.on{background:var(--ac);color:#04231f;border-color:var(--ac);font-weight:700}
+h1{font-size:19px;margin:16px 0 6px}h2{font-size:16px;margin:18px 0 8px}h3{font-size:14px;margin:14px 0 6px;color:var(--ac)}
+p{margin:6px 0}small{color:var(--tx2)}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.chap{cursor:pointer;position:relative;overflow:hidden}
+.chap.lock{opacity:.5;cursor:not-allowed}
+.chap h3{margin:0 0 4px;color:var(--tx)}
+.mini{height:6px;background:var(--bg3);border-radius:9px;overflow:hidden;margin-top:8px}
+.mini>i{display:block;height:100%;background:var(--ac2)}
+button.b{background:var(--ac);color:#04231f;border:0;border-radius:10px;padding:10px 14px;font-size:14px;font-weight:700;cursor:pointer;margin:4px 6px 4px 0}
+button.g{background:var(--bg3);color:var(--tx);border:1px solid var(--line)}
+button.b:disabled{opacity:.45;cursor:not-allowed}
+.opt{display:block;width:100%;text-align:left;background:var(--bg3);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;font-size:14px;cursor:pointer;transition:transform .12s,border-color .2s}
+.opt:hover{border-color:var(--ac2)}
+.opt.right{border-color:var(--good);background:rgba(61,220,151,.12);animation:pop .32s}
+.opt.wrong{border-color:var(--bad);background:rgba(255,93,115,.12);animation:shake .32s}
+@keyframes pop{0%{transform:scale(.97)}60%{transform:scale(1.02)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--tx2);margin-right:6px}
+.tag.t1{color:var(--good);border-color:#1d5f45}.tag.t2{color:var(--warn);border-color:#6b4a17}.tag.t3{color:var(--ac2);border-color:#39408a}
+.rev{border-left:3px solid var(--ac);padding-left:12px;margin-top:12px}
+.rev b{color:var(--ac)}
+.kp{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0;background:var(--bg2)}
+.kp .nm{font-weight:700}
+.kp dl{margin:6px 0 0}.kp dt{font-size:12px;color:var(--ac);margin-top:6px}.kp dd{margin:0;font-size:13.5px;color:var(--tx)}
+.badge{display:flex;gap:8px;align-items:flex-start;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px}
+.badge.off{opacity:.4}
+.badge .ic{font-size:20px}
+#toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%) translateY(30px);background:var(--bg3);border:1px solid var(--ac);color:var(--tx);padding:10px 16px;border-radius:12px;font-size:13px;opacity:0;transition:.3s;z-index:60;max-width:92vw;text-align:center}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.pt{position:fixed;width:7px;height:7px;border-radius:50%;pointer-events:none;z-index:50}
+.timer{font-variant-numeric:tabular-nums;font-weight:700;color:var(--warn)}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t td,table.t th{border-bottom:1px solid var(--line);padding:6px;text-align:left}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.dimbar{display:flex;align-items:center;gap:8px;font-size:12px;margin:4px 0}
+.dimbar .nm{width:78px;color:var(--tx2)}
+.dimbar .tr{flex:1;height:7px;background:var(--bg3);border-radius:9px;overflow:hidden}
+.dimbar .tr>i{display:block;height:100%;background:linear-gradient(90deg,var(--good),var(--warn),var(--bad))}
+canvas{max-width:100%;display:block;margin:0 auto}
+.cardx{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px;position:relative}
+.cardx.locked{opacity:.35}
+.cardx .ty{font-size:11px;color:var(--ac2)}
+.r3{border-color:#8a6a1f;box-shadow:0 0 0 1px rgba(255,179,71,.25) inset}
+.r2{border-color:#39408a}
+textarea{width:100%;min-height:110px;background:var(--bg3);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:8px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <span class="lv" id="hLv">见习观察者</span>
+    <span class="pill" id="hXp">0 XP</span>
+    <span class="pill" id="hStreak">🔥 0</span>
+    <span class="pill" id="hDue">复习 0</span>
+    <span class="pill" id="hCard">🃏 0/30</span>
+  </div>
+  <div class="bar"><i id="hBar"></i></div>
+  <nav id="nav"></nav>
+</header>
+<main id="view"></main>
+<div id="toast"></div>
+<script>
+/* ============================================================
+   一、内容数据层（可自由增删，渲染逻辑不依赖具体条数）
+   ============================================================ */
+const DIMS=[
+ {k:'sys1',n:'冲动直觉'},{k:'anchor',n:'锚定'},{k:'avail',n:'可得性'},{k:'repr',n:'代表性'},{k:'over',n:'过度自信'},
+ {k:'loss',n:'损失厌恶'},{k:'frame',n:'框架心账'},{k:'time',n:'时间贴现'},{k:'herd',n:'羊群情绪'},{k:'hind',n:'后见归因'}];
+const CHAPTERS=[
+ {ch:1,name:'认知地基',sub:'双系统思维 · 启发式的本质',icon:'🧩'},
+ {ch:2,name:'判断偏差',sub:'锚定 · 可得性 · 代表性 · 过度自信',icon:'🎯'},
+ {ch:3,name:'决策与偏好',sub:'前景理论 · 损失厌恶 · 框架效应',icon:'⚖️'},
+ {ch:4,name:'时间与自控',sub:'双曲贴现 · 现状偏差 · 承诺机制',icon:'⏳'},
+ {ch:5,name:'市场层面',sub:'有限套利 · 动量反转 · 泡沫羊群',icon:'📈'},
+ {ch:6,name:'高阶与应用',sub:'方法 · 复现危机 · Nudge 与自审',icon:'🔬'}];
+
+/* 知识点：ess=一句话本质 exp=经典实验 mkt=真实市场案例 ask=自查问题 t=难度层 */
+const KNOWLEDGE_DATA=[
+// ── 第一大陆 认知地基 ──
+{id:'1-1',ch:1,t:1,dim:'sys1',name:'双系统思维',ess:'大脑有一个又快又懒的直觉系统1和一个又慢又贵的推理系统2，大部分判断由系统1完成。',exp:'认知反射测验：球棒和球共1.10美元，球棒比球贵1.00美元，多数人答10美分（正确为5美分）。Frederick 2005。',mkt:'看到某只股票涨停就立刻下单，事后才去找理由，是系统1先行动、系统2当公关。',ask:'我这个决定用了几秒？是我想清楚了，还是我只是觉得顺？'},
+{id:'1-2',ch:1,t:1,dim:'sys1',name:'启发式',ess:'启发式是用简化规则换取速度的心理捷径，多数时候够用，但会在特定方向上系统性出错。',exp:'Tversky & Kahneman 1974 在 Science 提出代表性、可得性、锚定三大启发式。',mkt:'用市盈率高低一刀切判断贵贱，是把复杂估值压缩成单一线索。',ask:'我是在用一条线索代替整个判断吗？'},
+{id:'1-3',ch:1,t:1,dim:'sys1',name:'偏差不是随机噪声',ess:'认知偏差是有方向、可预测、可重复的错误，不是运气不好。',exp:'Tversky & Kahneman 1974 强调偏差在群体中方向一致，因此可事先预测。',mkt:'散户在牛市末期普遍加仓，这种一致性说明这是偏差而非随机。',ask:'如果重来一百次，我会不会犯同一个方向的错？'},
+{id:'1-4',ch:1,t:1,dim:'over',name:'有限理性',ess:'人的信息、时间和算力都有限，追求的是够好而非最优。',exp:'Simon 1955 提出 bounded rationality 与 satisficing（满意化）。',mkt:'基金选择时看前三只顺眼的就买，而非评估全部数千只产品。',ask:'我是选到了够好的，还是只是选到了最先出现的？'},
+{id:'1-5',ch:1,t:1,dim:'sys1',name:'认知负荷',ess:'工作记忆容量很小，负荷越高越容易交给直觉系统。',exp:'Shiv & Fedorikhin 1999：需要记住七位数字的被试更倾向选蛋糕而非水果。',mkt:'盘中高频看盘、同时盯十个消息源，会显著降低决策质量。',ask:'我做这个决定时，脑子里还同时装着几件事？'},
+{id:'1-6',ch:1,t:2,dim:'over',name:'噪声与偏差的区别',ess:'偏差是准星偏了，噪声是每次落点都不一样；两者都会造成错误，但补救方法不同。',exp:'Kahneman, Sibony & Sunstein 2021《Noise》：同一保险公司核保员对同一案件的报价中位差异约 55%。',mkt:'不同分析师对同一家公司给出天差地别的目标价，多数是噪声而非洞见。',ask:'我今天的判断，和我上周同一情境下的判断一致吗？'},
+{id:'1-7',ch:1,t:2,dim:'over',name:'期望效用理论',ess:'传统理性模型：给每个结果一个效用值，按概率加权求和，选最大者。',exp:'von Neumann & Morgenstern 1944 用完备性、传递性、连续性、独立性四条公理导出效用函数。',mkt:'所有现代资产定价模型的基线仍是期望效用最大化。',ask:'我知道我在最大化什么吗，还是只在回避不舒服？'},
+{id:'1-8',ch:1,t:2,dim:'frame',name:'阿莱悖论',ess:'人们在数学上等价的两次选择里给出矛盾偏好，直接违反独立性公理。',exp:'Allais 1953：多数人在确定获得与高概率大奖之间选确定，却在两个都不确定的选项里选大奖。',mkt:'保本理财极受欢迎，同时同一批人又买高波动主题基金。',ask:'我是不是为了那最后一点确定性付了过高的价？'},
+{id:'1-9',ch:1,t:2,dim:'loss',name:'埃尔斯伯格悖论与模糊厌恶',ess:'人们厌恶不知道概率（模糊）远超厌恶已知的风险。',exp:'Ellsberg 1961：已知 50/50 的罐子被明显偏好于比例未知的罐子，尽管两者期望相同。',mkt:'新兴市场资产长期存在额外折价，部分源于对未知规则的模糊厌恶。',ask:'我拒绝它，是因为它真的更差，还是因为我不知道它的概率？'},
+{id:'1-10',ch:1,t:2,dim:'repr',name:'贝叶斯定理与基础率',ess:'新证据应当乘在先验之上，先验就是基础率，不能丢。',exp:'Kahneman & Tversky 1973：被试根据人格描述判断职业，几乎完全忽略样本中职业的实际比例。',mkt:'看到一份亮眼的三年业绩就相信是明星经理，忽略了幸存者与基础率。',ask:'在看到这条证据之前，这件事本来的概率是多少？'},
+{id:'1-11',ch:1,t:2,dim:'sys1',name:'认知反射测验',ess:'CRT 测的是抑制第一直觉的能力，得分与多种偏差程度相关。',exp:'Frederick 2005 三题版（球棒与球、机器造零件、湖中睡莲）成为标准工具。',mkt:'高 CRT 的投资者交易频率更低，长期净收益更高。',ask:'我第一反应的答案，我检查过第二遍吗？'},
+{id:'1-12',ch:1,t:3,dim:'sys1',name:'生态理性',ess:'在特定环境结构下，简单启发式可能比复杂模型更准，偏差有时是适应而非缺陷。',exp:'Gigerenzer 与 Todd 1999 提出 fast-and-frugal heuristics 与 take-the-best 规则。',mkt:'1/N 等权分配在样本外常打败复杂均值方差优化（DeMiguel, Garlappi & Uppal 2009）。',ask:'我是需要更精细的模型，还是需要更稳的简单规则？'},
+{id:'1-13',ch:1,t:3,dim:'over',name:'启发式与偏差纲领之争',ess:'偏差究竟是非理性缺陷，还是被不当实验题面诱发的假象，学界至今争论。',exp:'Kahneman & Tversky 1996 与 Gigerenzer 1996 在 Psychological Review 的公开交锋。',mkt:'这场争论决定了监管应当纠正个人，还是改造环境与信息呈现方式。',ask:'我在批评人，还是在批评题目的呈现方式？'},
+// ── 第二大陆 判断偏差 ──
+{id:'2-1',ch:2,t:1,dim:'anchor',name:'锚定效应',ess:'先出现的数字会把后续估计拉向自己，即使明显无关。',exp:'Tversky & Kahneman 1974：转轮盘得到 10 或 65，再估非洲国家在联合国占比，答案中位数分别为 25% 与 45%。',mkt:'IPO 定价区间、分析师目标价都会成为投资者估值的锚。',ask:'我第一次听到的那个数字是谁给的？如果没有它我会报多少？'},
+{id:'2-2',ch:2,t:1,dim:'anchor',name:'调整不足',ess:'锚定的核心机制是从锚出发调整，但调整总在到达合理区间边缘就停下。',exp:'Epley & Gilovich 2006 证明自生成锚的调整量随激励增加而增大，说明调整确实提前停止。',mkt:'成本价成为卖出决策的锚，只肯在略高于成本处止盈。',ask:'我是不是刚一进入可接受区间就停止思考了？'},
+{id:'2-3',ch:2,t:1,dim:'avail',name:'可得性启发式',ess:'越容易想起来的事，被判断得越可能发生。',exp:'Tversky & Kahneman 1973：多数人认为以 K 开头的英文词多于第三个字母是 K 的词，实际相反。',mkt:'一次空难或一次熔断后，人们长期高估同类事件概率并过度买保险。',ask:'我判断它常见，是因为它真的常见，还是因为它上过头条？'},
+{id:'2-4',ch:2,t:1,dim:'avail',name:'风险认知失真',ess:'媒体报道频率而非真实频率塑造了公众的风险排序。',exp:'Lichtenstein, Slovic, Fischhoff, Layman & Combs 1978：被试严重高估罕见死因（龙卷风），低估常见死因（中风、糖尿病）。',mkt:'黑天鹅叙事流行期，尾部保护产品被显著高估定价。',ask:'我担心的这件事，在数据里排第几？'},
+{id:'2-5',ch:2,t:1,dim:'repr',name:'代表性启发式',ess:'用像不像典型形象来代替算概率。',exp:'Tversky & Kahneman 1983 Linda 问题：多数人认为“银行出纳且女权主义者”比“银行出纳”更可能，违反合取律。',mkt:'公司故事听起来很像下一个某明星企业，于是被赋予过高的成功概率。',ask:'它是更像，还是更可能？'},
+{id:'2-6',ch:2,t:1,dim:'repr',name:'基础率忽视',ess:'鲜活的个体信息会挤走冷冰冰的比例信息。',exp:'出租车问题：85% 蓝车、15% 绿车，证人可靠度 80%，正确后验约 41%，多数人答 80%。Kahneman & Tversky 1972/1980。',mkt:'牛市里筛出的十倍股案例，掩盖了同类公司总体的失败率。',ask:'这个类别里，成功的整体比例是多少？'},
+{id:'2-7',ch:2,t:2,dim:'repr',name:'小数法则与赌徒谬误',ess:'人们以为小样本也应该像总体，于是相信独立事件会自我纠正。',exp:'Tversky & Kahneman 1971 提出 belief in the law of small numbers。',mkt:'连跌五天就认为反弹概率变高，实际独立性未被打破。',ask:'这个序列的下一次，真的受前几次影响吗？'},
+{id:'2-8',ch:2,t:3,dim:'repr',name:'热手谬误及其反转',ess:'原始研究认为手感是幻觉，后续统计工作发现原方法本身有偏，热手可能真实存在。',exp:'Gilovich, Vallone & Tversky 1985 提出热手谬误；Miller & Sanjurjo 2018 指出条件抽样偏差，重估后 NBA 数据支持存在小幅热手。',mkt:'基金业绩持续性的研究结论因同类统计问题而多次反转。',ask:'我否认模式存在时，用的统计方法本身可靠吗？'},
+{id:'2-9',ch:2,t:2,dim:'over',name:'过度自信的三种形态',ess:'高估（overestimation）、过度精确（overprecision）、过度置位（overplacement）是三件不同的事。',exp:'Moore & Healy 2008 在 Psychological Review 中系统区分三者并给出各自的实验条件。',mkt:'投资者常常不是高估收益率，而是把区间估得太窄。',ask:'我错的是均值，还是我的区间太窄？'},
+{id:'2-10',ch:2,t:2,dim:'over',name:'校准与过度精确',ess:'当人给出 90% 置信区间时，真实命中率通常只有 30% 到 60%。',exp:'Alpert & Raiffa 1982 的经典校准实验（后收录于 Judgment under Uncertainty）。',mkt:'风控模型的置信区间过窄，是危机中风险敞口被低估的常见来源。',ask:'我的区间宽到我自己都觉得有点尴尬了吗？'},
+{id:'2-11',ch:2,t:1,dim:'over',name:'优于平均效应',ess:'大多数人认为自己在多数维度上高于平均，这在统计上不可能同时成立。',exp:'Svenson 1981：约 90% 的司机认为自己驾驶技术优于平均。',mkt:'绝大多数主动交易者认为自己能跑赢指数，实际长期多数落后。',ask:'如果我在平均线以下，我会从哪里看出来？'},
+{id:'2-12',ch:2,t:3,dim:'over',name:'过度自信与交易成本',ess:'过度自信直接表现为过度交易，而交易本身是负和游戏。',exp:'Barber & Odean 2000《Trading Is Hazardous to Your Wealth》：换手最高的两成账户年净收益比市场低约 6 个百分点；Barber & Odean 2001 发现男性换手高约 45%。',mkt:'台湾市场研究（Barber, Lee, Liu & Odean 2009）显示个人投资者交易总损失约占 GDP 的 2.2%。',ask:'我过去一年的换手率是多少？它换来了什么？'},
+{id:'2-13',ch:2,t:1,dim:'hind',name:'后见之明偏差',ess:'知道结果后，人们会记错自己事前的判断，觉得早就知道。',exp:'Fischhoff 1975 knew-it-all-along 效应：被告知结果的被试显著高估自己事前会给出的概率。',mkt:'危机后所有人都说泡沫显而易见，但事前仓位数据并不支持。',ask:'我事前写下来的概率是多少？没写就等于没预测。'},
+{id:'2-14',ch:2,t:2,dim:'hind',name:'确认偏误',ess:'人倾向寻找支持既有假设的证据，而非能推翻它的证据。',exp:'Wason 1960 的 2-4-6 任务：被试几乎只做验证性测试，很少主动尝试反例。',mkt:'持仓后只读多头研报，构成典型的信息茧房与加仓螺旋。',ask:'什么证据会让我认输？我今天找过它吗？'},
+{id:'2-15',ch:2,t:2,dim:'hind',name:'自利归因',ess:'赢了归自己能力，输了归市场环境，导致学习通道被切断。',exp:'Miller & Ross 1975 综述自利归因；Hirshleifer 2001 将其纳入行为资产定价框架。',mkt:'牛市中投资者把收益归因于选股能力，从而加大风险敞口。',ask:'如果这次是运气，我要看到什么才会承认？'},
+{id:'2-16',ch:2,t:3,dim:'hind',name:'叙事经济学',ess:'会传播的故事本身就是经济变量，它能改变价格而不需要基本面变化。',exp:'Shiller 2019《Narrative Economics》与 Shiller 2000《Irrational Exuberance》记录叙事传播与估值的同步性。',mkt:'2020 至 2021 年的多个主题叙事在盈利不变的情况下驱动了估值剧变。',ask:'我买的是现金流，还是一个正在流行的故事？'},
+{id:'2-17',ch:2,t:3,dim:'anchor',name:'随机锚研究的复现争议',ess:'完全无关的数字也能锚定报价，这一惊人结论的可复现性存在争议。',exp:'Ariely, Loewenstein & Prelec 2003 用社保号后两位影响竞价；Maniadis, Tufano & List 2014 的复现未能得到同等强度效应。',mkt:'这提醒我们，越反直觉的结论越需要看复现证据而非只看原始论文。',ask:'我引用的这个效应，有人成功复现过吗？'},
+// ── 第三大陆 决策与偏好 ──
+{id:'3-1',ch:3,t:2,dim:'loss',name:'前景理论四支柱',ess:'参照点依赖、损失厌恶、敏感性递减、概率权重，共同替代期望效用。',exp:'Kahneman & Tversky 1979 Econometrica《Prospect Theory: An Analysis of Decision under Risk》。',mkt:'投资者对回撤的反应远强于对同等涨幅的反应，构成大部分非理性交易。',ask:'我在算最终财富，还是在算相对某个价位的涨跌？'},
+{id:'3-2',ch:3,t:2,dim:'loss',name:'损失厌恶系数',ess:'同等金额的损失带来的痛，约是收益带来的快乐的两倍。',exp:'Tversky & Kahneman 1992 累积前景理论估计 λ 约 2.25，α 约 0.88。',mkt:'愿意为避免 1000 元亏损承担远高于 1000 元期望的风险。',ask:'如果把这笔损失换成同额收益，我会有这么强的反应吗？'},
+{id:'3-3',ch:3,t:1,dim:'loss',name:'参照点依赖',ess:'效用来自变化而非水平，参照点一变，同一结果的好坏就反转。',exp:'Kahneman & Tversky 1979 的正负域价值函数形状。',mkt:'同一价格，成本在下方的人觉得赚，成本在上方的人觉得亏，行为完全不同。',ask:'我的参照点是什么？它是理性选择的还是随手留下的？'},
+{id:'3-4',ch:3,t:2,dim:'loss',name:'敏感性递减与四重风险态度',ess:'小概率大收益时冒险、小概率大损失时买保险、大概率收益时保守、大概率损失时赌一把。',exp:'Tversky & Kahneman 1992 的 fourfold pattern。',mkt:'同一个人同时买彩票和买保险，并在深亏时死扛不认赔。',ask:'我现在在四重模式的哪一格？'},
+{id:'3-5',ch:3,t:2,dim:'frame',name:'概率权重函数',ess:'人不会线性使用概率，会高估极小概率、低估中高概率。',exp:'Tversky & Kahneman 1992 估计权重函数曲率参数约 0.61（收益）与 0.69（损失）。',mkt:'深度虚值期权长期存在偏贵现象，与小概率被高估一致。',ask:'我为这个万分之一的可能，付了多少钱？'},
+{id:'3-6',ch:3,t:2,dim:'frame',name:'确定性效应与可能性效应',ess:'从 99% 到 100% 的心理价值远大于从 50% 到 51%；从 0 到 1% 同理。',exp:'Kahneman & Tversky 1979 的确定性效应实验。',mkt:'保本承诺能带来远超其精算价值的溢价。',ask:'我买的是那 1 个百分点，还是买那份心安？'},
+{id:'3-7',ch:3,t:1,dim:'loss',name:'禀赋效应',ess:'东西一旦属于我，它在我眼里就变贵了。',exp:'Kahneman, Knetsch & Thaler 1990 马克杯实验：卖方要价约为买方出价的两倍。',mkt:'持有的股票总觉得该卖更高价，交易量因此被抑制。',ask:'如果我今天空仓，我会用这个价格买它吗？'},
+{id:'3-8',ch:3,t:2,dim:'loss',name:'现状偏差',ess:'不动比动更容易，默认选项因此拥有巨大权力。',exp:'Samuelson & Zeckhauser 1988《Status Quo Bias in Decision Making》。',mkt:'投资者数年不调整资产配置，最终风险敞口由历史涨跌被动决定。',ask:'我保留它，是因为它更好，还是因为它已经在那里？'},
+{id:'3-9',ch:3,t:1,dim:'frame',name:'心理账户',ess:'人把钱分进不同心理口袋，同一块钱在不同口袋里被区别对待。',exp:'Thaler 1985/1999《Mental Accounting Matters》系统提出该框架。',mkt:'一边背着高息消费贷，一边把年终奖存进低息存款。',ask:'如果这些钱在同一个账户里，我会怎么做？'},
+{id:'3-10',ch:3,t:2,dim:'frame',name:'交易效用',ess:'除了商品本身的获得效用，人还消费一种“占到便宜”的交易效用。',exp:'Thaler 1985 的啤酒购买实验：同一瓶啤酒在度假酒店与小卖部的可接受价格差异显著。',mkt:'折扣促销和“已跌 70%”的标签能显著提升买入意愿。',ask:'我买的是价值，还是买那个折扣感？'},
+{id:'3-11',ch:3,t:1,dim:'loss',name:'沉没成本谬误',ess:'已经付出的成本不应影响未来选择，但它让人继续投入。',exp:'Arkes & Blumer 1985：随机获得剧院季票折扣的观众，全价者出席次数显著更多。',mkt:'亏损项目继续追加投资，只因为已经投了很多。',ask:'如果今天第一次面对它，我还会投这笔钱吗？'},
+{id:'3-12',ch:3,t:1,dim:'frame',name:'框架效应',ess:'同一事实换个说法，偏好就会反转。',exp:'Tversky & Kahneman 1981 亚洲疾病问题：存活框架下多数人选确定方案，死亡框架下多数人选冒险方案。',mkt:'“年化收益 8%”与“可能三年不涨”描述同一产品，销量差别巨大。',ask:'把它反过来说一遍，我的选择还一样吗？'},
+{id:'3-13',ch:3,t:2,dim:'frame',name:'联合评估与分离评估',ess:'单独看时人依赖易评价的属性，并排看时才会用重要属性。',exp:'Hsee 1996 evaluability hypothesis：音乐词典实验中，分离评估时完好但词条少的胜出，联合评估时反转。',mkt:'单独路演时被打动，横向对比后往往结论相反。',ask:'我有把它和替代品并排放在一起看过吗？'},
+{id:'3-14',ch:3,t:3,dim:'frame',name:'偏好反转与描述不变性',ess:'理性要求描述不变性与程序不变性，实验反复显示两者都被违反。',exp:'Lichtenstein & Slovic 1971 首次记录赌局定价与选择间的偏好反转；Tversky & Kahneman 1986 给出理论解释。',mkt:'同一资产在报价与选择两种任务下被排出不同顺序。',ask:'我的排序会随提问方式改变吗？'},
+{id:'3-15',ch:3,t:2,dim:'loss',name:'后悔厌恶',ess:'人会为避免将来后悔而扭曲当下选择，尤其怕主动做错。',exp:'Loomes & Sugden 1982 提出后悔理论；Zeelenberg 1999 综述后悔在决策中的作用。',mkt:'不敢卖出以免卖飞，也不敢买入以免买在高点，结果长期空转。',ask:'我在最小化损失，还是在最小化将来会有的后悔？'},
+{id:'3-16',ch:3,t:3,dim:'frame',name:'狭窄框架与短视损失厌恶',ess:'把长期赌局切成很多短期来看，会让人过度回避风险，从而要求过高溢价。',exp:'Benartzi & Thaler 1995 用短视损失厌恶解释股权溢价之谜，估计评估周期约一年。',mkt:'频繁查看账户的投资者股票配置更低（Thaler et al. 1997 实验）。',ask:'我在用什么周期评价这笔投资？这个周期是我选的吗？'},
+// ── 第四大陆 时间与自控 ──
+{id:'4-1',ch:4,t:2,dim:'time',name:'指数贴现模型',ess:'标准模型假设每延后一期都按同一比例打折，因此偏好在时间上一致。',exp:'Samuelson 1937 提出折现效用模型，作为规范基线。',mkt:'现金流折现法的全部逻辑建立在这一假设上。',ask:'我今天的耐心，和我一个月后的耐心一样吗？'},
+{id:'4-2',ch:4,t:2,dim:'time',name:'准双曲贴现',ess:'人对当下有额外偏爱，导致近期折得狠、远期折得轻。',exp:'Laibson 1997 用 β-δ 模型刻画；Thaler 1981 记录不同时长下的隐含贴现率差异极大。',mkt:'愿意为立即到账的现金接受高额贴现，如高成本的即时消费贷。',ask:'我是在偏好未来，还是只是偏好现在？'},
+{id:'4-3',ch:4,t:1,dim:'time',name:'偏好反转与拖延',ess:'远看时选择做正确的事，临近时又改主意，这就是时间不一致。',exp:'Ainslie 1975 综述双曲贴现导致的偏好反转与冲动。',mkt:'年初定好每月定投，三月起开始择时并停投。',ask:'今天的我会不会背叛上个月的我？'},
+{id:'4-4',ch:4,t:2,dim:'time',name:'承诺机制',ess:'既然未来的我不可靠，就提前限制未来的我的选项。',exp:'Ashraf, Karlan & Yin 2006 菲律宾 SEED 储蓄实验：随机分配到承诺账户者储蓄额提高约 81%。',mkt:'自动扣款定投、锁定期产品都是把承诺卖给自己。',ask:'我有没有把好行为变成默认，把坏行为变成需要额外操作？'},
+{id:'4-5',ch:4,t:3,dim:'time',name:'明天多存点',ess:'把储蓄率提升绑定到未来加薪，可绕过当下的损失感。',exp:'Thaler & Benartzi 2004 Save More Tomorrow：参与者储蓄率从约 3.5% 升至约 13.6%（四次加薪后）。',mkt:'成为全球养老金自动升级方案的设计模板。',ask:'我能否把提升绑定在未来的收入增长上？'},
+{id:'4-6',ch:4,t:2,dim:'time',name:'默认选项的力量',ess:'把参与设为默认，参与率会剧变，而这与激励无关。',exp:'Madrian & Shea 2001：自动加入使 401(k) 参与率从约 49% 升至约 86%。',mkt:'英国自动加入养老金改革后参与率大幅上升。',ask:'我的储蓄和投资，有多少是靠意志力维持的？'},
+{id:'4-7',ch:4,t:2,dim:'time',name:'冷热共情缺口',ess:'冷静状态下的自己无法准确预测激动状态下的自己。',exp:'Loewenstein 2005 提出 hot-cold empathy gap；Ariely & Loewenstein 2006 用唤醒状态实验验证。',mkt:'平静时写下的止损纪律，在暴跌时被抛弃。',ask:'我在什么状态下定的规则？我会在相反状态下遵守它吗？'},
+{id:'4-8',ch:4,t:1,dim:'over',name:'计划谬误',ess:'人系统性低估任务时间与成本，高估自己的执行速度。',exp:'Kahneman & Tversky 1979 提出计划谬误；Buehler, Griffin & Ross 1994 论文完成时间实验显示实际远超预估。',mkt:'大型基建与并购整合的超期超支近乎常态。',ask:'同类事情上次花了多久？我这次凭什么更快？'},
+{id:'4-9',ch:4,t:3,dim:'time',name:'外部视角与参考类预测',ess:'用同类项目的历史分布来预测，比用自己的细节剧本更准。',exp:'Kahneman & Lovallo 1993 提出 inside view 与 outside view 的对立。',mkt:'监管机构要求大项目使用参考类预测来纠正乐观偏差。',ask:'我有没有先去看同类事件的历史分布？'},
+{id:'4-10',ch:4,t:2,dim:'time',name:'投影偏差',ess:'人把当下的偏好和状态投射到未来，误以为未来的自己口味相同。',exp:'Loewenstein, ODonoghue & Rabin 2003 Projection Bias 模型与实证。',mkt:'牛市中设定的风险偏好，在熊市中完全不适用。',ask:'我现在的心情，是否正在替未来的我签字？'},
+{id:'4-11',ch:4,t:3,dim:'time',name:'体验效用与决策效用',ess:'人记住的体验和实际经历的体验不同，选择依据的是记忆而非总量。',exp:'Redelmeier & Kahneman 1996 结肠镜实验：延长检查但降低末段痛感，患者回忆评价更好，复检意愿更高。',mkt:'投资体验的记忆由最近一段与最痛一刻主导，从而扭曲长期决策。',ask:'我在优化真实收益，还是在优化事后的感受？'},
+{id:'4-12',ch:4,t:1,dim:'time',name:'摩擦设计与自我约束合约',ess:'增加坏行为的摩擦、降低好行为的摩擦，比依赖自制力更有效。',exp:'Ariely & Wertenbroch 2002：自设中间截止日的学生成绩优于只有期末总截止日者。',mkt:'把交易 App 删掉、把定投自动化，都是摩擦设计。',ask:'我改变了环境，还是只在心里发誓？'},
+// ── 第五大陆 市场层面 ──
+{id:'5-1',ch:5,t:1,dim:'herd',name:'有效市场假说三形式',ess:'弱式、半强式、强式分别对应历史价格、公开信息、全部信息已被反映。',exp:'Fama 1970《Efficient Capital Markets: A Review of Theory and Empirical Work》。',mkt:'指数化投资的理论基础，也是行为金融的辩论对手。',ask:'我认为自己知道的这条信息，价格里没有吗？'},
+{id:'5-2',ch:5,t:2,dim:'herd',name:'有限套利',ess:'即使价格明显错，套利者也可能因资金、期限和噪声风险而无法纠正。',exp:'Shleifer & Vishny 1997《The Limits of Arbitrage》。',mkt:'1998 年 LTCM 在价差理论上必然收敛前被迫平仓。',ask:'如果这个错价存在，为什么还没人赚走它？'},
+{id:'5-3',ch:5,t:3,dim:'herd',name:'噪声交易者模型',ess:'非理性交易者不仅不会被淘汰，还可能因承担更多风险而长期存活并影响价格。',exp:'De Long, Shleifer, Summers & Waldmann 1990 JPE 的 DSSW 模型。',mkt:'情绪驱动的资金流可以在数年内维持系统性错价。',ask:'我假设的“市场终会纠正”，时间尺度是多久？'},
+{id:'5-4',ch:5,t:3,dim:'herd',name:'孪生股票错价',ess:'现金流几乎相同的两只股票长期偏离平价，是错价与有限套利的干净证据。',exp:'Froot & Dabora 1999 记录 Royal Dutch 与 Shell 长期偏离 60/40 平价，幅度可达正负 30%。',mkt:'同类案例包括 Unilever 双重上市结构。',ask:'我是否把“理论上必然收敛”当成了“很快会收敛”？'},
+{id:'5-5',ch:5,t:2,dim:'herd',name:'封闭式基金折价之谜',ess:'价格长期低于净值，且折价随投资者情绪同步波动。',exp:'Lee, Shleifer & Thaler 1991《Investor Sentiment and the Closed-End Fund Puzzle》。',mkt:'折价扩大与小盘股回报走弱同期出现，被用作情绪代理变量。',ask:'我看到的价差，是机会还是情绪的温度计？'},
+{id:'5-6',ch:5,t:3,dim:'herd',name:'分拆错价与做空约束',ess:'当做空成本极高时，乐观者的价格可以完全脱离算术。',exp:'Lamont & Thaler 2003：3Com 分拆 Palm 后，市场对 3Com 剩余业务隐含出显著负估值。',mkt:'高做空成本的标的更容易出现持续高估。',ask:'这个价格里，有多少是因为没人能做空？'},
+{id:'5-7',ch:5,t:2,dim:'herd',name:'动量效应',ess:'过去 3 至 12 个月的赢家在其后数月继续跑赢。',exp:'Jegadeesh & Titman 1993 记录中期动量收益，样本 1965 至 1989 年美股。',mkt:'动量因子在多国多资产上被广泛复现，但会经历剧烈崩塌（2009 年动量崩盘）。',ask:'我在跟随趋势，还是在追已经拥挤的交易？'},
+{id:'5-8',ch:5,t:2,dim:'repr',name:'长期反转',ess:'三到五年的极端输家在其后数年跑赢极端赢家。',exp:'De Bondt & Thaler 1985《Does the Stock Market Overreact?》。',mkt:'与外推预期修正一致，构成价值投资的行为解释之一。',ask:'我的持有期，和这个效应的时间尺度匹配吗？'},
+{id:'5-9',ch:5,t:3,dim:'sys1',name:'盈余公告后漂移',ess:'股价对盈余意外的反应不完全，会在公告后数月继续同向漂移。',exp:'Bernard & Thomas 1989/1990 系统记录 PEAD 与季度盈余的自相关被市场低估。',mkt:'PEAD 是最顽固的异象之一，常被解释为有限注意与反应不足。',ask:'我以为的反应过度，会不会其实是反应不足？'},
+{id:'5-10',ch:5,t:2,dim:'repr',name:'价值溢价的外推解释',ess:'投资者把过去增长线性外推，导致高增长股定价过高、低估值股被过度悲观。',exp:'Lakonishok, Shleifer & Vishny 1994《Contrarian Investment, Extrapolation, and Risk》。',mkt:'成长股的长期实际盈利增速通常远低于隐含预期。',ask:'我给这家公司隐含了多少年的高增长？'},
+{id:'5-11',ch:5,t:1,dim:'loss',name:'处置效应',ess:'投资者倾向卖出盈利头寸、留住亏损头寸，正好与税务和动量都相反。',exp:'Shefrin & Statman 1985 提出；Odean 1998 用一万个账户数据显示实现盈利的倾向显著高于实现亏损。',mkt:'成本价附近的抛压是常见的技术性阻力来源。',ask:'我卖它是因为它变差了，还是因为它终于回本了？'},
+{id:'5-12',ch:5,t:2,dim:'herd',name:'羊群与信息瀑布',ess:'当每个人都合理地推断前人掌握更多信息时，群体会锁定在错误共识上。',exp:'Bikhchandani, Hirshleifer & Welch 1992 信息瀑布模型；Banerjee 1992 从众模型。',mkt:'基金经理的相对绩效考核放大机构从众。',ask:'我跟随他们，是因为我有理由，还是因为他们人多？'},
+{id:'5-13',ch:5,t:3,dim:'herd',name:'泡沫的实验与历史证据',ess:'即使股利分布完全公开，实验市场也会稳定产生泡沫与崩盘。',exp:'Smith, Suchanek & Williams 1988 实验市场泡沫；Ofek & Richardson 2003 分析 1998 至 2000 年互联网板块估值与做空约束。',mkt:'1720 年南海泡沫、1990 年代末互联网、加密资产周期均呈现相似结构。',ask:'如果基本面完全透明，我还会这样定价吗？'},
+{id:'5-14',ch:5,t:3,dim:'avail',name:'有限注意与情绪指标',ess:'注意力是稀缺资源，价格对信息的吸收速度取决于谁在看。',exp:'DellaVigna & Pollet 2009 周五盈余公告的即时反应更弱、漂移更强；Barber & Odean 2008 关注驱动买入；Baker & Wurgler 2006 构造情绪指数；Shiller 1981 波动率过大之谜。',mkt:'榜单、热搜与推送直接决定散户资金流向。',ask:'我买它是因为它值，还是因为它出现在我眼前？'},
+// ── 第六大陆 高阶与应用 ──
+{id:'6-1',ch:6,t:2,dim:'over',name:'实验设计基础',ess:'随机分配、对照组、被试内与被试间设计、激励相容，是判断证据强度的骨架。',exp:'Kahneman 与 Tversky 的经典范式多为被试间假想选择，后续用真实激励实验（Holt & Laury 2002）检验稳健性。',mkt:'评估任何投资策略研究，先问它的对照组是什么。',ask:'这个结论的对照组是谁？'},
+{id:'6-2',ch:6,t:2,dim:'over',name:'研究者自由度与 p-hacking',ess:'在分析过程中反复做小选择，就能把噪声做成显著结果。',exp:'Simmons, Nelson & Simonsohn 2011《False-Positive Psychology》证明四种常见自由度可把假阳性率推到 60% 以上。',mkt:'回测中挑选样本期、剔除异常值、换指标，都会制造虚假 alpha。',ask:'这个结果如果换一个样本期，还成立吗？'},
+{id:'6-3',ch:6,t:2,dim:'repr',name:'多重比较与亚组分析',ess:'检验越多，至少一个显著的概率越高；事后亚组尤其危险。',exp:'Ioannidis 2005《Why Most Published Research Findings Are False》给出形式化论证。',mkt:'因子动物园中大量因子经不起多重检验调整（Harvey, Liu & Zhu 2016 建议提高 t 值门槛）。',ask:'他们做了多少次检验才报告了这一个？'},
+{id:'6-4',ch:6,t:3,dim:'over',name:'可复现性危机',ess:'心理学与经济学的部分经典效应在大样本复现中显著缩小或消失。',exp:'Open Science Collaboration 2015：100 项心理学研究中约 36% 复现显著，效应量约为原始一半；Camerer et al. 2016 复现 18 项实验经济学研究中 11 项成功；Camerer et al. 2018 复现 21 项社会科学研究中 13 项成功。',mkt:'这要求我们对单一研究保持怀疑，优先看元分析与预注册重复。',ask:'这个效应有大样本预注册复现吗？'},
+{id:'6-5',ch:6,t:2,dim:'over',name:'效应量、功效与预注册',ess:'显著不等于重要，小样本高显著往往意味着效应量被高估。',exp:'Cohen 1962/1988 提出功效分析；Button et al. 2013 显示低功效研究的阳性结果可信度低。',mkt:'评估策略时看夏普与稳定性，而不只看 t 统计量。',ask:'效应量有多大？样本够不够支撑它？'},
+{id:'6-6',ch:6,t:2,dim:'frame',name:'助推与选择架构',ess:'不禁止、不涨价，只改变呈现方式与默认值，就能显著改变行为。',exp:'Thaler & Sunstein 2008《Nudge》提出自由主义温和父权制；Johnson & Goldstein 2003 器官捐赠默认值研究。',mkt:'养老金自动加入、账单页面重排都属于选择架构设计。',ask:'这个环境是谁设计的？它在推我往哪走？'},
+{id:'6-7',ch:6,t:3,dim:'frame',name:'助推的效应量之争与暗黑模式',ess:'助推有效，但平均效应量多大、是否被发表偏差夸大，仍在激烈争论；反向使用即 sludge。',exp:'Mertens et al. 2022 PNAS 元分析报告中等效应；Maier et al. 2022 与 Szaszi et al. 2022 校正发表偏差后效应大幅缩小甚至接近零。',mkt:'退订流程故意繁琐、默认勾选附加险，都是把行为科学用于损害用户。',ask:'这里的设计是在帮我，还是在收割我？'},
+{id:'6-8',ch:6,t:3,dim:'hind',name:'读论文与自我审计',ess:'读论文按摘要到图表到方法到稳健性的顺序；审计自己靠事前决策日志。',exp:'Kahneman 主张 pre-mortem 与决策档案；Tetlock & Gardner 2015《Superforecasting》显示记录概率并计分能显著提升判断力。',mkt:'专业机构的投资备忘录制度正是制度化的自我审计。',ask:'我上一个重大决定，事前写下了概率和理由吗？'}
+];
+
+/* 情境题：opts 中 ok=理性/正确选项，b=该选项体现的偏差维度；rev=四段式解析 */
+const SCENARIOS=[
+{id:'s101',ch:1,kp:'1-1',dim:'sys1',stem:'快问快答，别用计算器：一支球棒和一个球一共 1.10 美元，球棒比球贵 1.00 美元。球多少钱？',opts:[{t:'10 美分',b:'sys1'},{t:'5 美分',ok:true},{t:'11 美分',b:'sys1'}],rev:{c:'正确答案是 5 美分：球 0.05，球棒 1.05，差价正好 1.00。',a:'10 美分像一个自动弹出的下拉框默认值，它出现得太快，你以为那是答案。',m:'系统1 先给出流畅答案，系统2 只在你主动怀疑时才启动检查。CRT 测的正是这个抑制能力（Frederick 2005）。',u:'凡是能秒答的金融决定，都值得再花十秒验算一次。'}},
+{id:'s102',ch:1,kp:'1-11',dim:'sys1',stem:'5 台机器 5 分钟造 5 个零件。100 台机器造 100 个零件需要多久？',opts:[{t:'100 分钟',b:'sys1'},{t:'5 分钟',ok:true},{t:'20 分钟',b:'sys1'}],rev:{c:'仍是 5 分钟：一台机器 5 分钟造一个，机器数与零件数同比放大。',a:'大脑看到 5-5-5 和 100-100，就自动补上一个 100，这是模式匹配而非推理。',m:'CRT 第二题（Frederick 2005）。直觉答案与正确答案结构相似，因此格外难抑制。',u:'看到线性外推的数字关系时，先问一句：单位到底是什么？'}},
+{id:'s103',ch:1,kp:'1-8',dim:'frame',stem:'选一个：A 确定获得 100 万；B 有 89% 概率得 100 万、10% 概率得 500 万、1% 概率得 0。',opts:[{t:'A 确定的 100 万',b:'frame'},{t:'B 那组概率',ok:true},{t:'完全无差异',ok:true}],rev:{c:'B 的期望值明显更高（约 139 万），多数人却选 A。这本身不算错，但请记住你的选择。',a:'那 1% 的归零像房间里的一根针，你宁可绕十米路也不愿从它旁边走过。',m:'Allais 1953。若你选 A，稍后的第二题会暴露与独立性公理的冲突。',u:'为确定性支付溢价可以是偏好，但要知道自己付了多少。'}},
+{id:'s104',ch:1,kp:'1-8',dim:'frame',stem:'再选一个：C 有 11% 概率得 100 万，其余为 0；D 有 10% 概率得 500 万，其余为 0。',opts:[{t:'C',b:'frame'},{t:'D',ok:true},{t:'无差异',ok:true}],rev:{c:'多数人第一题选 A、这题选 D。这两个选择无法同时被同一个期望效用函数解释。',a:'相当于你说苹果比橘子好，同时又说半个苹果不如半个橘子。',m:'两题的差别只是把共同的 89% 结果拿掉，独立性公理要求偏好不变（Allais 1953）。',u:'检验自己是否理性的方法不是问感觉，而是把两个选择并排写下来。'}},
+{id:'s105',ch:1,kp:'1-9',dim:'loss',stem:'两个罐子各 100 球。甲罐 50 红 50 黑；乙罐红黑比例完全未知。押中红球赢 100 元，你选哪个罐子摸？',opts:[{t:'甲罐（已知 50/50）',b:'loss'},{t:'乙罐（比例未知）'},{t:'两者对我完全等价',ok:true}],rev:{c:'按主观概率，乙罐摸红的概率也应视作 50%，两者等价，但绝大多数人坚持选甲。',a:'未知的概率像看不见底的水，明知水深一样也不敢下。',m:'Ellsberg 1961 的模糊厌恶：人对概率本身的不确定另加一层厌恶。',u:'当你拒绝一项资产是因为看不懂它，请分清这是风控还是模糊厌恶。'}},
+{id:'s106',ch:1,kp:'1-6',dim:'over',stem:'同一家公司，两位资深分析师给出目标价 120 元与 210 元，模型框架相同。最合理的解读是？',opts:[{t:'其中一人明显更懂行业',b:'over'},{t:'这主要是判断噪声，说明该判断本身不可靠',ok:true},{t:'取平均 165 元就是真实价值',b:'anchor'}],rev:{c:'巨大分歧首先说明系统噪声大，而不是某一方有洞见。',a:'两台秤给同一个人量出 60 公斤和 105 公斤，你该怀疑的是秤，不是人。',m:'Kahneman, Sibony & Sunstein 2021 区分偏差（准星偏）与噪声（散布大）；保险核保噪声中位差异约 55%。',u:'面对分歧极大的预测，正确动作是降低对该类预测的整体权重。'}},
+{id:'s107',ch:1,kp:'1-4',dim:'over',stem:'你要选一只指数基金，市面上有 40 只跟踪同一指数。你打算？',opts:[{t:'全部对比清楚再决定，务求最优',b:'over'},{t:'设定门槛（跟踪误差、费率、规模），选第一个全部达标的',ok:true},{t:'选宣传最热闹的那只',b:'avail'}],rev:{c:'满意化在这类高度同质的选择中优于最优化，边际收益远低于搜寻成本。',a:'挑同一款矿泉水的 40 个瓶子，不值得开会。',m:'Simon 1955 的 satisficing：设定可接受门槛，遇到即停。',u:'把最优化留给少数高杠杆决定，其余用清单和门槛处理。'}},
+{id:'s201',ch:2,kp:'2-1',dim:'anchor',stem:'先回答：土耳其人口超过 3500 万吗？然后请估计土耳其的实际人口。',opts:[{t:'大约 4000 万至 5000 万',b:'anchor'},{t:'我意识到前一句给了我一个锚，先独立找参照系（邻国、面积、GDP）再估',ok:true},{t:'大约 3500 万',b:'anchor'}],rev:{c:'土耳其人口约 8500 万。被 3500 万这个锚拖住的人普遍低估。',a:'锚就像别人先在你的白纸上画了一条线，你之后所有的画都绕着它。',m:'Tversky & Kahneman 1974 转盘实验：随机锚 10 与 65 使估计中位数分别为 25% 与 45%。',u:'看到任何目标价、估值区间之前，先自己算一个数字并写下来。'}},
+{id:'s202',ch:2,kp:'2-17',dim:'anchor',stem:'某实验让被试先写下手机号后两位，再为一瓶红酒出价。结果出价与那两位数字正相关。你怎么看？',opts:[{t:'完全无关的数字也能锚定，这已是铁律',b:'over'},{t:'这类结论方向可能对，但强度存疑，需要看复现证据',ok:true},{t:'这是伪科学，直接无视',b:'over'}],rev:{c:'原始研究是 Ariely, Loewenstein & Prelec 2003；Maniadis, Tufano & List 2014 的复现未得到同等强度效应。',a:'一条爆款结论就像一支暴涨的小盘股，先看有没有第二个买家验证。',m:'越反直觉的效应，越可能受发表偏差与研究者自由度影响。',u:'引用研究时，同时引用它的复现记录，这是与专业人士对话的门槛。'}},
+{id:'s203',ch:2,kp:'2-3',dim:'avail',stem:'英文里，以字母 K 开头的单词多，还是第三个字母是 K 的单词多？',opts:[{t:'以 K 开头的更多',b:'avail'},{t:'第三个字母是 K 的更多',ok:true},{t:'差不多',b:'avail'}],rev:{c:'第三个字母是 K 的词大约是 K 开头词的两倍，但按开头检索容易得多。',a:'你的记忆是按首字母排序的抽屉，不是按第三个字母。',m:'Tversky & Kahneman 1973：判断频率时用检索难易度代替真实频率。',u:'当你觉得某种风险“最近特别多”，先去查频率数据再下结论。'}},
+{id:'s204',ch:2,kp:'2-5',dim:'repr',stem:'Linda 31 岁，单身，直言不讳，非常聪明，大学主修哲学，关心歧视与社会正义问题。哪个更可能？',opts:[{t:'Linda 是银行出纳',ok:true},{t:'Linda 是银行出纳，并且是女权运动积极参与者',b:'repr'},{t:'无法比较',b:'repr'}],rev:{c:'子集的概率不可能大于全集，选项一必然更可能。',a:'“会打篮球的人”一定多于“会打篮球且左手投篮的人”，加条件只会更窄。',m:'Tversky & Kahneman 1983 合取谬误：约 85% 被试违反合取律，因为描述更像那个故事。',u:'投资故事讲得越具体越动人，但每加一个条件，成立概率都在下降。'}},
+{id:'s205',ch:2,kp:'2-6',dim:'repr',stem:'某城 85% 出租车是蓝色，15% 是绿色。夜间事故目击者称肇事车是绿色，其辨色准确率 80%。肇事车是绿色的概率约为？',opts:[{t:'约 80%',b:'repr'},{t:'约 41%',ok:true},{t:'约 15%',b:'anchor'}],rev:{c:'正确答案约 41%：0.15×0.8 ÷ (0.15×0.8 + 0.85×0.2) ≈ 0.41。',a:'证人是一台八成准的探测器，但它要在一个绿车本就稀少的世界里工作。',m:'Kahneman & Tversky 的出租车问题，展示基础率忽视。',u:'任何“信号很准”的策略，都必须乘上目标事件本身的稀有度。'}},
+{id:'s206',ch:2,kp:'2-7',dim:'repr',stem:'公平轮盘连续 5 次开出红色。下一把？',opts:[{t:'押黑，该轮到它了',b:'repr'},{t:'押红，红在走热',b:'repr'},{t:'概率不变，且期望为负，不下注',ok:true}],rev:{c:'独立事件没有记忆，赌场里唯一确定的是负期望。',a:'硬币不欠你什么，它没有记账本。',m:'Tversky & Kahneman 1971 小数法则：以为小样本必须像总体，于是预期自我纠正。',u:'连跌不构成买入理由，除非你有独立于序列的估值依据。'}},
+{id:'s207',ch:2,kp:'2-10',dim:'over',stem:'请给出一个你有 90% 信心包含尼罗河长度的区间。你打算给多宽？',opts:[{t:'比较紧的区间，例如 5000 至 7000 公里',b:'over'},{t:'宽到自己都觉得尴尬，例如 2000 至 10000 公里',ok:true},{t:'给一个点估计更专业',b:'over'}],rev:{c:'尼罗河约 6650 公里。90% 区间要真的命中九成，就必须宽得让人不舒服。',a:'置信区间不是你的品味展示，而是你的无知声明。',m:'Alpert & Raiffa 1982：声称 98% 的区间实际命中率常低于 60%，即过度精确。',u:'做估值时给出三档情景与区间，而不是一个精确到小数点的目标价。'}},
+{id:'s208',ch:2,kp:'2-13',dim:'hind',stem:'某科技股一年跌去 70%。回顾时你想：这泡沫太明显了，我当时就知道。请核查这个念头。',opts:[{t:'确实很明显，我判断力不错',b:'hind'},{t:'去找我当时留下的记录：仓位、笔记、聊天截图',ok:true},{t:'市场太疯狂，没人能预测',b:'hind'}],rev:{c:'没有事前记录，就没有事前判断，只有事后重写的记忆。',a:'看完悬疑片再说凶手一眼就认出来了，这不叫推理，叫剧透。',m:'Fischhoff 1975 后见之明偏差：知道结果会污染对自己先前判断的回忆。',u:'开始写决策日志：日期、决定、理由、概率。它是你唯一可信的对照组。'}},
+{id:'s301',ch:3,kp:'3-12',dim:'frame',stem:'一种疾病预计致 600 人死亡。方案 A：确定救活 200 人。方案 B：三分之一概率救活 600 人，三分之二概率无人被救。你选？',opts:[{t:'A',ok:true},{t:'B',ok:true},{t:'无所谓，两者期望相同',ok:true}],rev:{c:'两者期望值相同，选哪个都不算错。记住你的选择，下一题会换一种说法问同样的事。',a:'同一杯水，先给你看半满的那一面。',m:'Tversky & Kahneman 1981 亚洲疾病问题的存活框架，约 72% 的人选 A。',u:'留意销售话术的框架：他们几乎总先给你存活框架。'}},
+{id:'s302',ch:3,kp:'3-12',dim:'frame',stem:'同一疾病。方案 C：确定 400 人死亡。方案 D：三分之一概率无人死亡，三分之二概率 600 人死亡。你选？',opts:[{t:'C（与上题 A 一致）',ok:true},{t:'D',b:'frame'},{t:'我发现 C=A、D=B，所以保持与上题一致',ok:true}],rev:{c:'C 与 A、D 与 B 完全等价，但死亡框架下约 78% 的人转向冒险的 D。',a:'房子没变，只是把照片从阳台拍改成从垃圾桶那边拍。',m:'损失域中价值函数凸起、风险偏好上升（Kahneman & Tversky 1979, 1981）。',u:'做重大决定时，强制自己把它用收益和损失两种说法各写一遍。'}},
+{id:'s303',ch:3,kp:'3-7',dim:'loss',stem:'你随机获赠一个纪念马克杯，市价约 60 元。有人要买，你最低要价多少？',opts:[{t:'至少 100 元以上，这是我的杯子',b:'loss'},{t:'接近市价 60 元，因为它就值这么多',ok:true},{t:'不卖，多少钱都不卖',b:'loss'}],rev:{c:'实验中卖方要价约为买方出价的两倍，仅仅因为所有权归属改变。',a:'东西进了你的口袋，就自动获得一层情感镀膜。',m:'Kahneman, Knetsch & Thaler 1990 马克杯实验，禀赋效应的标准范式。',u:'每季度做一次空仓测验：如果今天从零开始，我会买回哪几只？'}},
+{id:'s304',ch:3,kp:'3-11',dim:'loss',stem:'你花 800 元买了演出票，当天暴雨、你重感冒，去了会很难受。票不可退不可转。',opts:[{t:'去，不然 800 元白花了',b:'loss'},{t:'不去，800 元已经沉没，只比较去与不去的未来体验',ok:true},{t:'去，至少证明我不浪费钱',b:'loss'}],rev:{c:'800 元已经付了，无论你是否出门都不会回来，它不应进入决策。',a:'你不会因为已经吃了半盘变质的菜，就把剩下半盘也吃完。',m:'Arkes & Blumer 1985：随机获得季票折扣者出席次数显著低于全价者。',u:'做退出决策时，问的是未来的成本收益，而不是过去的账单。'}},
+{id:'s305',ch:3,kp:'3-9',dim:'frame',stem:'情形一：到剧院发现丢了刚买的 400 元票，你会再买一张吗？情形二：到剧院发现丢了 400 元现金（票还没买），你会买票吗？',opts:[{t:'情形一多半不买，情形二会买',b:'frame'},{t:'两种情形对我一样，因为都是净损失 400 元',ok:true},{t:'两种情形我都不买',b:'loss'}],rev:{c:'两种情形的财富变化完全相同，但多数人只在情形二买票。',a:'钱被你放进了不同的信封，丢了“看戏信封”就不肯再往里塞钱。',m:'Thaler 1985/1999 心理账户：损失被记入不同账户，导致处理方式不同。',u:'年终奖、股票盈利和工资是同一笔钱，别给它们不同的风险等级。'}},
+{id:'s306',ch:3,kp:'3-16',dim:'loss',stem:'同一只长期年化 8%、年内约 40% 概率为负的基金。你打算怎么看它？',opts:[{t:'每天开盘看两次，及时应对',b:'loss'},{t:'设定每季度或每年检视一次，并提前写好检视清单',ok:true},{t:'每月看一次，看到亏损就减仓',b:'loss'}],rev:{c:'评估频率越高，看到亏损的概率越高，损失厌恶被激活的次数也越多。',a:'把电影按帧看，每一帧都不好看。',m:'Benartzi & Thaler 1995 短视损失厌恶；Thaler et al. 1997 实验显示低频反馈组配置更多风险资产。',u:'把查看频率当成一个可以设计的变量，而不是一种性格。'}},
+{id:'s307',ch:3,kp:'3-5',dim:'frame',stem:'你同时做两件事：每周买 20 元彩票，以及为手机买 300 元的意外险。这两者矛盾吗？',opts:[{t:'矛盾，一个爱风险一个厌风险',b:'repr'},{t:'不矛盾，两者都源于高估极小概率事件',ok:true},{t:'不矛盾，因为金额都很小',b:'frame'}],rev:{c:'它们是同一个机制的两面：小概率被赋予过高权重。',a:'万分之一在心里被放大成看得见的一小块，无论那是天堂还是地狱。',m:'Tversky & Kahneman 1992 概率权重函数在两端高估、中段低估。',u:'评估尾部保护产品时，先算它隐含的概率是否远高于历史频率。'}},
+{id:'s308',ch:3,kp:'3-8',dim:'loss',stem:'你三年前配置的组合现在因涨跌漂移成 85% 股票、15% 债券，与你的风险承受度不符。你会？',opts:[{t:'先不动，等市场明朗再说',b:'loss'},{t:'立即按目标比例再平衡，并设定自动再平衡规则',ok:true},{t:'既然股票在涨，就顺势保持',b:'herd'}],rev:{c:'不动是一个选择，而且是被过去涨跌替你做的选择。',a:'房间里的家具会被风慢慢推动，不复位不等于没变。',m:'Samuelson & Zeckhauser 1988 现状偏差：不作为的成本被系统性忽视。',u:'把再平衡写成日期规则或阈值规则，让它不依赖你当天的判断。'}},
+{id:'s401',ch:4,kp:'4-2',dim:'time',stem:'两组选择。第一组：今天拿 1000 元，还是一个月后拿 1050 元？第二组：一年后拿 1000 元，还是一年一个月后拿 1050 元？',opts:[{t:'第一组选今天，第二组选一年一个月后',b:'time'},{t:'两组的等待成本相同，我保持一致',ok:true},{t:'两组都选早的',ok:true}],rev:{c:'两组的延迟都是一个月、补偿都是 5%，若偏好不同，你的贴现就是双曲的。',a:'现在的诱惑戴着放大镜，未来的诱惑隔着雾。',m:'Laibson 1997 的 β-δ 模型：对当下有额外偏爱，导致时间不一致。',u:'把“未来的决定”提前锁定，因为那时的你会更耐心地投票。'}},
+{id:'s402',ch:4,kp:'4-12',dim:'time',stem:'你要在三个月内完成三篇学习笔记，如何安排最可能真的完成？',opts:[{t:'期末前集中写，保持灵活',b:'time'},{t:'自设三个等间隔中间截止日，并向他人公开',ok:true},{t:'每天想写就写，不设截止',b:'time'}],rev:{c:'自设中间截止日的学生成绩显著更好，尽管这在纯理性看来只是自我限制。',a:'给自己装几道减速带，比在悬崖前踩刹车更管用。',m:'Ariely & Wertenbroch 2002：自设截止日改善表现，但仍不如均匀外部截止日。',u:'把学习计划切成有日期、可被别人看到的小块。'}},
+{id:'s403',ch:4,kp:'4-4',dim:'time',stem:'你想提高储蓄率，但每次都花超。最有效的做法是？',opts:[{t:'下决心更自律，每月记账反思',b:'time'},{t:'开一个发薪日自动转出的账户，取出需额外手续',ok:true},{t:'把钱留在活期，靠意志力不动',b:'time'}],rev:{c:'承诺机制通过限制未来的自己来解决时间不一致，效果远超决心。',a:'尤利西斯不是靠意志力抵抗海妖，他把自己绑在桅杆上。',m:'Ashraf, Karlan & Yin 2006 SEED 实验：承诺储蓄账户使储蓄额提高约 81%。',u:'凡是需要长期坚持的行为，先问能不能自动化。'}},
+{id:'s404',ch:4,kp:'4-6',dim:'time',stem:'你是公司福利负责人，想提高员工养老金参与率，预算为零。你会？',opts:[{t:'发邮件宣传收益率与复利',b:'avail'},{t:'把参与设为默认，员工可随时退出',ok:true},{t:'开设投资讲座',b:'avail'}],rev:{c:'默认值改变的是不作为的方向，效果远超说服。',a:'与其教人爬坡，不如把坡改成下坡。',m:'Madrian & Shea 2001：自动加入使参与率从约 49% 升至约 86%。',u:'设计自己的环境时，永远问：这里的默认值是什么？'}},
+{id:'s405',ch:4,kp:'4-8',dim:'over',stem:'你估计整理个人财务需要一个周末。更好的预测方法是？',opts:[{t:'把任务拆细后重新加总，会更准',b:'over'},{t:'查我过去做同类事情的实际耗时分布，用外部视角',ok:true},{t:'留 20% 缓冲即可',b:'anchor'}],rev:{c:'拆细通常让人更乐观，因为剧本里没有意外；历史分布里有。',a:'问装修队要多久没用，问上一个装修完的人花了多久才有用。',m:'Buehler, Griffin & Ross 1994 计划谬误；Kahneman & Lovallo 1993 外部视角与参考类预测。',u:'任何计划都先写下同类事件的历史耗时中位数，再谈自己的估计。'}},
+{id:'s406',ch:4,kp:'4-7',dim:'time',stem:'你在周末平静时写下了熊市纪律：跌 20% 不减仓、继续定投。真的暴跌时会发生什么？',opts:[{t:'我会照做，我很清楚自己的计划',b:'over'},{t:'我大概会想违约，所以现在就要设自动化与冷静期',ok:true},{t:'到时再看情况灵活处理',b:'time'}],rev:{c:'冷静的你无法准确预测激动的你，因此纪律必须外置。',a:'不饿的时候写的菜单，饿的时候不作数。',m:'Loewenstein 2005 冷热共情缺口；Ariely & Loewenstein 2006 唤醒状态实验。',u:'把纪律写成自动扣款、预设委托和 24 小时冷静期，而不是信念。'}},
+{id:'s407',ch:4,kp:'4-11',dim:'time',stem:'两位患者做同一检查。甲总时长短但结尾最痛；乙总时长更长但结尾痛感低。谁事后评价更好、更愿意复检？',opts:[{t:'甲，因为总痛苦更少',b:'repr'},{t:'乙，因为记忆由峰值与结尾主导',ok:true},{t:'两者相同',b:'repr'}],rev:{c:'乙的评价更好，即使他承受的总痛苦更多。',a:'记忆不是录像机，是剪辑师，它只保留高光和最后一帧。',m:'Redelmeier & Kahneman 1996 结肠镜实验，体验效用与记忆效用分离。',u:'评估投资体验时区分总回报与感受，别让最近一段行情替你打分。'}},
+{id:'s408',ch:4,kp:'4-10',dim:'time',stem:'牛市第三年，你把风险偏好问卷填成了激进型，并据此重配组合。问题在哪？',opts:[{t:'没问题，这反映了我的真实偏好',b:'over'},{t:'当下的乐观正在被投射到未来，应改用可承受的最大回撤来定仓位',ok:true},{t:'牛市就该激进，熊市再改',b:'herd'}],rev:{c:'风险偏好问卷在牛市填与在熊市填，结果会系统性不同，这本身就是投影偏差。',a:'饿着逐店买菜，买回来的总是吃不完。',m:'Loewenstein, ODonoghue & Rabin 2003 投影偏差：当下状态被误当成稳定偏好。',u:'用可承受的最大回撤金额（而非百分比感受）定仓，并在平静期写下来。'}},
+{id:'s501',ch:5,kp:'5-5',dim:'herd',stem:'你发现一只封闭式基金折价 22%，持仓完全公开。你的第一反应？',opts:[{t:'无风险套利，重仓买入',b:'over'},{t:'先问折价靠什么机制收敛、需要多久、期间折价可否更深',ok:true},{t:'折价只是市场没发现，必然很快修正',b:'over'}],rev:{c:'折价可以长期存在甚至扩大，除非有开放式转换或清盘等确定机制。',a:'看到地上有钱，先看它是不是被水泥粘住了。',m:'Lee, Shleifer & Thaler 1991 折价与情绪同步；Shleifer & Vishny 1997 有限套利。',u:'任何套利都要先写下收敛机制与最大可忍受期限。'}},
+{id:'s502',ch:5,kp:'5-6',dim:'herd',stem:'母公司市值低于它持有的子公司股份市值，即剩余业务隐含负值。你会？',opts:[{t:'买母公司、做空子公司，坑定了',b:'over'},{t:'先查子公司的可借券数量与借券费率，再判断该交易是否可执行',ok:true},{t:'市场不可能错，我定是算错了',b:'herd'}],rev:{c:'Lamont & Thaler 2003 的 3Com/Palm 案例中，错价持续数月，因为做空 Palm 几乎不可行。',a:'餐厅菜单上写着一元龙虾，但厅里永远没位子。',m:'做空约束与借券成本是有限套利的核心渠道。',u:'看到错价时，先问执行成本，而不是先算利潦。'}},
+{id:'s503',ch:5,kp:'5-7',dim:'herd',stem:'一个板块过去 6 个月涨幅领先，也已连续五年跑赢。根据学术证据，最恰当的预期是？',opts:[{t:'中期可能延续（动量），但三至五年尺度上反转风险上升',ok:true},{t:'趋势已确认，长期继续领先',b:'herd'},{t:'涨多了必跌，立即反向',b:'repr'}],rev:{c:'动量（3至12个月）与长期反转（3至5年）共存，时间尺度不同。',a:'同一条路，一公里内直行，三公里后弯道。',m:'Jegadeesh & Titman 1993 中期动量；De Bondt & Thaler 1985 长期反转。',u:'把“多久”当成策略的一部分写进计划，而不是事后才想。'}},
+{id:'s504',ch:5,kp:'5-11',dim:'loss',stem:'你持有 A（浮盈 30%，基本面转弱）和 B（浮亏 35%，基本面改善）。需要减仓一只，你卖？',opts:[{t:'卖 A 锁定利潦，继续等 B 回本',b:'loss'},{t:'卖 B，不因为它亏而因为它基本面差，等等…它基本面在改善',b:'sys1'},{t:'卖 A，因为 A 基本面转弱；成本与浮盈不进入决策',ok:true}],rev:{c:'卖出依据应是未来预期回报，而不是浮盈浮亏的颜色。',a:'同一个班里，你不会因为谁穿红衣服就开除谁。',m:'Shefrin & Statman 1985；Odean 1998：实现盈利的倾向显著高于实现亏损。',u:'在交易软件里隐藏成本价与浮盈列，只看仓位占比与基本面。'}},
+{id:'s505',ch:5,kp:'5-12',dim:'herd',stem:'两家餐厅质量相仿，一家排长队一家空荡。你选排队那家。这个决策错吗？',opts:[{t:'完全理性，人多就是好',b:'herd'},{t:'单次可能理性，但很多人都这样推断时，群体可能锁定在错误共识',ok:true},{t:'不理性，应该反向选空荡那家',b:'repr'}],rev:{c:'跟随前人在信息区分上可以是理性的，但会使私有信息停止汇入价格。',a:'前面一人抬头看天，十个人都抬头，其实只有第一个人看到了东西。',m:'Bikhchandani, Hirshleifer & Welch 1992 信息瀑布：理性个体产生脆弱共识。',u:'下单前先问：我的依据里有多少是独立信息，多少只是看到别人在买？'}},
+{id:'s506',ch:5,kp:'5-13',dim:'herd',stem:'实验市场中，每份资产的股利分布完全公开，期望现值可算。你预测价格轨迹？',opts:[{t:'围绕基本价值小幅波动',b:'over'},{t:'典型会出现远高于基本价值的泡沫，然后在临近终期时崩盘',ok:true},{t:'价格会低于价值，因为人风险厌恶',b:'loss'}],rev:{c:'Smith, Suchanek & Williams 1988 发现泡沫与崩盘是稳定可重复的实验结果。',a:'即使所有人都拿到同一张底牌，大家还是会把牌价炲上去。',m:'参与者不确定其他人是否理性，高阶信念与投机动机推高价格（Ofek & Richardson 2003 在真实市场中的对应证据）。',u:'“估值贵”不能单独作为做空理由，但能作为降低仓位的理由。'}},
+{id:'s507',ch:5,kp:'5-14',dim:'avail',stem:'你每天从涨幅榜、热搜和推送里选股。这样做的结构性问题是？',opts:[{t:'没问题，它们反映了市场热度',b:'avail'},{t:'我的候选池完全由注意力决定，与预期回报无关，应改为固定筛选规则',ok:true},{t:'只要我买了之后做功课就行',b:'over'}],rev:{c:'关注驱动买入使你的候选池系统性偏向近期引人注目的股票。',a:'只在路灯下找钥匙，因为那里亮。',m:'Barber & Odean 2008：散户买入集中于高异常成交量与新闻股；DellaVigna & Pollet 2009 注意力与漂移。',u:'先定量化筛选规则生成候选池，再做研究，顶层入口不交给推荐算法。'}},
+{id:'s508',ch:5,kp:'5-2',dim:'over',stem:'你把 80% 可投资资产放在雇主公司股票上，因为你最了解它。风险在哪？',opts:[{t:'没风险，信息优势就是优势',b:'over'},{t:'人力资本与金融资本高度相关，公司出事时工作和资产同时消失',ok:true},{t:'只要公司基本面好就没事',b:'over'}],rev:{c:'集中持有雇主股票是本土偏好与熟悉偏好的极端形式，且风险双重叠加。',a:'把救生衹绑在自己坐的那条船上。',m:'Benartzi 2001 发现员工过度配置雇主股票，且受历史收益外推影响；French & Poterba 1991 本土偏好。',u:'把工作收入看作已经持有的一大笔集中头寸，其余资产应尽量与它低相关。'}},
+{id:'s601',ch:6,kp:'6-2',dim:'over',stem:'一篇论文报告某情绪指标预测收益，p=0.03，样本 1998 至 2007 年。你首先问什么？',opts:[{t:'显著就行，可以用',b:'over'},{t:'他们试了多少个指标与样本期？有没有样本外检验与预注册？',ok:true},{t:'样本太短，直接否定',b:'repr'}],rev:{c:'关键不是 p 值大小，而是产生这个 p 值背后做了多少选择。',a:'一个人告诉你他猜中了硬币，你要问的是他猜了几次。',m:'Simmons, Nelson & Simonsohn 2011：常见研究者自由度可使假阳性率超过 60%。',u:'看任何回测时，先问尝试次数和样本外表现。'}},
+{id:'s602',ch:6,kp:'6-3',dim:'repr',stem:'某策略整体无效，但作者发现在小市值且低流动性且 1 月份的子样本中显著。如何看？',opts:[{t:'找到了真正有效的细分领域',b:'repr'},{t:'多重比较下的事后亚组，默认不可信，需独立样本验证',ok:true},{t:'只要作者给了经济学解释就可信',b:'hind'}],rev:{c:'子样本切得越细，偶然显著的概率越高；事后故事总能编出来。',a:'在一大片沙子里总能找到一颗像心形的。',m:'Ioannidis 2005；Harvey, Liu & Zhu 2016 建议因子检验提高 t 值门槛以应对多重比较。',u:'听到“只在某些情况下有效”时，默认把可信度调低一级。'}},
+{id:'s603',ch:6,kp:'6-4',dim:'over',stem:'一个你很喜欢的经典效应，在大样本预注册复现中效应量只有原本的三分之一。你的结论？',opts:[{t:'原研究是假的，完全抛弃',b:'frame'},{t:'方向可能真实但幅度被高估，应按复现后的效应量使用它',ok:true},{t:'复现实验肯定做错了',b:'hind'}],rev:{c:'复现效应量缩小是常态，正确反应是下调幅度而不是二选一地报废。',a:'高德地图把路程算短了，不代表那条路不存在。',m:'Open Science Collaboration 2015 中复现效应量约为原始一半；Camerer et al. 2016/2018 结论类似。',u:'把文献中的效应量当上限而非点估计来用。'}},
+{id:'s604',ch:6,kp:'6-5',dim:'over',stem:'你想自己验证“每天看盘次数与收益负相关”。最靠谱的做法是？',opts:[{t:'回忆过去半年的感受并总结',b:'hind'},{t:'事前写下假设与指标，记录三个月日志，再统一分析',ok:true},{t:'直接引用论文结论，不必自测',b:'avail'}],rev:{c:'预注册的精神就是先写下判断标准，再去看数据。',a:'先画靶心再射箭，而不是射完再画圈。',m:'预注册与功效分析能消除大部分研究者自由度（Cohen 1988；Simmons et al. 2011）。',u:'自我实验也要预注册：先定指标、周期和成败条件。'}},
+{id:'s605',ch:6,kp:'6-7',dim:'frame',stem:'某平台默认勾选附加保险，退订入口藏在五层菜单里。它属于？',opts:[{t:'助推，帮用户做了更安全的选择',b:'frame'},{t:'sludge（阻碍），利用默认与摩擦损害用户利益',ok:true},{t:'中立设计，每个人都可以自己选',b:'over'}],rev:{c:'判断标准是设计到底为谁的利益服务，以及退出是否容易。',a:'把门开大一点叫帮忙，把出口藏起来叫围捕。',m:'Thaler & Sunstein 2008 要求助推必须保留选择自由且易于退出；Thaler 后来将反向使用称为 sludge。',u:'评估任何默认设定：退出需要几步？谁从中获利？'}},
+{id:'s606',ch:6,kp:'6-8',dim:'hind',stem:'你第一次读 Kahneman & Tversky 1979 原文，数学看不懂。最有效的读法是？',opts:[{t:'从第一页逐行推导到最后',b:'time'},{t:'先读摘要与每个实验的题面与百分比表，自己先做一遍题，再看公式',ok:true},{t:'看二手解读就够了',b:'avail'}],rev:{c:'行为金融论文的核心往往在题面与百分比表，公式是对现象的概括。',a:'先看魔术表演，再学手法，而不是先背道具清单。',m:'可提取性练习：自己先作答再看结论，记忆与理解都显著更好。',u:'读论文顺序：摘要 → 图表 → 题面/方法 → 稳健性 → 引用它的后续文献。'}},
+{id:'s607',ch:6,kp:'6-8',dim:'hind',stem:'你要建立自我审计制度。最少必要的字段是？',opts:[{t:'买入价、卖出价、盈亏',b:'hind'},{t:'日期、决定、理由、主观概率、会让我认错的证据、当时情绪',ok:true},{t:'每日市场点评',b:'avail'}],rev:{c:'能否事后学习，取决于你事前是否记下了可被证伪的内容。',a:'没有账本的生意，年底只能靠感觉结算。',m:'Fischhoff 1975 后见之明需要事前记录才能校正；Tetlock & Gardner 2015 显示计分反馈提升预测力。',u:'今天就建一个表：日期、决定、理由、概率、证伪条件、情绪。'}}
+];
+
+/* Boss 战：d=该选项得分（可负），why=回合点评 */
+const BOSSES=[
+{ch:1,title:'理性人假设的裂缝',sec:150,intro:'你是一家财富管理公司的新人，今天要四次回答客户与同事的质疑。限时完成，注意你的一致性。',rounds:[
+ {stem:'客户说：我宁愿要确定的 3% 年化，也不要期望 6% 但会波动的方案。你如何回应？',opts:[
+  {t:'告诉客户他不理性，应该选期望高的',d:-5,why:'风险厌恶本身不是错误，把偏好当错误是新手常见错误。'},
+  {t:'先区分它是风险厌恶还是确定性效应，量化他为确定性支付的溢价，再让他选',d:20,why:'正解：把隐含价格显式化，把选择权留给客户（Allais 1953）。'},
+  {t:'直接按客户说的做，不多解释',d:5,why:'尊重偏好但没有尽到告知义务。'}]},
+ {stem:'同事想用 CRT 三道题筛选交易员。你的意见？',opts:[
+  {t:'CRT 与多种偏差相关，可作辅助指标，但单一三题信度低，不能当门槛',d:20,why:'正解：区分相关与可用于单人决策（Frederick 2005）。'},
+  {t:'很好用，分低的一律不要',d:-5,why:'把组层面相关当个体预测，是基础率与效应量双重误用。'},
+  {t:'心理测试全是伪科学',d:0,why:'一完全否定与完全轻信同样不专业。'}]},
+ {stem:'客户拿来一只三年翻倍的基金，问是不是明星经理。',opts:[
+  {t:'先看同类基金中三年翻倍的比例与存活者偏差，再看业绩归因与噪声',d:20,why:'正解：基础率优先（Kahneman & Tversky 1973）。'},
+  {t:'三年翻倍很难做到，肯定有能力',d:-5,why:'典型代表性与基础率忽视。'},
+  {t:'历史业绩完全无用，不必看',d:5,why:'方向安全但丢了可用信息。'}]},
+ {stem:'你要为团队定一条预测规范。选一条最有效的。',opts:[
+  {t:'每个预测必须带概率与区间，存档并季度校准',d:25,why:'正解：同时治噪声、过度精确与后见之明。'},
+  {t:'只让最资深的人做预测',d:0,why:'资历不能消除噪声，反而可能提高过度自信。'},
+  {t:'预测一律取团队平均值',d:10,why:'平均可降噪声，但无法修正共同偏差。'}]}]},
+{ch:2,title:'分析师的一天',sec:150,intro:'你是卖方分析师。今天四个决定将测试你对锚定、可得性、代表性与过度自信的免疫力。',rounds:[
+ {stem:'龙头同行先发报告，目标价 180 元（现价 120）。你还没建模。怎么做？',opts:[
+  {t:'先封存同行报告，自己建完模型写完结论后再打开对比',d:25,why:'正解：物理隔离锚是最有效的去锚手段。'},
+  {t:'以 180 为参考向下调整到自己认为合理的位置',d:-10,why:'典型锚定与调整不足（Epley & Gilovich 2006）。'},
+  {t:'直接拉齐同行以防止落后',d:-5,why:'机构从众，相对绩效考核驱动。'}]},
+ {stem:'一家公司上周爆出安全事故，占据头条三天。你如何调整风险评估？',opts:[
+  {t:'大幅调高同类事故概率，降评',d:-10,why:'可得性启发式：用头条频率代替真实频率。'},
+  {t:'去查行业历史事故频率与监罚分布，只根据新增信息量修正',d:25,why:'正解：基础率 + 增量信息（Lichtenstein et al. 1978）。'},
+  {t:'不调整，新闻都是噪声',d:5,why:'方向稳健，但忽视了监罚与客户流失的真实影响。'}]},
+ {stem:'一家初创公司的故事与某已成功巨头早期高度相似，创始人也很像。你的成功概率估计？',opts:[
+  {t:'很高，这就是下一个巨头',d:-10,why:'代表性与合取谬误（Tversky & Kahneman 1983）。'},
+  {t:'以同阶段初创公司的历史存活率为先验，再少量上调',d:25,why:'正解：先验优先，相似度只作微调。'},
+  {t:'无法估计，不给数字',d:0,why:'拒给概率等于无法被校准。'}]},
+ {stem:'季度复盘：你推荐的两只股一只翻倍一只跌半。怎么写复盘？',opts:[
+  {t:'对两只都先调出当时的预测与概率，区分判断对错与运气',d:25,why:'正解：对抗后见之明与自利归因。'},
+  {t:'重点写翻倍那只的研究方法，另一只归因于市场风格',d:-10,why:'自利归因切断学习通道（Miller & Ross 1975）。'},
+  {t:'写两只都是市场环境所致',d:0,why:'全部外归因与全部内归因一样无信息量。'}]}]},
+{ch:3,title:'你的第一份投资组合',sec:150,intro:'你刚存下 20 万。四个决定将测试参照点、框架、心理账户与沉没成本。',rounds:[
+ {stem:'你的持仓中一只股跌了 40%，基本面已明确恶化。你？',opts:[
+  {t:'等回本就卖',d:-10,why:'参照点依赖与处置效应（Shefrin & Statman 1985）。'},
+  {t:'按当前预期回报重新评估，若不再符合买入条件就卖出',d:25,why:'正解：剔除成本价参照点。'},
+  {t:'加仓摊低成本',d:-10,why:'损失域风险偏好上升（四重模式右下角）。'}]},
+ {stem:'销售说：这只产品历史 92% 的年份都赚钱。你的下一句问话？',opts:[
+  {t:'请把它改成损失框架：亏钱年份的平均与最大亏损是多少？',d:25,why:'正解：主动反转框架（Tversky & Kahneman 1981）。'},
+  {t:'92% 很高，那就买',d:-10,why:'被存活框架与小样本诱导。'},
+  {t:'历史不代表未来，不看',d:5,why:'正确但丢弃了可用分布信息。'}]},
+ {stem:'你同时有年化 15% 的消费贷 3 万，和一笔专门给孩子存的 3 万（年化 2%）。',opts:[
+  {t:'先还贷，因为两个账户本质是同一笔钱，利差就是确定收益',d:25,why:'正解：打破心理账户隔离（Thaler 1985）。'},
+  {t:'不能动孩子的钱，硬扛贷款',d:-10,why:'心理账户导致确定亏损。'},
+  {t:'两边各一半',d:5,why:'折中不等于正确，利差仍在流失。'}]},
+ {stem:'你为一个副业项目已投 5 万与两年，现在判断未来预期回报为负。',opts:[
+  {t:'继续，都投这么久了',d:-10,why:'沉没成本谬误（Arkes & Blumer 1985）。'},
+  {t:'终止，并把结束理由与教训写进决策日志',d:25,tag:'sunk',why:'正解：主动斩断沉没成本，并把它变成可复用的经验。'},
+  {t:'再投一笔看看',d:-15,why:'升级承诺，沉没成本叠加损失厌恶。'}]}]},
+{ch:4,title:'三十岁的储蓄计划',sec:150,intro:'你要在不依靠意志力的前提下，设计一个能跑三十年的储蓄与投资系统。',rounds:[
+ {stem:'第一步先做什么？',opts:[
+  {t:'发薪日自动划转固定金额到难以取用的账户',d:25,why:'正解：默认值与承诺机制（Madrian & Shea 2001；Ashraf et al. 2006）。'},
+  {t:'设一个月度预算并每天记账',d:10,why:'有效但高摩擦，依赖持续注意力。'},
+  {t:'先提高投资水平再谈储蓄',d:0,why:'收益率无法弥补储蓄率不足。'}]},
+ {stem:'你计划三个月内学完一本教材。如何定时间表？',opts:[
+  {t:'按自己估的进度安排，不留缓冲',d:-10,why:'计划谬误（Buehler et al. 1994）。'},
+  {t:'查自己过去同类任务的实际耗时，再加中间公开截止日',d:25,why:'正解：外部视角 + 自设截止日（Kahneman & Lovallo 1993；Ariely & Wertenbroch 2002）。'},
+  {t:'不定时间表，保持灵活',d:-5,why:'无截止日是拖延的温床。'}]},
+ {stem:'市场单周下跌 12%，你很想清仓。你事先该设计什么？',opts:[
+  {t:'一条事先写定的规则：任何减仓需 24 小时冷静期且必须先写下理由',d:25,why:'正解：应对冷热共情缺口（Loewenstein 2005）。'},
+  {t:'相信自己到时能冷静',d:-10,why:'典型的冷状态高估自控力。'},
+  {t:'提前把仓位降到最低，以后不管',d:5,why:'避开情绪但可能系统性牽牲长期收益。'}]},
+ {stem:'你明年会加薪 15%。最好的安排？',opts:[
+  {t:'现在就签下规则：加薪量的一半自动进入储蓄',d:25,why:'正解：Save More Tomorrow（Thaler & Benartzi 2004）。'},
+  {t:'先享受加薪，年底再说',d:-10,why:'双曲贴现下的可预见拖延。'},
+  {t:'把现在的储蓄率直接翻倍',d:5,why:'当下损失感太强，容易中途放弃。'}]}]},
+{ch:5,title:'2008 年 3 月，你是基金经理',sec:180,intro:'2008 年 3 月，贝尔斯登被收购，信用市场冻结。你管理一只带赎回条款的基金，四个回合决定你的命运。',rounds:[
+ {stem:'你发现一个历史罕见的信用基差套利，但需高杠杆且赎回压力上升。',opts:[
+  {t:'满杯上，收敛是数学必然',d:-15,why:'无视有限套利：你可能在收敛前先死（Shleifer & Vishny 1997；LTCM 1998）。'},
+  {t:'小仓位参与，同时预留流动性应对赎回与追加保证金',d:25,why:'正解：先活下来才能等到收敛。'},
+  {t:'完全不参与',d:5,why:'安全但放弃了真实的风险追加报酬。'}]},
+ {stem:'你持有的孪生股价差张到历史极值，同时客户要求赎回。',opts:[
+  {t:'加仓价差交易，并用新资金应付赎回',d:-15,why:'噪声交易者风险与资金风险同时放大（DSSW 1990）。'},
+  {t:'先满足赎回、降低杠杆，向投资人公开价差逻辑与时间要求',d:25,why:'正解：套利需要资金期限与沟通支持。'},
+  {t:'限制赎回不告知',d:-20,why:'伦理与法律风险，且摩损信任。'}]},
+ {stem:'你需要减仓。组合里有浮盈的防御股与浮亏的杠杆金融股。',opts:[
+  {t:'卖浮盈的防御股，保留金融股等反弹',d:-15,why:'处置效应：卖赢家留输家（Odean 1998）。'},
+  {t:'按风险敏感度与基本面减仓，先切杠杆风险最大的头寸',d:25,why:'正解：与成本价无关，只看前瞻风险。'},
+  {t:'等周给预告后再决定',d:-5,why:'流动性危机中拖延本身就是风险暴露。'}]},
+ {stem:'同行纷纷宣布抄底金融股，你的模型不支持。',opts:[
+  {t:'跟上，不然落后很难解释',d:-15,why:'机构羊群与相对绩效激励（Bikhchandani et al. 1992）。'},
+  {t:'守住模型，同时向投资人事先说明可能阶段性落后的理由',d:25,why:'正解：管理代理风险而不是屈从它。'},
+  {t:'反向做空同行买的标的',d:-5,why:'以反从众代替研究，仍是以他人行为为锚。'}]}]},
+{ch:6,title:'审稿人会议',sec:180,intro:'你是一本行为金融期刊的审稿人，今天要处理四份稿件与一份伦理投诉。',rounds:[
+ {stem:'稿件一：N=42 的实验，报告一个巨大效应，p=0.048。你的审稿意见？',opts:[
+  {t:'接受，效应大且显著',d:-10,why:'小样本巨效应通常意味着效应量被高估（Button et al. 2013）。'},
+  {t:'要求功效分析、预注册记录与一份独立样本直接复现',d:25,why:'正解：对抗发表偏差与 p-hacking。'},
+  {t:'直接拒，小样本一律不可信',d:0,why:'小样本不等于造假，审稿应给可执行路径。'}]},
+ {stem:'稿件二：主效应不显著，作者在讨论部分重点写三个显著亚组。',opts:[
+  {t:'要求把亚组标为探索性，报告多重比较校正，并不得写进摘要结论',d:25,why:'正解：区分确认性与探索性分析。'},
+  {t:'很好，亚组发现更有趣',d:-10,why:'多重比较下的假阳性（Ioannidis 2005）。'},
+  {t:'让作者把亚组全删',d:5,why:'探索有价值，只要标注清楚。'}]},
+ {stem:'稿件三：一个经典效应的预注册复现，效应量只有原本四分之一且不显著。',opts:[
+  {t:'阴性结果没有发表价值，拒',d:-15,why:'这正是发表偏差的成因。'},
+  {t:'接受并鼓励与原作者合作对拗复现，并报告元分析估值',d:25,why:'正解：复现与对拗是自正机制（Camerer et al. 2018）。'},
+  {t:'接受并宣布原研究造假',d:-10,why:'复现失败不等于学术不端。'}]},
+ {stem:'伦理投诉：一家平台用行为研究结论提高高息贷转化率。你建议？',opts:[
+  {t:'区分助推与 sludge：要求保留易于退出、信息透明与用户福利评估',d:25,why:'正解：自由主义温和父权制的底线是选择自由与福利标准。'},
+  {t:'技术中立，不属于学术伦理范围',d:-10,why:'应用伦理是行为科学的内在部分。'},
+  {t:'禁止一切行为设计',d:0,why:'选择架构无法避免，只能选择为谁服务。'}]}]}
+];
+
+/* 收集卡：type=paper|quote|fact，r=稀有度 1..3 */
+const CARDS=[
+{id:'c01',type:'paper',r:3,title:'Prospect Theory (1979)',body:'Kahneman & Tversky, Econometrica 47(2). 提出参照点、损失厌恶、概率权重，是整个行为金融的地基。建议作为你读的第一篇原始论文。'},
+{id:'c02',type:'paper',r:3,title:'Judgment under Uncertainty (1974)',body:'Tversky & Kahneman, Science 185. 三大启发式（代表性、可得性、锚定）的原点，短而密，适合逐句精读。'},
+{id:'c03',type:'paper',r:2,title:'Mental Accounting Matters (1999)',body:'Thaler, Journal of Behavioral Decision Making 12. 把心理账户从直觉变成可操作的分析框架。'},
+{id:'c04',type:'paper',r:2,title:'The Limits of Arbitrage (1997)',body:'Shleifer & Vishny, Journal of Finance 52. 解释为什么错价可以长期存在：套利者也怕赎回。'},
+{id:'c05',type:'paper',r:3,title:'Noise Trader Risk in Financial Markets (1990)',body:'De Long, Shleifer, Summers & Waldmann, JPE 98. DSSW 模型：非理性交易者不但不死，还可能赚钱。'},
+{id:'c06',type:'paper',r:2,title:'Does the Stock Market Overreact? (1985)',body:'De Bondt & Thaler, Journal of Finance 40. 长期反转的开山之作，行为金融的第一个实证重拳。'},
+{id:'c07',type:'paper',r:2,title:'Returns to Buying Winners and Selling Losers (1993)',body:'Jegadeesh & Titman, Journal of Finance 48. 中期动量效应，与反转共存且时间尺度不同。'},
+{id:'c08',type:'paper',r:2,title:'Are Investors Reluctant to Realize Their Losses? (1998)',body:'Odean, Journal of Finance 53. 一万个真实账户证实处置效应，行为金融从实验室进入真实市场。'},
+{id:'c09',type:'paper',r:3,title:'Myopic Loss Aversion and the Equity Premium Puzzle (1995)',body:'Benartzi & Thaler, QJE 110. 用狭窄框架解释股权溢价，推断评估周期约一年。'},
+{id:'c10',type:'paper',r:2,title:'Golden Eggs and Hyperbolic Discounting (1997)',body:'Laibson, QJE 112. β-δ 模型，把拖延写成可求解的经济学。'},
+{id:'c11',type:'paper',r:2,title:'Save More Tomorrow (2004)',body:'Thaler & Benartzi, JPE 112. 储蓄率从约 3.5% 升至约 13.6%，行为设计最漂亮的一战。'},
+{id:'c12',type:'paper',r:2,title:'The Power of Suggestion (2001)',body:'Madrian & Shea, QJE 116. 自动加入使 401(k) 参与率从约 49% 升至约 86%。'},
+{id:'c13',type:'paper',r:2,title:'Investor Sentiment and the Closed-End Fund Puzzle (1991)',body:'Lee, Shleifer & Thaler, Journal of Finance 46. 把“情绪”变成可测量变量。'},
+{id:'c14',type:'paper',r:2,title:'Can the Market Add and Subtract? (2003)',body:'Lamont & Thaler, JPE 111. 3Com/Palm 分拆中市场隐含出负估值，错价的铁证。'},
+{id:'c15',type:'paper',r:3,title:'False-Positive Psychology (2011)',body:'Simmons, Nelson & Simonsohn, Psychological Science 22. 四种研究者自由度可把假阳性推到 60% 以上。'},
+{id:'c16',type:'quote',r:2,title:'Kahneman 论注意力',body:'Nothing in life is as important as you think it is, while you are thinking about it.（《Thinking, Fast and Slow》）'},
+{id:'c17',type:'quote',r:3,title:'Kahneman 论盲区',body:'We can be blind to the obvious, and we are also blind to our blindness.（《Thinking, Fast and Slow》）'},
+{id:'c18',type:'quote',r:3,title:'Tversky 自嘶',body:'My colleagues, they study artificial intelligence; me, I study natural stupidity.（广为引用的 Amos Tversky 语录）'},
+{id:'c19',type:'quote',r:2,title:'Thaler 的三个字',body:'Nudge for good.（Thaler 常在《Nudge》上签的题词，强调助推的伦理边界）'},
+{id:'c20',type:'quote',r:2,title:'Shiller 论泡沫',body:'非理性的繁荣是投机泡沫的心理基础。（Shiller,《Irrational Exuberance》2000）'},
+{id:'c21',type:'quote',r:3,title:'Keynes 论职业风险',body:'It is better to fail conventionally than to succeed unconventionally.（Keynes,《The General Theory》1936, 第 12 章）'},
+{id:'c22',type:'quote',r:2,title:'Fama 的调侯',body:'I would compare stock pickers to astrologers, but I do not want to badmouth astrologers.（Eugene Fama 广为流传的访谈语录）'},
+{id:'c23',type:'quote',r:2,title:'Buffett 论情绪',body:'Be fearful when others are greedy and greedy when others are fearful.（Warren Buffett 致股东信）'},
+{id:'c24',type:'fact',r:2,title:'交易越多，赚得越少',body:'Barber & Odean 2000：换手率最高的一组散户年净收益比市场低约 6 个百分点，而毛收益并无优势。'},
+{id:'c25',type:'fact',r:2,title:'九成司机高于平均',body:'Svenson 1981：约 90% 的司机认为自己的驾驶技术优于平均水平。'},
+{id:'c26',type:'fact',r:3,title:'孪生股能错三成',body:'Froot & Dabora 1999：Royal Dutch 与 Shell 相对于 60/40 理论平价的偏离幅度可达正负 30%，持续多年。'},
+{id:'c27',type:'fact',r:3,title:'一半的效应不见了',body:'Open Science Collaboration 2015：100 项心理学研究中约 36% 复现显著，平均效应量约为原始的一半。'},
+{id:'c28',type:'fact',r:2,title:'默认值能多赚三成参与率',body:'Madrian & Shea 2001：仅改变默认选项，参与率从约 49% 升至约 86%，成本几乎为零。'},
+{id:'c29',type:'fact',r:2,title:'实验市场也会吹泡沫',body:'Smith, Suchanek & Williams 1988：即使股利分布完全公开，实验市场仍稳定出现泡沫与崩盘。'},
+{id:'c30',type:'fact',r:3,title:'核保员的 55%',body:'Kahneman, Sibony & Sunstein 2021：同一保险公司不同核保员对同一案件的报价中位差异约 55%，远高于管理层预期。'}
+];
+
+/* 成就：f(S) 返回真即解锁；hidden 为隐藏成就 */
+const ACHIEVEMENTS=[
+{id:'a01',ic:'👁️',name:'初次觉察',desc:'完成第一个情境决策',f:S=>S.stats.scen>=1},
+{id:'a02',ic:'🔥',name:'三日不绝',desc:'连续 3 天完成晨间训练',f:S=>S.streak>=3},
+{id:'a03',ic:'🔥',name:'七日连击',desc:'连续 7 天',f:S=>S.streak>=7},
+{id:'a04',ic:'🏅',name:'三十天习惯',desc:'连续 30 天',f:S=>S.streak>=30},
+{id:'a05',ic:'📚',name:'复习者',desc:'累计完成 50 张复习卡',f:S=>S.stats.rev>=50},
+{id:'a06',ic:'🧠',name:'复习大师',desc:'累计完成 300 张复习卡',f:S=>S.stats.rev>=300},
+{id:'a07',ic:'🎯',name:'情境新手',desc:'完成 20 个情境决策',f:S=>S.stats.scen>=20},
+{id:'a08',ic:'🏆',name:'情境老手',desc:'完成 100 个情境决策',f:S=>S.stats.scen>=100},
+{id:'a09',ic:'🎯',name:'校准良好',desc:'答题超 50 且正确率达 70%',f:S=>S.stats.ans>=50&&S.stats.right/Math.max(1,S.stats.ans)>=0.7},
+{id:'a10',ic:'🧭',name:'登陆第二大陆',desc:'通过第一章 Boss 战',f:S=>!!(S.boss[1]&&S.boss[1].pass)},
+{id:'a11',ic:'👑',name:'全大陆通关',desc:'通过全部 6 场 Boss 战',f:S=>BOSSES.every(b=>S.boss[b.ch]&&S.boss[b.ch].pass)},
+{id:'a12',ic:'🃏',name:'收藏家',desc:'收集 10 张卡',f:S=>S.cards.length>=10},
+{id:'a13',ic:'🃏',name:'图鉴半成',desc:'收集 15 张卡',f:S=>S.cards.length>=15},
+{id:'a14',ic:'📖',name:'图鉴大成',desc:'收集全部 30 张卡',f:S=>S.cards.length>=CARDS.length},
+{id:'a15',ic:'📄',name:'论文猎人',desc:'集齐 10 张经典论文卡',f:S=>S.cards.filter(i=>{const c=CARDS.find(x=>x.id===i);return c&&c.type==='paper'}).length>=10},
+{id:'a16',ic:'🪞',name:'正视错题',desc:'错题本重看过 5 题',f:S=>S.stats.mrev>=5},
+{id:'a17',ic:'🎓',name:'诺奖级',desc:'升至最高段位',f:S=>lvIndex(S.xp)>=LEVELS.length-1},
+{id:'a18',ic:'🛡️',name:'雷达均衢',desc:'答题超 80 且所有偏差维度强度低于 35%',f:S=>S.stats.ans>=80&&DIMS.every(d=>dimRate(S,d.k)<0.35)},
+{id:'a19',ic:'📚',name:'学者气质',desc:'已学过 40 个知识点',f:S=>Object.keys(S.srs).length>=40},
+{id:'a20',ic:'🌍',name:'全图解锁',desc:'已学过全部知识点',f:S=>Object.keys(S.srs).length>=KNOWLEDGE_DATA.length},
+{id:'a21',ic:'⭐',name:'Boss 三星',desc:'在 3 场 Boss 战中拿到 A 或 S',f:S=>Object.values(S.boss).filter(b=>b.grade==='S'||b.grade==='A').length>=3},
+{id:'a22',ic:'🧲',name:'反锚定者',desc:'隐藏：连续 3 次识破锚定效应',hidden:true,f:S=>S.stats.anchorBest>=3},
+{id:'a23',ic:'✂️',name:'斩断沉没成本',desc:'隐藏：主动放弃一个沉没成本',hidden:true,f:S=>S.stats.sunk>=1},
+{id:'a24',ic:'🪟',name:'框架免疫',desc:'隐藏：在存活与死亡两种框架下保持一致',hidden:true,f:S=>S.stats.frame>=1},
+{id:'a25',ic:'🤝',name:'诚实的无知',desc:'隐藏：主动点击“我不确定” 5 次（元认知奖励）',hidden:true,f:S=>S.stats.unsure>=5},
+{id:'a26',ic:'🦉',name:'夜猫子',desc:'隐藏：在凌晨 1 至 4 点之间答过题',hidden:true,f:S=>S.stats.night>=1}
+];
+
+/* ============================================================
+   二、引擎层（状态、SM-2、渲染、反馈）
+   ============================================================ */
+const LEVELS=[{x:0,n:'见习观察者'},{x:150,n:'助研实习生'},{x:400,n:'实验助理'},{x:800,n:'研究助理'},{x:1400,n:'硕士研究者'},{x:2200,n:'博士候选人'},{x:3200,n:'行为金融博士'},{x:4500,n:'行为经济学家'},{x:6000,n:'讲席教授'},{x:8000,n:'诺奖级'}];
+const LS='bfin_v1';
+function lvIndex(xp){let i=0;for(let k=0;k<LEVELS.length;k++){if(xp>=LEVELS[k].x)i=k}return i}
+function dimRate(S2,k){const d=(S2.dims||{})[k]||{h:0,m:0};const t=d.h+d.m;return t<3?0:d.m/t}
+function defState(){const dims={};DIMS.forEach(d=>{dims[d.k]={h:0,m:0}});
+ return {xp:0,streak:0,dailyDate:'',dailyCount:0,graceDate:'',srs:{},dims:dims,
+  stats:{ans:0,right:0,wrong:0,scen:0,rev:0,unsure:0,mrev:0,night:0,anchorBest:0,sunk:0,frame:0,pulls:0},
+  cards:[],ach:[],mistakes:[],boss:{},sound:true,frameA:false}}
+let S=defState();
+function load(){try{const r=localStorage.getItem(LS);if(!r)return;const o=JSON.parse(r);const d=defState();
+ S=Object.assign(d,o);S.dims=Object.assign(defState().dims,o.dims||{});S.stats=Object.assign(defState().stats,o.stats||{});}catch(e){}}
+function save(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+function dayNum(){return Math.floor(Date.now()/86400000)}
+function dstr(d){return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+function todayStr(){return dstr(new Date())}
+function yStr(){return dstr(new Date(Date.now()-86400000))}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
+function kpById(id){return KNOWLEDGE_DATA.find(k=>k.id===id)}
+
+/* 声音与粒子 */
+let AC=null;
+function beep(kind){if(!S.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+ const o=AC.createOscillator(),g=AC.createGain();o.connect(g);g.connect(AC.destination);const t=AC.currentTime;
+ if(kind==='ok'){o.type='sine';o.frequency.setValueAtTime(659,t);o.frequency.setValueAtTime(880,t+0.09)}
+ else if(kind==='bad'){o.type='square';o.frequency.setValueAtTime(196,t);o.frequency.setValueAtTime(147,t+0.11)}
+ else{o.type='triangle';o.frequency.setValueAtTime(523,t);o.frequency.setValueAtTime(784,t+0.08);o.frequency.setValueAtTime(1046,t+0.16)}
+ g.gain.setValueAtTime(0.13,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.36);o.start(t);o.stop(t+0.38)}catch(e){}}
+function burst(x,y,color){for(let i=0;i<14;i++){const p=document.createElement('div');p.className='pt';p.style.background=color;
+ p.style.left=x+'px';p.style.top=y+'px';document.body.appendChild(p);
+ const a=Math.random()*Math.PI*2,d=26+Math.random()*64;
+ try{p.animate([{transform:'translate(0,0)',opacity:1},{transform:'translate('+(Math.cos(a)*d)+'px,'+(Math.sin(a)*d)+'px)',opacity:0}],{duration:520+Math.random()*280,easing:'cubic-bezier(.2,.8,.2,1)'}).onfinish=()=>p.remove()}catch(e){setTimeout(()=>p.remove(),600)}}}
+let toastT=null;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('on');
+ clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('on'),2200)}
+
+/* XP、成就 */
+function addXp(n){const before=lvIndex(S.xp);S.xp+=n;const after=lvIndex(S.xp);
+ if(after>before){beep('lv');toast('段位提升：'+LEVELS[after].n);burst(window.innerWidth/2,120,'#4dd6c1')}}
+function checkAch(){ACHIEVEMENTS.forEach(a=>{if(S.ach.indexOf(a.id)<0){let ok=false;try{ok=!!a.f(S)}catch(e){ok=false}
+ if(ok){S.ach.push(a.id);toast('成就解锁 '+a.ic+' '+a.name);beep('lv')}}})}
+
+/* SM-2（简化） */
+function srsInit(kpId){if(!S.srs[kpId])S.srs[kpId]={ef:2.5,int:1,reps:0,due:dayNum()+1}}
+function srsSchedule(kpId,q){const s=S.srs[kpId]||{ef:2.5,int:0,reps:0,due:0};
+ if(q<3){s.reps=0;s.int=1}else{s.ef=Math.max(1.3,s.ef+(0.1-(5-q)*(0.08+(5-q)*0.02)));s.reps++;
+  s.int=s.reps===1?1:(s.reps===2?3:Math.max(1,Math.round(s.int*s.ef)))}
+ s.due=dayNum()+s.int;S.srs[kpId]=s}
+function dueKps(){return Object.keys(S.srs).filter(k=>S.srs[k].due<=dayNum()&&kpById(k))}
+function unlocked(ch){return ch===1||!!(S.boss[ch-1]&&S.boss[ch-1].pass)}
+function chapDone(ch){const all=KNOWLEDGE_DATA.filter(k=>k.ch===ch);const st=all.filter(k=>S.srs[k.id]).length;
+ const b=(S.boss[ch]&&S.boss[ch].pass)?1:0;return Math.round((st/all.length*0.7+b*0.3)*100)}
+function overall(){return Math.round(CHAPTERS.reduce((a,c)=>a+chapDone(c.ch),0)/CHAPTERS.length)}
+
+/* 头部与导航 */
+const TABS=[['home','首页'],['review','复习'],['radar','雷达'],['cards','图鉴'],['mistakes','错题本'],['ach','成就'],['data','存档']];
+let VIEW='home';
+function renderHeader(){const i=lvIndex(S.xp),cur=LEVELS[i],nx=LEVELS[i+1];
+ document.getElementById('hLv').textContent=cur.n;
+ document.getElementById('hXp').textContent=S.xp+' XP';
+ document.getElementById('hStreak').textContent='🔥 '+S.streak;
+ document.getElementById('hDue').textContent='复习 '+dueKps().length;
+ document.getElementById('hCard').textContent='🃏 '+S.cards.length+'/'+CARDS.length;
+ const pct=nx?Math.min(100,Math.round((S.xp-cur.x)/(nx.x-cur.x)*100)):100;
+ document.getElementById('hBar').style.width=pct+'%';
+ document.getElementById('nav').innerHTML=TABS.map(t=>'<button class="'+(VIEW===t[0]?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[1]+'</button>').join('')}
+function go(v){VIEW=v;render()}
+function render(){save();renderHeader();const el=document.getElementById('view');
+ if(VIEW==='home')el.innerHTML=vHome();
+ else if(VIEW==='radar')el.innerHTML=vRadar();
+ else if(VIEW==='cards')el.innerHTML=vCards();
+ else if(VIEW==='mistakes')el.innerHTML=vMistakes();
+ else if(VIEW==='ach')el.innerHTML=vAch();
+ else if(VIEW==='data')el.innerHTML=vData();
+ else if(VIEW==='review'){startSession('review');return}
+ else if(VIEW==='chap')el.innerHTML=vChap(CURCH);
+ if(VIEW==='radar')drawRadar();
+ window.scrollTo(0,0)}
+
+/* 首页：路线图 */
+function vHome(){const t=todayStr(),due=dueKps().length;
+ const doneToday=S.dailyDate===t;
+ let grace='';
+ if(!doneToday&&S.dailyDate&&S.dailyDate!==yStr()&&S.streak>=3&&S.graceDate!==t)
+  grace='<p><button class="b g" onclick="useGrace()">温和挽回：保住我的 '+S.streak+' 天连击</button><br><small>断签不扣分，每天只能用一次。</small></p>';
+ let out='<div class="card"><h1>今天的五分钟</h1>'+
+  '<p><small>连击 '+S.streak+' 天 · 今日待复习 '+due+' 张 · 总体完成度 '+overall()+'%</small></p>'+
+  '<div class="mini"><i style="width:'+overall()+'%"></i></div>'+
+  '<p><button class="b" onclick="startSession(\'daily\')">'+(doneToday?'再来一组晨间训练':'开始晨间训练（5 题）')+'</button>'+
+  '<button class="b g" onclick="startSession(\'review\')">只做复习'+(due?'（'+due+'）':'')+'</button></p>'+grace+'</div>';
+ out+='<h2>学习路线图</h2><div class="grid">';
+ CHAPTERS.forEach(c=>{const lk=unlocked(c.ch),p=chapDone(c.ch);
+  const bs=S.boss[c.ch];
+  out+='<div class="card chap '+(lk?'':'lock')+'" onclick="'+(lk?'openChap('+c.ch+')':'toast(\'先通过上一章 Boss 战解锁\')')+'">'+
+   '<h3>'+c.icon+' 第'+c.ch+'大陆 · '+c.name+'</h3><small>'+c.sub+'</small>'+
+   '<div class="mini"><i style="width:'+p+'%"></i></div>'+
+   '<small>'+p+'% · '+KNOWLEDGE_DATA.filter(k=>k.ch===c.ch).length+' 知识点 · '+(bs?('Boss '+bs.grade):(lk?'Boss 未挑战':'未解锁'))+'</small></div>'});
+ out+='</div>';
+ const weak=DIMS.map(d=>({n:d.n,r:dimRate(S,d.k)})).sort((a,b)=>b.r-a.r).slice(0,3).filter(x=>x.r>0);
+ if(weak.length)out+='<div class="card"><h3>你当前最严重的偏差</h3>'+weak.map(w=>'<div class="dimbar"><span class="nm">'+w.n+'</span><span class="tr"><i style="width:'+Math.round(w.r*100)+'%"></i></span><span>'+Math.round(w.r*100)+'%</span></div>').join('')+'<small>百分比为该维度上的错选率，越高越需要针对性训练。</small></div>';
+ return out}
+function useGrace(){S.graceDate=todayStr();S.dailyDate=yStr();toast('已挽回连击，今天做完训练就能继续累加');render()}
+
+/* 章节页 */
+let CURCH=1;
+function openChap(ch){CURCH=ch;VIEW='chap';render()}
+function vChap(ch){const c=CHAPTERS.find(x=>x.ch===ch);let out='<h1>'+c.icon+' 第'+ch+'大陆 · '+c.name+'</h1><p><small>'+c.sub+'</small></p>'+
+ '<p><button class="b" onclick="startSession(\'scen\','+ch+')">情境训练（先被骗，再被解释）</button>'+
+ '<button class="b g" onclick="startSession(\'chapreview\','+ch+')">本章回忆练习</button>'+
+ '<button class="b g" onclick="openBoss('+ch+')">Boss 战：'+BOSSES.find(b=>b.ch===ch).title+'</button></p>';
+ [1,2,3].forEach(t=>{const arr=KNOWLEDGE_DATA.filter(k=>k.ch===ch&&k.t===t);if(!arr.length)return;
+  out+='<h2>'+(t===1?'直觉层':t===2?'机制层':'论文层')+'</h2>';
+  arr.forEach(k=>{const st=!!S.srs[k.id];
+   out+='<div class="kp"><div><span class="tag t'+t+'">'+(t===1?'直觉':t===2?'机制':'论文')+'</span>'+
+    '<span class="tag">'+(DIMS.find(d=>d.k===k.dim)||{n:''}).n+'</span><span class="nm">'+esc(k.name)+'</span>'+(st?' <small>已入库</small>':'')+'</div>'+
+    '<dl><dt>一句话本质</dt><dd>'+esc(k.ess)+'</dd>'+
+    '<dt>经典实验</dt><dd>'+esc(k.exp)+'</dd>'+
+    '<dt>真实市场案例</dt><dd>'+esc(k.mkt)+'</dd>'+
+    '<dt>我可能正在犯</dt><dd>'+esc(k.ask)+'</dd></dl>'+
+    (st?'':'<p><button class="b g" onclick="studyKp(\''+k.id+'\')">加入复习队列</button></p>')+'</div>'})});
+ return out}
+function studyKp(id){srsInit(id);addXp(4);toast('已加入复习队列');checkAch();render()}
+
+/* 会话引擎 */
+let SES=null;
+function recallItem(kp){const others=shuffle(KNOWLEDGE_DATA.filter(k=>k.id!==kp.id)).slice(0,3).map(k=>k.name);
+ const opts=shuffle([kp.name].concat(others));
+ return {type:'recall',kp:kp.id,dim:kp.dim,stem:'下面这个经典实验与描述，对应哪个概念？<br><br>'+esc(kp.exp),opts:opts,answer:kp.name}}
+function pickScens(ch,n){const pool=ch?SCENARIOS.filter(s=>s.ch===ch):SCENARIOS.filter(s=>unlocked(s.ch));
+ const fresh=pool.filter(s=>!S.mistakes.some(m=>m.id===s.id));
+ return shuffle(fresh.length>=n?fresh:pool).slice(0,n)}
+function pickRecalls(ch,n){let ids=dueKps();if(ch)ids=ids.filter(i=>kpById(i).ch===ch);
+ let kps=ids.map(kpById);
+ if(kps.length<n){const extra=KNOWLEDGE_DATA.filter(k=>unlocked(k.ch)&&(!ch||k.ch===ch)&&!S.srs[k.id]);
+  kps=kps.concat(shuffle(extra).slice(0,n-kps.length))}
+ return shuffle(kps).slice(0,n).map(recallItem)}
+function startSession(kind,ch){
+ let items=[];
+ if(kind==='daily')items=shuffle(pickScens(null,2).concat(pickRecalls(null,3)));
+ else if(kind==='scen')items=pickScens(ch,6);
+ else if(kind==='chapreview')items=pickRecalls(ch,8);
+ else items=pickRecalls(null,10);
+ if(!items.length){VIEW='home';toast('没有可练的内容，先去章节里把知识点加入复习队列');render();return}
+ SES={kind:kind,ch:ch,items:items,i:0,right:0};VIEW='play';renderHeader();renderPlay()}
+function renderPlay(){const el=document.getElementById('view');const it=SES.items[SES.i];
+ if(!it){endSession();return}
+ let head='<p><small>'+(SES.i+1)+' / '+SES.items.length+' · '+(it.type==='recall'?'回忆练习':'情境决策')+'</small></p>';
+ let body='';
+ if(it.type==='recall'){body='<div class="card">'+head+'<p>'+it.stem+'</p>'+
+  it.opts.map((o,i)=>'<button class="opt" id="o'+i+'" onclick="ansRecall('+i+',event)">'+esc(o)+'</button>').join('')+
+  '<p><button class="b g" onclick="ansUnsure()">我不确定（直接看答案）</button></p></div>'}
+ else{const s=it;body='<div class="card">'+head+'<p>'+esc(s.stem)+'</p>'+
+  s.opts.map((o,i)=>'<button class="opt" id="o'+i+'" onclick="ansScen('+i+',event)">'+esc(o.t)+'</button>').join('')+'</div>'}
+ el.innerHTML=body;window.scrollTo(0,0)}
+function hitDim(dim,ok){if(!S.dims[dim])S.dims[dim]={h:0,m:0};S.dims[dim][ok?'h':'m']++}
+function nightCheck(){const h=new Date().getHours();if(h>=1&&h<4)S.stats.night=1}
+function ansScen(i,ev){const s=SES.items[SES.i];const o=s.opts[i];const ok=!!o.ok;
+ S.stats.ans++;S.stats[ok?'right':'wrong']++;S.stats.scen++;nightCheck();
+ hitDim(ok?s.dim:(o.b||s.dim),ok);
+ srsInit(s.kp);srsSchedule(s.kp,ok?4:2);
+ if(s.dim==='anchor'){S.stats.anchorBest=ok?S.stats.anchorBest+1:0}
+ if(s.id==='s304'&&ok)S.stats.sunk=1;
+ if(s.id==='s301')S.frameA=ok;
+ if(s.id==='s302'&&ok&&S.frameA)S.stats.frame=1;
+ if(!ok)S.mistakes.unshift({id:s.id,kp:s.kp,chose:o.t,ts:Date.now()});
+ addXp(ok?14:4);if(ok)SES.right++;
+ beep(ok?'ok':'bad');
+ const btn=document.getElementById('o'+i);if(btn)btn.classList.add(ok?'right':'wrong');
+ s.opts.forEach((oo,k)=>{if(oo.ok){const b2=document.getElementById('o'+k);if(b2)b2.classList.add('right')}
+  const b3=document.getElementById('o'+k);if(b3)b3.setAttribute('onclick','')});
+ if(ok&&ev)burst(ev.clientX,ev.clientY,'#3ddc97');
+ const kp=kpById(s.kp);
+ const rev='<div class="card rev"><p><b>结论：</b>'+esc(s.rev.c)+'</p>'+
+  '<p><b>直觉类比：</b>'+esc(s.rev.a)+'</p>'+
+  '<p><b>机制与实验：</b>'+esc(s.rev.m)+'</p>'+
+  '<p><b>现实应用：</b>'+esc(s.rev.u)+'</p>'+
+  (kp?'<p><small>关联知识点：'+esc(kp.name)+' · 自查：'+esc(kp.ask)+'</small></p>':'')+
+  '<p><button class="b" onclick="nextItem()">下一题</button></p></div>';
+ document.getElementById('view').insertAdjacentHTML('beforeend',rev);
+ checkAch();save();renderHeader()}
+function ansRecall(i,ev){const it=SES.items[SES.i];const ok=it.opts[i]===it.answer;
+ S.stats.ans++;S.stats[ok?'right':'wrong']++;S.stats.rev++;nightCheck();
+ hitDim(it.dim,ok);srsInit(it.kp);srsSchedule(it.kp,ok?5:2);
+ addXp(ok?8:3);if(ok)SES.right++;beep(ok?'ok':'bad');
+ if(ok&&ev)burst(ev.clientX,ev.clientY,'#4dd6c1');
+ if(!ok)S.mistakes.unshift({id:'recall:'+it.kp,kp:it.kp,chose:it.opts[i],ts:Date.now()});
+ it.opts.forEach((o,k)=>{const b=document.getElementById('o'+k);if(!b)return;
+  if(o===it.answer)b.classList.add('right');else if(k===i)b.classList.add('wrong');b.setAttribute('onclick','')});
+ showKpCard();checkAch();save();renderHeader()}
+function ansUnsure(){const it=SES.items[SES.i];S.stats.unsure++;S.stats.rev++;
+ srsInit(it.kp);srsSchedule(it.kp,2);addXp(2);
+ it.opts.forEach((o,k)=>{const b=document.getElementById('o'+k);if(!b)return;if(o===it.answer)b.classList.add('right');b.setAttribute('onclick','')});
+ toast('诚实比猜对更有价值，这张已排进短期复习');showKpCard();checkAch();save();renderHeader()}
+function showKpCard(){const it=SES.items[SES.i];const k=kpById(it.kp);
+ const html='<div class="card rev"><p><b>'+esc(k.name)+'</b></p>'+
+  '<p><b>本质：</b>'+esc(k.ess)+'</p><p><b>实验：</b>'+esc(k.exp)+'</p>'+
+  '<p><b>市场案例：</b>'+esc(k.mkt)+'</p><p><b>自查：</b>'+esc(k.ask)+'</p>'+
+  '<p><button class="b" onclick="nextItem()">下一题</button></p></div>';
+ document.getElementById('view').insertAdjacentHTML('beforeend',html)}
+function nextItem(){SES.i++;if(SES.i>=SES.items.length)endSession();else renderPlay()}
+function gacha(){if(Math.random()>0.34)return null;
+ const pool=CARDS.filter(c=>S.cards.indexOf(c.id)<0);
+ if(!pool.length){addXp(10);return null}
+ const w=[];pool.forEach(c=>{const n=c.r===3?1:(c.r===2?3:5);for(let i=0;i<n;i++)w.push(c)});
+ const c=w[Math.floor(Math.random()*w.length)];S.cards.push(c.id);S.stats.pulls++;beep('lv');
+ burst(window.innerWidth/2,window.innerHeight/2,'#ffb347');return c}
+function endSession(){const drop=gacha();
+ if(SES.kind==='daily'&&S.dailyDate!==todayStr()){
+  if(S.dailyDate===yStr()||!S.dailyDate)S.streak=S.streak+1;else S.streak=1;
+  S.dailyDate=todayStr();S.dailyCount++;addXp(15)}
+ const el=document.getElementById('view');
+ let out='<div class="card"><h1>本轮完成</h1><p>正确 '+SES.right+' / '+SES.items.length+' · 当前 '+S.xp+' XP · 连击 '+S.streak+' 天</p>';
+ if(drop)out+='<div class="cardx r'+drop.r+'"><div class="ty">掉落：'+(drop.type==='paper'?'经典论文卡':drop.type==='quote'?'大师语录卡':'反直觉冷知识卡')+'</div><b>'+esc(drop.title)+'</b><p>'+esc(drop.body)+'</p></div>';
+ else out+='<p><small>本轮未掉卡。掉落是变动比率的——这本身就是强化程式的例子。</small></p>';
+ out+='<p><button class="b" onclick="go(\'home\')">回首页</button>'+
+  '<button class="b g" onclick="startSession(\''+SES.kind+'\''+(SES.ch?','+SES.ch:'')+')">再来一组</button>'+
+  '<button class="b g" onclick="go(\'radar\')">看偏差雷达</button></p></div>';
+ el.innerHTML=out;SES=null;VIEW='result';checkAch();save();renderHeader()}
+
+/* Boss 战 */
+let BS=null,BT=null;
+function openBoss(ch){const b=BOSSES.find(x=>x.ch===ch);BS={b:b,i:0,score:0,left:b.sec,log:[]};VIEW='boss';
+ document.getElementById('view').innerHTML='<div class="card"><h1>Boss 战：'+esc(b.title)+'</h1><p>'+esc(b.intro)+'</p>'+
+  '<p><small>'+b.rounds.length+' 回合 · 限时 '+b.sec+' 秒 · 及格率 55% 解锁下一大陆</small></p>'+
+  '<p><button class="b" onclick="bossStart()">开始</button><button class="b g" onclick="openChap('+ch+')">还没准备好</button></p></div>';
+ renderHeader()}
+function bossStart(){clearInterval(BT);BT=setInterval(()=>{BS.left--;const t=document.getElementById('bt');
+ if(t)t.textContent=BS.left+'s';if(BS.left<=0){clearInterval(BT);bossEnd(true)}},1000);bossRound()}
+function bossRound(){const r=BS.b.rounds[BS.i];if(!r){bossEnd(false);return}
+ document.getElementById('view').innerHTML='<div class="card"><p><small>回合 '+(BS.i+1)+' / '+BS.b.rounds.length+' · 剩余 <span class="timer" id="bt">'+BS.left+'s</span> · 当前得分 '+BS.score+'</small></p>'+
+  '<p>'+esc(r.stem)+'</p>'+r.opts.map((o,i)=>'<button class="opt" id="o'+i+'" onclick="bossPick('+i+',event)">'+esc(o.t)+'</button>').join('')+'</div>';
+ window.scrollTo(0,0)}
+function bossPick(i,ev){const r=BS.b.rounds[BS.i],o=r.opts[i];const best=Math.max.apply(null,r.opts.map(x=>x.d));
+ BS.score+=o.d;BS.log.push({q:r.stem,a:o.t,d:o.d,why:o.why});
+ const good=o.d>=best;beep(good?'ok':'bad');
+ const b=document.getElementById('o'+i);if(b)b.classList.add(good?'right':'wrong');
+ r.opts.forEach((x,k)=>{const bb=document.getElementById('o'+k);if(bb)bb.setAttribute('onclick','')});
+ if(good&&ev)burst(ev.clientX,ev.clientY,'#3ddc97');
+ if(o.tag==='sunk')S.stats.sunk=1;
+ document.getElementById('view').insertAdjacentHTML('beforeend','<div class="card rev"><p><b>点评：</b>'+esc(o.why)+'</p><p>本回合得分 '+o.d+' / '+best+'</p><p><button class="b" onclick="bossNext()">继续</button></p></div>')}
+function bossNext(){BS.i++;if(BS.i>=BS.b.rounds.length)bossEnd(false);else bossRound()}
+function bossEnd(timeout){clearInterval(BT);
+ const max=BS.b.rounds.reduce((a,r)=>a+Math.max.apply(null,r.opts.map(x=>x.d)),0);
+ let pct=Math.max(0,BS.score)/max;if(!timeout&&BS.left>0)pct+=0.03;
+ let grade=pct>=0.9?'S':pct>=0.75?'A':pct>=0.55?'B':'C';
+ if(timeout&&grade==='S')grade='A';
+ const pass=pct>=0.55&&!timeout?true:(pct>=0.55);
+ const prev=S.boss[BS.b.ch];
+ if(!prev||['C','B','A','S'].indexOf(grade)>['C','B','A','S'].indexOf(prev.grade))S.boss[BS.b.ch]={grade:grade,pass:pass||(prev&&prev.pass)};
+ else if(pass)S.boss[BS.b.ch].pass=true;
+ addXp(Math.max(10,Math.round(BS.score)));
+ let out='<div class="card"><h1>结算：'+grade+' 级</h1><p>'+(timeout?'时间到。':'')+'得分 '+BS.score+' / '+max+'（'+Math.round(pct*100)+'%）· '+(S.boss[BS.b.ch].pass?'已及格，下一大陆已解锁':'未及格，可重打')+'</p>';
+ out+=BS.log.map(l=>'<div class="rev"><p><small>'+esc(l.q)+'</small></p><p>你选：'+esc(l.a)+'（'+l.d+' 分）</p><p><b>点评：</b>'+esc(l.why)+'</p></div>').join('');
+ out+='<p><button class="b" onclick="go(\'home\')">回首页</button><button class="b g" onclick="openBoss('+BS.b.ch+')">重打</button></p></div>';
+ document.getElementById('view').innerHTML=out;VIEW='result';checkAch();save();renderHeader()}
+
+/* 雷达图 */
+function vRadar(){let out='<h1>偏差雷达</h1><div class="card"><canvas id="rd" width="640" height="460"></canvas>'+
+ '<small>外环为 100%。某维度越向外，代表你在该类情境中错选的比例越高。样本不足 3 题的维度计为 0。</small></div>';
+ out+='<div class="card">'+DIMS.map(d=>{const r=dimRate(S,d.k),c=(S.dims[d.k]||{h:0,m:0});
+  return '<div class="dimbar"><span class="nm">'+d.n+'</span><span class="tr"><i style="width:'+Math.round(r*100)+'%"></i></span><span>'+Math.round(r*100)+'% ('+(c.h+c.m)+'题)</span></div>'}).join('')+'</div>';
+ return out}
+function drawRadar(){const cv=document.getElementById('rd');if(!cv)return;const x=cv.getContext('2d');
+ const w=cv.width,h=cv.height,cx=w/2,cy=h/2+6,R=Math.min(w,h)/2-56,n=DIMS.length;
+ x.clearRect(0,0,w,h);
+ for(let g=1;g<=4;g++){x.beginPath();for(let i=0;i<n;i++){const a=-Math.PI/2+i*2*Math.PI/n,r=R*g/4;
+  const px=cx+Math.cos(a)*r,py=cy+Math.sin(a)*r;i?x.lineTo(px,py):x.moveTo(px,py)}x.closePath();
+  x.strokeStyle='rgba(147,162,184,.25)';x.stroke()}
+ x.strokeStyle='rgba(147,162,184,.2)';
+ for(let i=0;i<n;i++){const a=-Math.PI/2+i*2*Math.PI/n;x.beginPath();x.moveTo(cx,cy);x.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);x.stroke()}
+ x.beginPath();
+ for(let i=0;i<n;i++){const a=-Math.PI/2+i*2*Math.PI/n,r=R*Math.min(1,Math.max(0.03,dimRate(S,DIMS[i].k)));
+  const px=cx+Math.cos(a)*r,py=cy+Math.sin(a)*r;i?x.lineTo(px,py):x.moveTo(px,py)}
+ x.closePath();x.fillStyle='rgba(255,93,115,.28)';x.fill();x.strokeStyle='#ff5d73';x.lineWidth=2;x.stroke();
+ x.fillStyle='#93a2b8';x.font='12px sans-serif';x.textAlign='center';
+ for(let i=0;i<n;i++){const a=-Math.PI/2+i*2*Math.PI/n;
+  x.fillText(DIMS[i].n,cx+Math.cos(a)*(R+26),cy+Math.sin(a)*(R+26)+4)}}
+
+/* 图鉴 / 错题本 / 成就 / 存档 */
+function vCards(){let out='<h1>图鉴 '+S.cards.length+' / '+CARDS.length+'</h1><div class="grid">';
+ CARDS.forEach(c=>{const got=S.cards.indexOf(c.id)>=0;
+  out+='<div class="cardx r'+c.r+(got?'':' locked')+'"><div class="ty">'+(c.type==='paper'?'经典论文卡':c.type==='quote'?'大师语录卡':'反直觉冷知识卡')+' · '+'★'.repeat(c.r)+'</div>'+
+   '<b>'+(got?esc(c.title):'未解锁')+'</b><p>'+(got?esc(c.body):'完成训练后有机会掉落。')+'</p></div>'});
+ return out+'</div>'}
+function vMistakes(){if(!S.mistakes.length)return '<h1>错题本</h1><div class="card">目前为空。错得越早，记得越牢。</div>';
+ let out='<h1>错题本（'+S.mistakes.length+'）</h1>';
+ S.mistakes.slice(0,60).forEach((m,idx)=>{const s=SCENARIOS.find(x=>x.id===m.id),k=kpById(m.kp);
+  out+='<div class="card"><p><small>'+new Date(m.ts).toLocaleString()+' · '+(k?esc(k.name):'')+'</small></p>'+
+   (s?'<p>'+esc(s.stem)+'</p>':'<p>回忆练习：'+(k?esc(k.exp):'')+'</p>')+
+   '<p>当时的选择：<b>'+esc(m.chose)+'</b></p>'+
+   '<p><button class="b g" onclick="reviewMistake('+idx+')">看正确推理链</button></p><div id="mr'+idx+'"></div></div>'});
+ return out}
+function reviewMistake(idx){const m=S.mistakes[idx];const s=SCENARIOS.find(x=>x.id===m.id),k=kpById(m.kp);
+ const box=document.getElementById('mr'+idx);if(!box)return;
+ box.innerHTML='<div class="rev">'+(s?'<p><b>结论：</b>'+esc(s.rev.c)+'</p><p><b>类比：</b>'+esc(s.rev.a)+'</p><p><b>机制：</b>'+esc(s.rev.m)+'</p><p><b>应用：</b>'+esc(s.rev.u)+'</p>':'')+
+  (k?'<p><b>'+esc(k.name)+'：</b>'+esc(k.ess)+'</p><p><b>自查：</b>'+esc(k.ask)+'</p>':'')+'</div>';
+ S.stats.mrev++;addXp(3);checkAch();save();renderHeader()}
+function vAch(){const got=S.ach.length;
+ return '<h1>成就 '+got+' / '+ACHIEVEMENTS.length+'</h1><div class="grid">'+ACHIEVEMENTS.map(a=>{const g=S.ach.indexOf(a.id)>=0;
+  const hide=a.hidden&&!g;
+  return '<div class="badge '+(g?'':'off')+'"><span class="ic">'+(g?a.ic:'🔒')+'</span><span><b>'+(hide?'隐藏成就':esc(a.name))+'</b><br><small>'+(hide?'满足特定行为后自动解锁':esc(a.desc))+'</small></span></div>'}).join('')+'</div>'}
+function vData(){return '<h1>存档与设置</h1><div class="card"><p>进度自动保存在本机 localStorage。换设备时用下面的 JSON 导出与导入。</p>'+
+ '<p><button class="b" onclick="expJson()">导出到文本框</button><button class="b g" onclick="dlJson()">下载存档文件</button>'+
+ '<button class="b g" onclick="impJson()">从文本框导入</button><button class="b g" onclick="toggleSound()">音效：'+(S.sound?'开':'关')+'</button>'+
+ '<button class="b g" onclick="resetAll()">清空重置</button></p>'+
+ '<textarea id="ta" placeholder="在此粘贴存档 JSON 后点击导入"></textarea>'+
+ '<p><small>统计：答题 '+S.stats.ans+' · 正确 '+S.stats.right+' · 情境 '+S.stats.scen+' · 复习 '+S.stats.rev+' · 不确定 '+S.stats.unsure+' · 已入库知识点 '+Object.keys(S.srs).length+'</small></p></div>'}
+function expJson(){const ta=document.getElementById('ta');ta.value=JSON.stringify(S);toast('已导出，可全选复制')}
+function dlJson(){const b=new Blob([JSON.stringify(S)],{type:'application/json'});const u=URL.createObjectURL(b);
+ const a=document.createElement('a');a.href=u;a.download='behavioral-finance-save.json';a.click();URL.revokeObjectURL(u)}
+function impJson(){const ta=document.getElementById('ta');try{const o=JSON.parse(ta.value);
+ const d=defState();S=Object.assign(d,o);S.dims=Object.assign(defState().dims,o.dims||{});S.stats=Object.assign(defState().stats,o.stats||{});
+ save();toast('导入成功');render()}catch(e){toast('JSON 无法解析')}}
+function toggleSound(){S.sound=!S.sound;save();render()}
+function resetAll(){if(confirm('确定清空全部进度？建议先导出存档。')){S=defState();save();render()}}
+
+/* 启动 */
+load();
+if(S.dailyDate&&S.dailyDate!==todayStr()&&S.dailyDate!==yStr()&&S.graceDate!==todayStr()&&S.streak<3)S.streak=0;
+checkAch();render();
+window.go=go;window.openChap=openChap;window.studyKp=studyKp;window.startSession=startSession;
+window.ansScen=ansScen;window.ansRecall=ansRecall;window.ansUnsure=ansUnsure;window.nextItem=nextItem;
+window.openBoss=openBoss;window.bossStart=bossStart;window.bossPick=bossPick;window.bossNext=bossNext;
+window.reviewMistake=reviewMistake;window.expJson=expJson;window.impJson=impJson;window.dlJson=dlJson;
+window.toggleSound=toggleSound;window.resetAll=resetAll;window.useGrace=useGrace;window.toast=toast;
+</script>
+</body>
+</html>

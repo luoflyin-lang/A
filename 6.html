@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>CFO 崛起之路 · 从奶茶摊到上市集团</title>
+<style>
+:root{
+  --bg:#080b14; --bg2:#0e1424; --card:#131b2e; --card2:#1a2340;
+  --line:#243049; --txt:#e8eefc; --dim:#8b9bbd;
+  --cy:#22d3ee; --pk:#f472b6; --am:#fbbf24; --gn:#34d399; --rd:#fb7185; --pu:#a78bfa;
+  --r:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 600px at 15% -10%,#12203a 0%,transparent 60%),
+             radial-gradient(900px 500px at 90% 0%,#2a1030 0%,transparent 55%),var(--bg);
+  color:var(--txt);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  min-height:100vh;overflow-x:hidden
+}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+#fx{position:fixed;inset:0;pointer-events:none;z-index:9999}
+
+/* ---------- layout ---------- */
+.app{display:flex;min-height:100vh}
+.side{width:214px;flex:0 0 214px;padding:18px 12px;border-right:1px solid var(--line);
+  background:rgba(10,14,24,.72);backdrop-filter:blur(10px);position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{font-size:17px;font-weight:800;letter-spacing:.5px;margin:0 6px 4px;
+  background:linear-gradient(90deg,var(--cy),var(--pk));-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo small{display:block;font-size:11px;font-weight:500;color:var(--dim);letter-spacing:0;
+  -webkit-text-fill-color:var(--dim)}
+.nav{margin-top:16px;display:flex;flex-direction:column;gap:4px}
+.nav button{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:11px;
+  font-size:14px;color:var(--dim);transition:.18s;width:100%;text-align:left}
+.nav button:hover{background:var(--card);color:var(--txt)}
+.nav button.on{background:linear-gradient(90deg,rgba(34,211,238,.16),rgba(244,114,182,.1));
+  color:#fff;box-shadow:inset 0 0 0 1px rgba(34,211,238,.3)}
+.nav .bdg{margin-left:auto;font-size:11px;background:var(--rd);color:#fff;border-radius:9px;padding:0 6px;font-weight:700}
+.main{flex:1;min-width:0;padding:20px 26px 90px;max-width:1080px;margin:0 auto}
+
+/* ---------- dashboard ---------- */
+.dash{background:linear-gradient(135deg,rgba(19,27,46,.95),rgba(26,35,64,.85));
+  border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:18px;position:relative;overflow:hidden}
+.dash:before{content:"";position:absolute;inset:-40% -10% auto auto;width:280px;height:280px;
+  background:radial-gradient(circle,rgba(34,211,238,.16),transparent 70%);pointer-events:none}
+.dtop{display:flex;flex-wrap:wrap;gap:14px;align-items:center;position:relative}
+.stage-ico{font-size:34px;filter:drop-shadow(0 0 10px rgba(34,211,238,.5))}
+.dname{font-size:17px;font-weight:800}
+.dsub{font-size:12px;color:var(--dim)}
+.kpis{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.kpi{background:rgba(8,11,20,.6);border:1px solid var(--line);border-radius:11px;padding:6px 11px;min-width:78px}
+.kpi b{display:block;font-size:15px;color:var(--cy)}
+.kpi span{font-size:10.5px;color:var(--dim)}
+.xpwrap{margin-top:13px;position:relative}
+.xprow{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:5px}
+.xprow b{color:var(--am)}
+.bar{height:11px;border-radius:99px;background:#0a0f1c;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+.bar i{display:block;height:100%;border-radius:99px;width:0;
+  background:linear-gradient(90deg,var(--cy),var(--pu),var(--pk));
+  transition:width .9s cubic-bezier(.22,1,.36,1);box-shadow:0 0 14px rgba(167,139,250,.7)}
+.hearts{font-size:16px;letter-spacing:2px}
+.spark{width:100%;height:44px;display:block;margin-top:10px;opacity:.95}
+
+/* ---------- cards ---------- */
+.h2{font-size:19px;font-weight:800;margin:22px 0 10px;display:flex;align-items:center;gap:8px}
+.h2 .tag{font-size:11px;font-weight:600;color:var(--dim);background:var(--card);border:1px solid var(--line);
+  padding:2px 8px;border-radius:99px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(232px,1fr))}
+.chapcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px;transition:.2s}
+.chapcard:hover{transform:translateY(-2px);border-color:rgba(34,211,238,.4)}
+.chapcard.lock{opacity:.45}
+.chapcard h3{margin:6px 0 4px;font-size:15.5px}
+.chapcard p{margin:0;font-size:12.5px;color:var(--dim)}
+.pillrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.pill{font-size:12px;padding:6px 9px;border-radius:9px;background:var(--card2);border:1px solid var(--line);
+  display:flex;align-items:center;gap:5px;transition:.15s}
+.pill:hover{border-color:var(--cy)}
+.pill.done{background:rgba(52,211,153,.14);border-color:rgba(52,211,153,.45);color:#a7f3d0}
+.pill.boss{background:rgba(251,113,133,.13);border-color:rgba(251,113,133,.4)}
+.pill.lockp{opacity:.4;cursor:not-allowed}
+
+/* ---------- level stage ---------- */
+.stagebox{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;position:relative}
+.lvhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.lvhead h2{margin:0;font-size:19px}
+.chip{font-size:11px;padding:3px 9px;border-radius:99px;background:var(--card2);border:1px solid var(--line);color:var(--dim)}
+.chip.cy{color:var(--cy);border-color:rgba(34,211,238,.4)}
+.chip.pk{color:var(--pk);border-color:rgba(244,114,182,.4)}
+.chip.rd{color:var(--rd);border-color:rgba(251,113,133,.5)}
+.teach{margin:14px 0}
+.tblock{border-left:3px solid var(--cy);background:rgba(34,211,238,.06);padding:11px 14px;border-radius:0 12px 12px 0;margin-bottom:10px}
+.tblock.f{border-color:var(--pu);background:rgba(167,139,250,.07)}
+.tblock.e{border-color:var(--am);background:rgba(251,191,36,.07)}
+.tblock h4{margin:0 0 5px;font-size:13px;letter-spacing:.5px}
+.tblock p{margin:0;font-size:14px;color:#d5deef}
+.q{font-size:16px;font-weight:700;margin:16px 0 12px;line-height:1.6}
+.qmeta{font-size:12px;color:var(--dim);margin-bottom:4px}
+.opts{display:flex;flex-direction:column;gap:9px}
+.opt{text-align:left;padding:12px 14px;border-radius:12px;background:var(--card2);
+  border:1px solid var(--line);transition:.16s;font-size:14.5px;display:flex;gap:10px;align-items:flex-start}
+.opt:hover:not(:disabled){border-color:var(--cy);transform:translateX(3px)}
+.opt .k{flex:0 0 22px;height:22px;border-radius:7px;background:#0a0f1c;display:grid;place-items:center;
+  font-size:12px;font-weight:800;color:var(--dim)}
+.opt.ok{background:rgba(52,211,153,.17);border-color:var(--gn);animation:pop .35s}
+.opt.ok .k{background:var(--gn);color:#05261a}
+.opt.no{background:rgba(251,113,133,.15);border-color:var(--rd);animation:shake .35s}
+.opt.no .k{background:var(--rd);color:#3b0a14}
+.opt:disabled{cursor:default}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.03)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.exp{margin-top:14px;border-radius:12px;padding:13px 15px;font-size:14px;animation:fade .3s}
+.exp.good{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.35)}
+.exp.bad{background:rgba(251,191,36,.09);border:1px solid rgba(251,191,36,.35)}
+.exp b{display:block;margin-bottom:4px}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+.btn{padding:11px 20px;border-radius:12px;font-weight:700;font-size:14.5px;transition:.18s}
+.btn.p{background:linear-gradient(90deg,var(--cy),var(--pu));color:#04121c;box-shadow:0 6px 20px rgba(34,211,238,.28)}
+.btn.p:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn.g{background:var(--card2);border:1px solid var(--line);color:var(--dim)}
+.btn.g:hover{color:var(--txt);border-color:var(--cy)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.pbar{height:5px;border-radius:99px;background:#0a0f1c;overflow:hidden;margin:8px 0 4px}
+.pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--cy),var(--pk));transition:.4s}
+
+/* combo + timer */
+#combo{position:fixed;top:14%;left:50%;transform:translateX(-50%) scale(.5);opacity:0;
+  font-size:38px;font-weight:900;pointer-events:none;z-index:9998;
+  background:linear-gradient(90deg,var(--am),var(--pk));-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 30px rgba(251,191,36,.5)}
+#combo.show{animation:cb .95s ease-out}
+@keyframes cb{0%{opacity:0;transform:translateX(-50%) scale(.4)}20%{opacity:1;transform:translateX(-50%) scale(1.22)}
+  70%{opacity:1;transform:translateX(-50%) scale(1)}100%{opacity:0;transform:translateX(-50%) scale(1.1) translateY(-30px)}}
+.timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px;color:var(--am)}
+.timer.warn{color:var(--rd);animation:blink .6s infinite}
+@keyframes blink{50%{opacity:.35}}
+
+/* drag */
+.dragpool{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border:1px dashed var(--line);border-radius:12px;min-height:56px;margin-bottom:14px}
+.token{padding:8px 12px;border-radius:10px;background:linear-gradient(135deg,#1d2947,#16203a);
+  border:1px solid var(--line);font-size:13.5px;cursor:grab;transition:.15s;user-select:none}
+.token:hover{border-color:var(--cy);transform:translateY(-2px)}
+.token.sel{border-color:var(--am);box-shadow:0 0 0 2px rgba(251,191,36,.35)}
+.token.ok{border-color:var(--gn);background:rgba(52,211,153,.16)}
+.token.no{border-color:var(--rd);background:rgba(251,113,133,.16)}
+.buckets{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.bucket{border:1.5px dashed var(--line);border-radius:12px;padding:10px;min-height:104px;transition:.18s;background:rgba(8,11,20,.35)}
+.bucket.over{border-color:var(--cy);background:rgba(34,211,238,.09)}
+.bucket h5{margin:0 0 8px;font-size:12.5px;color:var(--cy);letter-spacing:.5px}
+.bucket .in{display:flex;flex-wrap:wrap;gap:6px}
+
+/* journal */
+.jbox{background:rgba(8,11,20,.45);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+.jgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.jcol h5{margin:0 0 7px;font-size:12.5px;letter-spacing:1px}
+.jcol.d h5{color:var(--cy)}.jcol.c h5{color:var(--pk)}
+select,input[type=number],input[type=text]{width:100%;padding:9px 11px;border-radius:10px;background:#0a0f1c;
+  color:var(--txt);border:1px solid var(--line);font:inherit;font-size:14px}
+select:focus,input:focus{outline:none;border-color:var(--cy)}
+.balcheck{margin-top:12px;padding:9px 12px;border-radius:10px;font-size:13.5px;font-weight:700;text-align:center}
+.balcheck.y{background:rgba(52,211,153,.14);color:#a7f3d0}
+.balcheck.n{background:rgba(251,113,133,.14);color:#fecdd3}
+.tledger{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.tledger th,.tledger td{border:1px solid var(--line);padding:7px 9px;text-align:left}
+.tledger th{background:var(--card2);color:var(--dim);font-size:12px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* sandbox */
+.sbgrid{display:grid;gap:14px;grid-template-columns:280px 1fr}
+.slider{margin-bottom:13px}
+.slider label{display:flex;justify-content:space-between;font-size:12.5px;color:var(--dim);margin-bottom:5px}
+.slider label b{color:var(--am);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;-webkit-appearance:none;height:5px;border-radius:99px;background:#0a0f1c;border:1px solid var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+  background:linear-gradient(135deg,var(--cy),var(--pu));cursor:pointer;box-shadow:0 0 10px rgba(34,211,238,.6)}
+input[type=range]::-moz-range-thumb{width:17px;height:17px;border:none;border-radius:50%;background:var(--cy);cursor:pointer}
+.tri{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.st{background:rgba(8,11,20,.5);border:1px solid var(--line);border-radius:12px;padding:12px}
+.st h5{margin:0 0 8px;font-size:12.5px;letter-spacing:.5px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.st .ln{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:#c9d5ea}
+.st .ln.tot{border-top:1px solid var(--line);margin-top:5px;padding-top:6px;font-weight:800;color:#fff}
+.st .ln.hl{color:var(--am)}
+.st .ln b{font-variant-numeric:tabular-nums}
+.up{color:var(--gn)}.dn{color:var(--rd)}
+
+/* detective */
+.repbox{background:rgba(8,11,20,.5);border:1px solid var(--line);border-radius:12px;padding:12px;overflow-x:auto}
+.clues{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.clue{text-align:left;padding:10px 13px;border-radius:11px;background:var(--card2);border:1px solid var(--line);
+  font-size:14px;display:flex;gap:9px;align-items:flex-start;transition:.15s}
+.clue:hover:not(:disabled){border-color:var(--am)}
+.clue .bx{flex:0 0 18px;height:18px;border-radius:5px;border:1.5px solid var(--dim);display:grid;place-items:center;font-size:12px;margin-top:2px}
+.clue.pick .bx{background:var(--am);border-color:var(--am);color:#241700}
+.clue.tp{background:rgba(52,211,153,.14);border-color:var(--gn)}
+.clue.fp{background:rgba(251,113,133,.14);border-color:var(--rd)}
+.clue.fn{background:rgba(251,191,36,.12);border-color:var(--am)}
+.clue small{display:block;color:var(--dim);font-size:12.5px;margin-top:3px}
+
+/* ---------- VIZ ---------- */
+.viz{background:rgba(8,11,20,.5);border:1px solid var(--line);border-radius:12px;padding:16px;margin:14px 0}
+.viz .vt{font-size:12px;color:var(--dim);letter-spacing:1px;margin-bottom:12px;text-align:center}
+.hands{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.hand{flex:1 1 190px;max-width:280px;border-radius:14px;padding:13px;border:1px solid var(--line)}
+.hand.l{background:linear-gradient(160deg,rgba(34,211,238,.14),transparent)}
+.hand.r{background:linear-gradient(160deg,rgba(244,114,182,.14),transparent)}
+.hand .hi{font-size:30px;text-align:center}
+.hand h5{margin:4px 0 8px;text-align:center;font-size:15px}
+.hand.l h5{color:var(--cy)}.hand.r h5{color:var(--pk)}
+.hand ul{margin:0;padding-left:17px;font-size:12.8px;color:#c9d5ea}
+.arrowmid{display:grid;place-items:center;font-size:22px;color:var(--dim)}
+.tl{position:relative;padding:24px 0 8px}
+.tl:before{content:"";position:absolute;left:0;right:0;top:34px;height:2px;background:var(--line)}
+.tlrow{display:flex;justify-content:space-between;position:relative}
+.tlpt{flex:1;text-align:center;position:relative;padding-top:44px}
+.tlpt:before{content:"";position:absolute;top:28px;left:50%;transform:translateX(-50%);
+  width:13px;height:13px;border-radius:50%;background:var(--bg);border:2px solid var(--cy)}
+.tlpt.hot:before{background:var(--am);border-color:var(--am);box-shadow:0 0 12px var(--am)}
+.tlpt .t{position:absolute;top:0;left:0;right:0;font-size:11.5px;color:var(--dim)}
+.tlpt .d{font-size:12.5px;padding:0 4px}
+.scale{margin:0 auto;max-width:440px}
+.beam{height:8px;border-radius:99px;background:linear-gradient(90deg,var(--cy),var(--pk));
+  transform-origin:center;transition:.6s;position:relative}
+.beam:after{content:"";position:absolute;left:50%;top:8px;transform:translateX(-50%);
+  width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-top:22px solid var(--line)}
+.pans{display:flex;justify-content:space-between;margin-top:34px;gap:14px}
+.pan{flex:1;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;background:rgba(19,27,46,.7)}
+.pan b{display:block;font-size:17px}
+.pan.a b{color:var(--cy)}.pan.b b{color:var(--pk)}
+.pan span{font-size:11.5px;color:var(--dim)}
+.wf{display:flex;align-items:flex-end;gap:5px;height:180px;padding-top:10px}
+.wfb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;position:relative}
+.wfb i{display:block;width:100%;border-radius:5px 5px 0 0;transition:.6s}
+.wfb .lb{font-size:10.5px;color:var(--dim);margin-top:6px;text-align:center;line-height:1.25}
+.wfb .vl{font-size:11px;font-weight:700;margin-bottom:3px}
+.bridge{display:flex;align-items:flex-end;gap:4px;height:170px}
+.brb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.brb i{width:100%;border-radius:4px;transition:.6s}
+.brb .lb{font-size:10px;color:var(--dim);margin-top:5px;text-align:center;line-height:1.2}
+.linkmap{display:grid;gap:10px;grid-template-columns:repeat(3,1fr);position:relative}
+.lnode{border:1px solid var(--line);border-radius:12px;padding:11px;background:rgba(19,27,46,.8);font-size:12.5px}
+.lnode h5{margin:0 0 6px;font-size:13px}
+.lnode.a h5{color:var(--cy)}.lnode.b h5{color:var(--am)}.lnode.c h5{color:var(--gn)}
+.lnode .ar{color:var(--pk);font-weight:700}
+.gears{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.gear{flex:1 1 130px;max-width:190px;text-align:center;border:1px solid var(--line);border-radius:14px;padding:13px;
+  background:conic-gradient(from 0deg,rgba(34,211,238,.12),rgba(244,114,182,.12),rgba(251,191,36,.12),rgba(34,211,238,.12))}
+.gear .gi{font-size:26px;animation:spin 9s linear infinite}
+.gear:nth-child(2) .gi{animation-direction:reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gear b{display:block;font-size:14px;margin:5px 0 3px}
+.gear span{font-size:11.5px;color:var(--dim)}
+.deq{text-align:center;font-size:13px;color:var(--am);margin-top:12px;font-weight:700}
+
+/* misc pages */
+.badgewall{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.bd{border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;background:var(--card);transition:.2s}
+.bd.got{border-color:var(--am);background:linear-gradient(160deg,rgba(251,191,36,.14),var(--card));
+  box-shadow:0 0 18px rgba(251,191,36,.14)}
+.bd .i{font-size:26px;filter:grayscale(1) opacity(.35)}
+.bd.got .i{filter:none}
+.bd b{display:block;font-size:12.8px;margin:5px 0 2px}
+.bd span{font-size:11px;color:var(--dim)}
+.lb-row{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:11px;background:var(--card);
+  border:1px solid var(--line);margin-bottom:7px}
+.lb-row.me{border-color:var(--cy);background:linear-gradient(90deg,rgba(34,211,238,.13),var(--card))}
+.lb-row .rk{width:26px;text-align:center;font-weight:800;color:var(--dim)}
+.lb-row .nm{flex:1;font-size:14px}
+.lb-row .xp{font-variant-numeric:tabular-nums;color:var(--am);font-weight:700;font-size:13.5px}
+.flames{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.fl{width:36px;height:44px;border-radius:10px;background:var(--card2);border:1px solid var(--line);
+  display:grid;place-items:center;font-size:19px;filter:grayscale(1) opacity(.35)}
+.fl.on{filter:none;border-color:var(--am);background:rgba(251,191,36,.14);animation:fl 1.6s ease-in-out infinite}
+@keyframes fl{50%{transform:translateY(-3px) scale(1.06)}}
+.kmap{display:flex;flex-direction:column;gap:9px}
+.kmrow{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:11px 13px}
+.kmrow .ic{font-size:20px}
+.kmrow .bd2{flex:1}
+.kmrow h4{margin:0 0 6px;font-size:14px}
+.kmtags{display:flex;flex-wrap:wrap;gap:5px}
+.kt{font-size:11.5px;padding:3px 8px;border-radius:99px;border:1px solid var(--line);color:var(--dim)}
+.kt.on{background:rgba(52,211,153,.15);border-color:rgba(52,211,153,.45);color:#a7f3d0}
+.empty{text-align:center;padding:40px 20px;color:var(--dim)}
+.empty .e{font-size:40px;display:block;margin-bottom:8px}
+
+/* chest */
+.modal{position:fixed;inset:0;background:rgba(4,6,12,.82);backdrop-filter:blur(6px);z-index:9990;
+  display:grid;place-items:center;padding:20px;animation:fade .25s}
+.mcard{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);
+  border-radius:20px;padding:26px;max-width:400px;width:100%;text-align:center;position:relative}
+.mcard .big{font-size:56px;animation:bob 1.5s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-8px) rotate(4deg)}}
+.mcard h3{margin:8px 0 4px;font-size:20px}
+.mcard p{color:var(--dim);font-size:14px;margin:0 0 16px}
+.reward{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);border-radius:12px;
+  padding:12px;margin-bottom:16px;font-size:15px;font-weight:700;color:var(--am)}
+.mobile-nav{display:none}
+
+@media(max-width:860px){
+  .app{flex-direction:column}
+  .side{display:none}
+  .main{padding:14px 14px 96px;max-width:100%}
+  .sbgrid{grid-template-columns:1fr}
+  .jgrid{grid-template-columns:1fr}
+  .linkmap{grid-template-columns:1fr}
+  .kpis{margin-left:0;width:100%}
+  .mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:900;
+    background:rgba(10,14,24,.94);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:6px 4px}
+  .mobile-nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+    padding:7px 2px;font-size:10px;color:var(--dim);border-radius:10px}
+  .mobile-nav button .mi{font-size:18px}
+  .mobile-nav button.on{color:var(--cy);background:rgba(34,211,238,.1)}
+  #combo{font-size:28px}
+}
+</style>
+</head>
+<body>
+<canvas id="fx"></canvas>
+<div id="combo"></div>
+
+<div class="app">
+  <aside class="side">
+    <div class="logo">CFO 崛起之路<small>从奶茶摊到上市集团</small></div>
+    <nav class="nav" id="nav"></nav>
+    <div style="margin-top:18px;padding:0 6px">
+      <button class="btn g" style="width:100%;font-size:12.5px;padding:8px" onclick="exportSave()">📤 导出存档</button>
+      <button class="btn g" style="width:100%;font-size:12.5px;padding:8px;margin-top:6px" onclick="importSave()">📥 导入存档</button>
+      <button class="btn g" style="width:100%;font-size:12.5px;padding:8px;margin-top:6px" onclick="resetSave()">♻️ 重置进度</button>
+    </div>
+  </aside>
+  <main class="main">
+    <div id="dash"></div>
+    <div id="view"></div>
+  </main>
+</div>
+<nav class="mobile-nav" id="mnav"></nav>
+
+<script>
+/* =======================================================================
+   ██  GAME_DATA  ██   —— 全部题库与关卡内容集中在此，可自由扩充
+   ======================================================================= */
+const RANKS=[
+ {xp:0,   n:'记账小白', i:'🐣'},
+ {xp:300, n:'出纳',     i:'💵'},
+ {xp:800, n:'会计',     i:'🧾'},
+ {xp:1800,n:'财务主管', i:'📊'},
+ {xp:3500,n:'财务总监', i:'🎯'},
+ {xp:6000,n:'CFO',      i:'👑'},
+ {xp:9000,n:'财报之神', i:'🌟'}
+];
+
+const STAGES=[
+ {i:'🛒',n:'珍珠星球 · 街边推车',s:1,   a:'5 万',   p:0},
+ {i:'🏪',n:'珍珠星球 · 社区小店',s:3,   a:'80 万',  p:0},
+ {i:'🏬',n:'珍珠星球 · 连锁品牌',s:30,  a:'1200 万',p:0},
+ {i:'🏭',n:'珍珠星球 · 区域集团',s:200, a:'3 亿',   p:0},
+ {i:'🏙️',n:'珍珠星球 · 全国龙头',s:900, a:'25 亿',  p:0},
+ {i:'📈',n:'珍珠星球集团 · 已上市',s:1600,a:'80 亿', p:68.4},
+ {i:'🏆',n:'珍珠星球集团 · 行业霸主',s:2400,a:'150 亿',p:142.6}
+];
+
+const BADGES=[
+ {id:'first', i:'🐣',n:'初次记账',d:'通过第一关'},
+ {id:'bal',   i:'⚖️',n:'平衡大师',d:'记账模拟器全对'},
+ {id:'ch1',   i:'🌱',n:'世界观已成',d:'通关第 1 章'},
+ {id:'ch2',   i:'🏛️',n:'表里如一',d:'通关第 2 章'},
+ {id:'ch3',   i:'💰',n:'利润猎手',d:'通关第 3 章'},
+ {id:'ch4',   i:'💧',n:'现金为王',d:'通关第 4 章'},
+ {id:'ch5',   i:'🔗',n:'三表贯通',d:'通关第 5 章'},
+ {id:'ch6',   i:'🕵️',n:'财报之眼',d:'通关第 6 章'},
+ {id:'cb5',   i:'🔥',n:'五连击',d:'Combo 达到 5'},
+ {id:'cb10',  i:'⚡',n:'十连击',d:'Combo 达到 10'},
+ {id:'cb20',  i:'☄️',n:'廿连击',d:'Combo 达到 20'},
+ {id:'perf',  i:'💎',n:'零失误',d:'某关一次全对'},
+ {id:'perfch',i:'🏅',n:'完美章节',d:'整章零失误'},
+ {id:'st3',   i:'📅',n:'三日不辍',d:'连续登录 3 天'},
+ {id:'st7',   i:'🔥',n:'七日精进',d:'连续登录 7 天'},
+ {id:'st30',  i:'🌋',n:'月度苦修',d:'连续登录 30 天'},
+ {id:'xp1k',  i:'📈',n:'千分达成',d:'累计 1000 XP'},
+ {id:'xp5k',  i:'🚀',n:'五千分',d:'累计 5000 XP'},
+ {id:'rev10', i:'🔄',n:'复习达人',d:'完成 10 道复习题'},
+ {id:'clean', i:'🧹',n:'错题清零',d:'错题本清空且曾有错题'},
+ {id:'sbx',   i:'🧪',n:'沙盒实验家',d:'在沙盒中完成实验'},
+ {id:'det',   i:'🔍',n:'侦探之眼',d:'侦探关满分'},
+ {id:'nohit', i:'🛡️',n:'满血击杀',d:'BOSS 战不掉血'},
+ {id:'box5',  i:'🎁',n:'开箱狂人',d:'开启 5 个宝箱'}
+];
+
+/* ---- 数据结构说明 ----
+ concept   : {type,title,analogy,formal,example,viz?,quiz:[{q,o:[],a,e}]}
+ mcq       : {type,title,intro?,viz?,quiz:[...]}
+ drag      : {type,title,intro,buckets:[],items:[{t,b,e}]}
+ journal   : {type,title,intro,accounts:[],entries:[{biz,amt,d,c,e}]}
+ sandbox   : {type,title}
+ detective : {type,title,cases:[{name,rows:[[..]],clues:[{t,bad,why}]}]}
+ boss      : {type,title,time,quiz:[...]}
+ a = 正确选项下标(0起) ; e = 解析
+------------------------- */
+
+const CHAPTERS=[
+{
+id:'c1',icon:'🌱',title:'会计的底层世界观',desc:'会计到底在记什么？借贷方向一次讲透。',
+levels:[
+{id:'1-1',type:'concept',title:'会计是什么',
+analogy:'你妈问你「这个月钱都花哪去了」——你翻手机账单一笔一笔说，这是<b>记账</b>。但如果她问「你现在到底有多少身家、欠了多少、这个月赚了还是亏了」——你需要的是一份<b>体检报告</b>。会计就是把零散账单，加工成一份能回答「有多少 / 欠多少 / 赚多少 / 钱在不在」的体检报告。',
+formal:'会计是以货币为主要计量单位，对一个主体的经济活动进行<b>确认、计量、记录与报告</b>的信息系统。它最终输出四份东西：资产负债表（家底）、利润表（战绩）、现金流量表（血液）、附注（脚注解释）。',
+example:'苹果公司 2023 财年一句话体检：手里握着约 620 亿美元现金及等价物（家底），全年营收 3833 亿美元、净利润 970 亿美元（战绩），经营活动净现金流 1108 亿美元（血液）。注意最后一个数字<b>比净利润还大</b>——这个反差就是第 4 章要解决的核心问题。',
+quiz:[
+{q:'会计信息最核心的作用是什么？',o:['把钱变多','让不在现场的人也能判断这家公司值不值得投/借/入职','应付税务局检查','记录每一张发票的编号'],a:1,
+e:'会计的本质是「降低信息不对称」。你没进过茅台酒厂，但通过财报能判断它赚不赚钱——这就是会计的价值。变多钱是经营的事，报税只是副产品。'},
+{q:'下列哪一项<b>不属于</b>会计要回答的问题？',o:['公司有多少家底','公司这段时间赚了多少','公司的钱是真进来了还是只是账面数字','公司下个季度股价会涨多少'],a:3,
+e:'会计是「后视镜 + 现状扫描」，它提供的是<b>已发生事实</b>的结构化描述。预测股价是估值与投资分析的工作，需要在财报基础上加上假设，两者不能混为一谈。'},
+{q:'「资产负债表 / 利润表 / 现金流量表」分别像什么？',o:['照片 / 录像 / 录像','录像 / 照片 / 照片','照片 / 照片 / 录像','三者都是照片'],a:0,
+e:'资产负债表是<b>某一时点</b>的快照（12 月 31 日这一刻的家底）；利润表和现金流量表都是<b>一段期间</b>的录像（全年发生了什么）。这个「时点 vs 期间」的区别，是后面理解三表联动的地基。'}
+]},
+{id:'1-2',type:'drag',title:'会计要素六兄弟',
+intro:'会计把世界上所有经济事项，压缩成 6 个筐子。把下面的项目拖（或点选后再点筐）进正确的筐里。判断口诀：<b>能带来未来好处的是资产，要还出去的是负债，剩下归自己的是权益，进来的钱流是收入，被消耗掉的是费用。</b>',
+buckets:['资产','负债','所有者权益','收入','费用'],
+items:[
+{t:'门店里的珍珠和奶粉',b:'资产',e:'存货，能在未来卖出换钱，是典型资产。'},
+{t:'客户还没付的团购款',b:'资产',e:'应收账款——别人欠你的，是你的权利，属于资产。'},
+{t:'银行 3 年期贷款 500 万',b:'负债',e:'要还本付息的现时义务，是负债（非流动负债）。'},
+{t:'预收的会员储值卡余额',b:'负债',e:'钱到手了但服务没提供，你欠客户奶茶，是「合同负债」。这是最容易错的一项。'},
+{t:'股东最初投入的 100 万',b:'所有者权益',e:'实收资本/股本，不用还，属于所有者权益。'},
+{t:'历年累积没分掉的利润',b:'所有者权益',e:'留存收益，属于股东，是权益的重要组成。'},
+{t:'本月卖奶茶收到的钱',b:'收入',e:'主营业务收入，日常经营活动带来的经济利益流入。'},
+{t:'向加盟商收的品牌授权费',b:'收入',e:'也是收入（其他业务收入/特许权收入）。'},
+{t:'店员工资',b:'费用',e:'人工成本，期间被消耗，属费用（计入营业成本或销售费用）。'},
+{t:'门店房租',b:'费用',e:'租金费用，通常计入销售费用或营业成本。'},
+{t:'咖啡机每年的折旧',b:'费用',e:'折旧是「资产被用旧」转化成的费用，不花现金但确实是费用——第 5 章的关键。'},
+{t:'欠供应商的奶粉货款',b:'负债',e:'应付账款，典型的流动负债。'}
+]},
+{id:'1-3',type:'concept',title:'权责发生制 vs 收付实现制',viz:'timeline',
+analogy:'你办了一张 1200 元健身年卡。<b>健身房老板视角</b>：如果按「钱到手就算收入」（收付实现制），他 1 月就赚了 1200，2 月起白干；如果按「服务做了才算收入」（权责发生制），他每月只确认 100 元收入，剩下的先记成「我欠客户 11 个月健身服务」。哪个更能反映真实经营？显然是后者。',
+formal:'<b>权责发生制（应计制）</b>：收入在「已履行义务、经济利益很可能流入」时确认，费用在「相关义务已发生」时确认，与现金收付时点无关。<b>收付实现制</b>：钱进就是收入，钱出就是费用。企业财报（利润表、资产负债表）用权责发生制，只有现金流量表回到收付实现制的视角。',
+example:'星巴克每年有约 17 亿美元的储值卡未使用余额，全部挂在负债里而不是收入里。反之，一家做 To-B 生意的公司 12 月发货、次年 3 月才收钱，收入必须记在<b>12 月</b>，同时挂一笔应收账款——这就是「有利润没现金」的源头。',
+quiz:[
+{q:'12 月 20 日为客户提供了 5 万元咨询服务，合同约定次年 1 月 25 日付款。按权责发生制，5 万元收入应确认在？',o:['12 月','次年 1 月','分两个月各一半','等收到钱再说'],a:0,
+e:'义务已在 12 月履行完毕，收入就属于 12 月。同时借记应收账款 5 万。现金要到 1 月才动，所以 12 月「有收入、有利润、没现金」。'},
+{q:'预收客户一年会员费 12 万（服务尚未提供），当期正确处理是？',o:['确认收入 12 万','确认负债 12 万','确认资产 12 万并计收入','不做账'],a:1,
+e:'钱进了银行，所以「银行存款」资产增加 12 万；但你欠客户一年服务，所以同时确认「合同负债」12 万。收入要随服务逐月释放。把预收当收入是最常见的财务造假手法之一。'},
+{q:'为什么现金流量表要单独用收付实现制？',o:['为了让报表更多一张显得专业','因为权责发生制会让利润「看得见摸不着」，需要一张表回答「钱到底有没有进口袋」','因为准则规定必须不一致','因为现金没法用应计口径'],a:1,
+e:'权责发生制提高了利润的经济含义，代价是引入了大量估计与判断（何时确认、坏账多少、折旧几年）。现金流量表是不带判断的「照妖镜」，这就是「利润是观点，现金是事实」的制度根源。'}
+]},
+{id:'1-4',type:'concept',title:'复式记账：为什么一笔账要写两次',viz:'doubleentry',
+analogy:'你花 30 元买了一杯奶茶。单式记账只会写「-30 元」。但真实世界发生了<b>两件事</b>：钱少了 30，同时你获得了一杯奶茶（虽然马上被喝掉变成费用）。复式记账坚持记下「钱去哪了」和「钱从哪来」两端——就像每一笔转账都必须有转出方和转入方，天生自带对账功能。',
+formal:'复式记账要求每笔交易至少记入两个账户，且<b>借方合计恒等于贷方合计</b>。这保证了会计恒等式「资产 = 负债 + 所有者权益」在任何时刻都成立，并让「试算平衡」成为一种自动错误检测机制。',
+example:'茅台卖一批酒收现 100 万，会同时发生：银行存款 +100 万（资产增加，借方）、主营业务收入 +100 万（收入增加，贷方）；紧接着结转成本：营业成本 +20 万（费用增加，借方）、库存商品 −20 万（资产减少，贷方）。四个数字，两次平衡。',
+quiz:[
+{q:'复式记账最大的实际好处是？',o:['写字更多显得认真','借贷必然相等，天然自带查错机制，并能同时反映资金的来源与去向','可以少交税','可以隐藏亏损'],a:1,
+e:'「有借必有贷、借贷必相等」既是约束也是校验。如果试算不平衡，说明一定有错；同时你既知道钱变成了什么（去向），也知道钱是谁给的（来源）。'},
+{q:'股东追加投资 200 万现金，这笔交易影响哪两个要素？',o:['资产增加 + 负债增加','资产增加 + 所有者权益增加','资产增加 + 收入增加','负债减少 + 权益增加'],a:1,
+e:'银行存款（资产）+200 万，实收资本（所有者权益）+200 万。注意：股东投钱<b>不是收入</b>，收入只来自经营活动。把股东投资或借款当收入，是新手最经典的错误。'},
+{q:'「资产 = 负债 + 所有者权益」为什么永远成立？',o:['因为准则强制规定','因为等式左边是「有什么」，右边是「这些东西是谁的钱买的」，本质是同一堆东西的两种看法','因为会计师会人工调平','因为资产总是等于现金'],a:1,
+e:'左边描述资源形态（现金、存货、设备），右边描述资源的<b>索取权归属</b>（债主的、股东的）。同一堆家当从两个角度数，数量当然相等。这不是规定，是逻辑必然。'}
+]},
+{id:'1-5',type:'concept',title:'借贷方向：左手右手直觉法',viz:'hands',
+analogy:'忘掉「借 = 借钱」这个中文陷阱。<b>借（Debit）只是「左边」，贷（Credit）只是「右边」</b>，是两个方位词。记法：<b>左手接资源（资源变多记左边），右手拿钱袋（资金来源变多记右边）</b>。你借了 100 万买设备：设备（资源）进了左手 → 借记设备；钱是银行给的（来源）→ 贷记银行借款。',
+formal:'资产、费用类账户：增加记<b>借方</b>，减少记贷方。负债、所有者权益、收入类账户：增加记<b>贷方</b>，减少记借方。原因：资产/费用在恒等式左侧（含利润的减项），负债/权益/收入在右侧。',
+example:'珍珠星球用现金 8 万买冰柜：借 固定资产 8 万（左手接到设备），贷 银行存款 8 万（右边少了一个资金形态）。注意这里两边都是资产，一增一减仍然平衡——总资产不变，只是结构改变了。',
+quiz:[
+{q:'「银行存款增加 10 万」应记在哪一方？',o:['借方','贷方','两方都记','不用记'],a:0,
+e:'银行存款是资产，资产增加记借方（左边）。左手接到了资源。'},
+{q:'「应付账款增加 3 万」应记在哪一方？',o:['借方','贷方','看金额大小','看是否付款'],a:1,
+e:'应付账款是负债，负债增加记贷方（右边）。这笔资源的来源是供应商赊给你的。'},
+{q:'「确认主营业务收入 50 万」应记在哪一方？',o:['借方','贷方','借方且同时贷记现金','取决于是否开票'],a:1,
+e:'收入增加记贷方。因为收入最终会增加所有者权益（留存收益），而权益增加在右侧。对应的借方是银行存款或应收账款。'},
+{q:'「支付本月房租 2 万」的完整分录是？',o:['借 银行存款 2 万 / 贷 销售费用 2 万','借 销售费用 2 万 / 贷 银行存款 2 万','借 销售费用 2 万 / 贷 应付账款 2 万','借 银行存款 2 万 / 贷 实收资本 2 万'],a:1,
+e:'费用增加记借方（费用是利润的减项，方向随资产），现金减少记贷方。方向搞反是最常见错误，用「左手接到了什么」自检：这次接到的是「已消耗的租期」，所以费用在左边。'}
+]},
+{id:'1-6',type:'journal',title:'借贷记账模拟器',
+intro:'给你一笔真实业务，选出借方科目与贷方科目并填入金额，系统实时校验借贷是否平衡。<b>自检口诀：先问「左手接到了什么资源/消耗」，再问「这资源是谁给的」。</b>',
+accounts:['银行存款','库存现金','应收账款','存货','固定资产','累计折旧','应付账款','合同负债(预收款)','短期借款','长期借款','实收资本','主营业务收入','营业成本','销售费用','管理费用','财务费用','应交税费'],
+entries:[
+{biz:'股东投入开办资金 50 万元，已存入公司银行账户。',amt:500000,d:'银行存款',c:'实收资本',
+e:'左手接到了 50 万现金（资产↑记借方），这钱来自股东（权益↑记贷方）。切记：股东投资不是收入。'},
+{biz:'用银行存款购入一台商用制冰机，价款 8 万元。',amt:80000,d:'固定资产',c:'银行存款',
+e:'左手接到设备（固定资产↑借方），代价是银行存款减少（资产↓贷方）。两边都是资产，总额不变、结构改变。'},
+{biz:'向供应商赊购奶粉与珍珠一批，价值 12 万元，尚未付款。',amt:120000,d:'存货',c:'应付账款',
+e:'左手接到货（存货↑借方），资源来自供应商的信用（负债↑贷方）。这类交易会让总资产和总负债同时膨胀。'},
+{biz:'向企业客户赊销团购奶茶券，确认收入 30 万元，款项未收。',amt:300000,d:'应收账款',c:'主营业务收入',
+e:'义务已履行，收入必须确认（收入↑贷方）；钱没到但形成收款权利（应收账款↑借方）。这就是「有利润没现金」的诞生现场。'},
+{biz:'客户购买年度储值卡，预收现金 24 万元，服务尚未提供。',amt:240000,d:'银行存款',c:'合同负债(预收款)',
+e:'现金到手（资产↑借方），但你欠客户一年奶茶（负债↑贷方），<b>不能确认收入</b>。若此处贷记收入即为提前确认收入的造假。'},
+{biz:'支付本月门店员工工资 6 万元（计入销售费用）。',amt:60000,d:'销售费用',c:'银行存款',
+e:'费用增加记借方，现金减少记贷方。费用方向与资产一致——因为费用是「已经被消耗掉的资产」。'},
+{biz:'计提本月制冰机折旧 1200 元。',amt:1200,d:'管理费用',c:'累计折旧',
+e:'折旧把资产价值转成当期费用：费用↑借方；资产端用「累计折旧」这个抵减账户表示价值减少↑贷方。<b>本笔完全不涉及现金</b>，是理解三表联动的钥匙。'},
+{biz:'收回此前赊销的应收账款 10 万元。',amt:100000,d:'银行存款',c:'应收账款',
+e:'现金↑借方，应收权利消失↓贷方。注意：<b>这笔交易不产生任何收入和利润</b>，收入早在赊销时就已确认，此处只是资产形态转换。'},
+{biz:'向银行取得一年期流动资金借款 200 万元。',amt:2000000,d:'银行存款',c:'短期借款',
+e:'现金↑借方，资金来源是银行（负债↑贷方）。借款不是收入，只影响筹资活动现金流。'},
+{biz:'支付当期银行借款利息 5 万元。',amt:50000,d:'财务费用',c:'银行存款',
+e:'利息是使用资金的代价，属财务费用（费用↑借方），现金流出（资产↓贷方）。注意归还本金则是贷记银行存款、借记短期借款，不进利润表。'}
+]},
+{id:'1-7',type:'boss',title:'BOSS：会计恒等式守门人',time:150,
+quiz:[
+{q:'某公司资产 900 万、负债 350 万，则所有者权益为？',o:['1250 万','550 万','350 万','无法计算'],a:1,e:'900 − 350 = 550 万。恒等式最基本的移项运用。'},
+{q:'公司用银行存款偿还应付账款 20 万，对报表的影响是？',o:['总资产减少 20 万，总负债减少 20 万，权益不变','总资产不变，负债减少','利润减少 20 万','所有者权益减少 20 万'],a:0,e:'借 应付账款 20 / 贷 银行存款 20。等式两边同时缩小 20 万，仍然平衡，且不碰利润表。'},
+{q:'下列哪一项会<b>直接增加</b>所有者权益？',o:['向银行借款','赊购原材料','当期实现净利润','收回应收账款'],a:2,e:'净利润通过留存收益进入权益。借款和赊购只增加负债，收回应收只是资产内部转换。'},
+{q:'12 月已完工并交付、约定次年收款的项目，若会计把收入记在次年，属于？',o:['正确的谨慎处理','违反权责发生制，跨期调节利润','收付实现制的合法运用','与准则无关'],a:1,e:'义务已在 12 月履行，收入就属于 12 月。人为推迟或提前确认收入都是跨期调节，是典型的盈余管理/造假手段。'},
+{q:'「借」在会计语境中的准确含义是？',o:['借钱进来','账户的左方','负债增加','现金流出'],a:1,e:'借/贷仅是「左/右」的方位术语，与中文日常语义无关。这是零基础最大的认知障碍。'},
+{q:'预收 12 万年费，当年只提供了 3 个月服务。年末应确认收入与负债各多少？',o:['收入 12 万，负债 0','收入 3 万，负债 9 万','收入 0，负债 12 万','收入 9 万，负债 3 万'],a:1,e:'12 ÷ 12 × 3 = 3 万收入已履约；剩余 9 万仍是欠客户的服务，挂合同负债。'},
+{q:'一笔业务记为「借 存货 5 万 / 贷 银行存款 3 万」，问题在于？',o:['科目选错','借贷不平衡，缺少 2 万的贷方','借方应该是费用','完全正确'],a:1,e:'借方 5 万 ≠ 贷方 3 万。差额 2 万很可能是应付账款（部分赊购）。试算不平衡说明必然有错，这就是复式记账的自检价值。'},
+{q:'费用类账户增加记借方，根本原因是？',o:['准则随机规定','费用是所有者权益的减项，减少权益等价于记在左方','费用总是伴随现金流出','费用属于资产'],a:1,e:'权益增加在贷方，那么侵蚀权益的费用自然记借方。同理收入增加权益，故记贷方。理解这一层，就永远不会记反方向。'}
+]}
+]},
+
+{
+id:'c2',icon:'🏛️',title:'资产负债表',desc:'公司的家底快照：有什么、欠什么、剩多少。',
+levels:[
+{id:'2-1',type:'concept',title:'会计恒等式与天平',viz:'balance',
+analogy:'把公司想象成一间仓库。左边墙贴着清单「仓库里有什么」：现金、奶粉、冰柜、别人欠我的钱。右边墙贴着另一张清单「这些东西是花谁的钱买的」：一部分是供应商和银行的（负债），剩下的才是股东的（权益）。两张清单描述的是同一间仓库，金额必然相等。',
+formal:'资产负债表（Balance Sheet）以「资产 = 负债 + 所有者权益」为骨架，报告某一<b>时点</b>的财务状况。左侧按流动性排列资源，右侧按到期先后与索取权顺序排列资金来源。所有者权益又称「净资产」，等于资产减负债。',
+example:'苹果公司 2023 年末：总资产约 3525 亿美元，总负债约 2901 亿美元，股东权益仅约 624 亿美元。权益比例很低不是因为不赚钱，而是它常年大规模<b>回购股票</b>把权益「买掉了」。看报表不能只看数字大小，要问「为什么」。',
+quiz:[
+{q:'资产负债表描述的是？',o:['一段时间的经营成果','某一时点的财务状况快照','未来的现金预测','股价走势'],a:1,e:'它是「照片」，标题永远写「XX 年 12 月 31 日」。利润表和现金流量表才是「录像」，标题写「XX 年度」。'},
+{q:'某公司总资产 5000 万、所有者权益 1200 万，资产负债率为？',o:['24%','76%','120%','无法计算'],a:1,e:'负债 = 5000 − 1200 = 3800 万，3800 ÷ 5000 = 76%。这属于偏高杠杆，需结合行业与现金流判断风险。'},
+{q:'所有者权益为负数意味着什么？',o:['公司必然破产','资不抵债，账面净资产为负，但若现金流健康仍可持续经营','会计做错了','公司免税'],a:1,e:'称为「负净资产」。例如长期巨额回购或连年亏损都可能导致。麦当劳、星巴克都曾出现负权益却经营良好——因为它们现金流极强。不能只看一个指标下结论。'}
+]},
+{id:'2-2',type:'mcq',title:'流动 vs 非流动：以一年为界',
+intro:'<b>流动资产</b>：预计在 1 年（或一个营业周期）内变现或耗用。<b>流动负债</b>：1 年内需偿还。这条线之所以重要，是因为「短债长投」——用一年内要还的钱去买十年才回本的资产——是企业猝死的头号杀手。',
+quiz:[
+{q:'下列哪一项<b>不属于</b>流动资产？',o:['应收账款','存货','商誉','交易性金融资产'],a:2,e:'商誉是收购产生的非流动资产，且不能摊销、只能做减值测试，是资产负债表里最「虚」的一项。'},
+{q:'「一年内到期的非流动负债」应列示在？',o:['流动负债','非流动负债','所有者权益','不列示'],a:0,e:'即将到期就要按流动负债披露。很多公司短期偿债压力就藏在这一行，看财报必须专门翻它。'},
+{q:'流动比率 = 流动资产 ÷ 流动负债 = 0.8 说明？',o:['短期偿债能力充裕','短期资产不足以覆盖短期债务，存在流动性压力','公司一定亏损','公司资产质量很好'],a:1,e:'小于 1 意味着一年内到期的债务超过一年内可变现的资产，需依赖再融资或经营现金流。但便利店、餐饮等预收模式行业天然低于 1，仍需结合商业模式判断。'},
+{q:'一家公司用 1 年期短期借款投资建设需 8 年回本的工厂，最大风险是？',o:['利润下降','期限错配，借款到期时资产无法变现，可能引发流动性危机','税负增加','存货积压'],a:1,e:'这是「短债长投」。资产本身可能优质，但现金流时间轴不匹配就会猝死。分析偿债能力必须看期限结构，不只看总量。'}
+]},
+{id:'2-3',type:'concept',title:'应收账款：卖出去了但钱没到',
+analogy:'你在小区里开奶茶店，隔壁公司说「先给我们送 300 杯，月底统一结账」。你送了，营业额上去了，老板很开心——但如果这家公司下个月跑路，你的 300 杯就白送了。应收账款就是「已经确认的收入 + 还没落袋的风险」。',
+formal:'应收账款是企业因销售商品或提供服务而形成的收款权利。企业需按预期信用损失模型计提<b>坏账准备</b>，资产负债表列示净额。关键分析指标：应收账款周转天数 = 应收账款平均余额 ÷ 营业收入 × 365。',
+example:'某上市公司三年间收入从 20 亿增至 26 亿（+30%），应收账款却从 6 亿增至 18 亿（+200%），周转天数由 110 天升至 253 天。这几乎必然意味着：放宽信用政策硬撑收入，或存在虚构销售。这是第 6 章侦探关的核心信号之一。',
+quiz:[
+{q:'应收账款周转天数上升，通常意味着？',o:['收款速度加快，现金流改善','收款变慢，占用资金增加、坏账风险上升','收入质量提高','存货管理变好'],a:1,e:'天数 = 钱躺在客户口袋里的时间。变长意味着你在替客户垫资，同时坏账概率上升。要和同业、和自身历史两个维度对比。'},
+{q:'计提坏账准备 500 万，对报表的影响是？',o:['资产减少 500 万、利润减少 500 万，不影响现金','现金减少 500 万','负债增加 500 万','只影响附注'],a:0,e:'借 信用减值损失 500（费用↑，利润↓）/ 贷 坏账准备 500（资产净额↓）。这是典型的「非现金损失」，也是公司调节利润的常用阀门。'},
+{q:'收入增长 15% 而应收账款增长 90%，最合理的怀疑是？',o:['公司经营效率大幅提升','收入质量存疑：可能靠放宽信用压货，甚至虚构销售','客户都变有钱了','存货周转加快'],a:1,e:'应收增速持续远超收入增速是收入质量恶化的强信号。验证方法：看经营现金流是否同步跟上，看前五大客户集中度，看期后回款。'}
+]},
+{id:'2-4',type:'mcq',title:'存货：躺在仓库里的利润与地雷',
+intro:'存货是「还没卖出去的成本」。它同时是希望（未来能卖钱）和风险（可能过期、跌价、卖不掉）。存货一旦卖出，成本才从资产端转入利润表变成营业成本——这个「转身」时点，决定了当期利润的高低。',
+quiz:[
+{q:'存货在卖出时，会计上发生什么？',o:['直接冲减所有者权益','由资产（存货）转为费用（营业成本），同时确认收入','变成现金','计入投资活动'],a:1,e:'借 营业成本 / 贷 库存商品。这是「资产 → 费用」的经典转身，也是毛利产生的时刻：收入 − 结转成本 = 毛利。'},
+{q:'物价上涨期间，采用先进先出法（FIFO）相比加权平均法，通常会导致？',o:['营业成本更高、利润更低','营业成本更低、当期利润更高','完全没有差异','存货余额更低'],a:1,e:'FIFO 先结转较早（较便宜）的成本，所以成本低、毛利高，同时期末存货以较新的高价计量，账面存货偏高。计价方法选择会实质影响利润，看财报要看附注的会计政策。'},
+{q:'计提存货跌价准备 200 万的影响是？',o:['利润减少 200 万、存货净值减少 200 万、不影响现金','现金减少 200 万','负债增加','增加收入'],a:0,e:'当可变现净值低于成本时必须计提。它是非现金减值，会一次性压低当期利润——有些公司会集中在业绩已经很差的年度大额计提（「财务洗澡」），为次年反转铺路。'},
+{q:'收入停滞但存货连续三年高速增长，最可能说明？',o:['公司在为爆发做准备，一定是好事','产品滞销或积压，未来存在跌价与减值风险','管理效率提升','成本控制良好'],a:1,e:'存货增速长期高于收入增速是危险信号。结合存货周转天数变长、毛利率下滑一起看，往往预示后续大额减值。特别警惕存货占总资产比重异常高的制造与地产企业。'}
+]},
+{id:'2-5',type:'concept',title:'商誉：收购时多付的「情怀溢价」',
+analogy:'一家奶茶店净资产只有 100 万（设备+存货+现金），你却花 500 万把它买了。多付的 400 万买的是什么？是它的品牌、老客户、配方、位置。这 400 万在你的报表上就叫<b>商誉</b>——它不是骗人，但它的价值完全取决于「这家店未来还能不能继续赚钱」。',
+formal:'商誉 = 合并成本 − 被购买方可辨认净资产公允价值份额。商誉不摊销，但每年至少进行一次<b>减值测试</b>；一旦被收购业务不达预期，需计提商誉减值，一次性冲击当期利润，且不可转回。',
+example:'A 股 2018 年商誉减值集中爆发，多家公司单年计提数十亿商誉减值，直接由盈利转为巨亏。判断风险的方法：看「商誉 ÷ 净资产」比例，若超过 30%，且收购标的业绩承诺期刚过，就要高度警惕。',
+quiz:[
+{q:'商誉在资产负债表上属于？',o:['流动资产','非流动资产，且不摊销、只做减值测试','负债','所有者权益'],a:1,e:'它是非流动资产。不摊销意味着平时不影响利润，但减值时会「一次性爆炸」，这种非线性风险最容易被忽视。'},
+{q:'商誉减值 10 亿对三张表的影响是？',o:['利润表大额亏损、资产负债表资产与权益各减 10 亿、现金流量表不受影响','三张表都减 10 亿','只影响现金流','只影响附注披露'],a:0,e:'典型的非现金损失。经营现金流完全不变，这也是为什么「巨亏当年经营现金流仍为正」的公司并不罕见——要区分账面损失与真实失血。'},
+{q:'商誉占净资产 60%、被收购公司业绩承诺刚到期，应如何判断？',o:['估值很便宜可以买入','高减值风险，需重点核查标的近期收入与现金流是否达标','商誉越多说明公司越强','与投资判断无关'],a:1,e:'业绩承诺期是「保护期」，一到期往往标的业绩立刻下滑，随之商誉减值。这是 A 股最经典的暴雷模式，检查清单：商誉/净资产比、标的近三年完成率、行业景气度。'}
+]},
+{id:'2-6',type:'mcq',title:'递延项目：跨期的时间差',
+intro:'「递延」= 推迟。递延项目全部源于「会计口径」与「现金/税务口径」的时间差。<b>递延收益</b>：钱收了但收入还不能确认（负债）。<b>递延所得税资产</b>：现在多交了税、未来能少交（资产）。<b>递延所得税负债</b>：现在少交了税、未来要补交（负债）。',
+quiz:[
+{q:'政府补助 1000 万用于购建设备（设备使用 10 年），当期应如何处理？',o:['一次确认 1000 万收入','确认递延收益 1000 万，随设备折旧分 10 年计入损益','计入所有者权益','不做账'],a:1,e:'与资产相关的政府补助需通过递延收益分期结转，与资产的受益期匹配。一次性确认会虚增当期利润。'},
+{q:'税法不允许当期扣除的减值损失 400 万（未来实际发生时可扣），会产生？',o:['递延所得税资产','递延所得税负债','商誉','合同负债'],a:0,e:'会计上已认损失、税上还没认，导致现在多交税、未来可抵扣，形成递延所得税<b>资产</b>（未来的抵税权利）。'},
+{q:'递延所得税资产大额增加，可能的隐含信息是？',o:['公司盈利能力显著提升','存在较多可抵扣亏损或减值，需确认未来是否真有足够利润来消化','税率下降','现金增加'],a:1,e:'确认递延所得税资产的前提是「未来很可能有足够应纳税所得额」。若公司连年亏损却大额确认，属于激进假设，是利润被高估的信号。'}
+]},
+{id:'2-7',type:'boss',title:'BOSS：读懂星珠咖啡的资产负债表',time:180,
+quiz:[
+{q:'星珠咖啡：总资产 8000 万，流动资产 3000 万（其中存货 900、应收 1100、现金 800），流动负债 3600 万。流动比率约为？',o:['0.83','1.20','2.22','0.42'],a:0,e:'3000 ÷ 3600 ≈ 0.83，小于 1，短期偿债压力偏大。'},
+{q:'承上题，速动比率（剔除存货）约为？',o:['0.83','0.58','1.05','0.25'],a:1,e:'(3000 − 900) ÷ 3600 = 2100 ÷ 3600 ≈ 0.58。速动比率剔除了最难变现的存货，更保守。'},
+{q:'星珠总负债 5600 万，资产负债率是？',o:['30%','50%','70%','140%'],a:2,e:'5600 ÷ 8000 = 70%。对餐饮连锁而言偏高，需结合租赁负债性质与经营现金流判断。'},
+{q:'星珠非流动资产 5000 万中商誉 2200 万，净资产 2400 万。商誉/净资产 ≈ 92%，说明？',o:['公司品牌极其强大，是优势','商誉减值风险极高，一旦减值净资产可能几乎被抹平','完全正常','应该继续加大收购'],a:1,e:'92% 意味着净资产几乎全是「收购溢价」这种虚资产。若标的不达预期，一次减值就可能导致资不抵债。这是最高级别的红旗。'},
+{q:'其流动负债中「合同负债（储值卡）」1500 万，如何理解？',o:['是坏消息，说明欠钱多','是好消息，客户提前付款相当于无息占用资金，但需保证未来有能力兑付服务','应重分类为收入','应计入权益'],a:1,e:'预收模式是优质商业模式的标志（星巴克、Costco 都靠它）。但它是<b>真实义务</b>，若门店大量关闭将面临兑付压力。好坏取决于经营是否持续。'},
+{q:'若星珠用 800 万现金偿还 800 万短期借款，流动比率将？',o:['上升至约 0.79','下降至约 0.79','保持 0.83 不变','上升至 1.0'],a:0,e:'(3000−800) ÷ (3600−800) = 2200 ÷ 2800 ≈ 0.79。<b>反直觉但重要</b>：当流动比率原本小于 1 时，同额偿债会让比率进一步下降。'},
+{q:'星珠「一年内到期的非流动负债」1200 万，而账上现金仅 800 万，最应关注？',o:['毛利率','再融资能力与经营现金流能否覆盖到期债务','商誉规模','存货计价方法'],a:1,e:'这是最直接的流动性风险点。核查顺序：经营现金流年度净额 → 未使用银行授信额度 → 可快速处置资产。'},
+{q:'仅凭资产负债表，<b>无法</b>直接得知的是？',o:['公司家底结构','负债规模','本年赚了多少利润的形成过程','净资产金额'],a:2,e:'资产负债表只有「留存收益」这个累积结果，利润是怎么来的（收入多少、成本多少）必须看利润表。三张表缺一不可，这正是第 5 章的意义。'}
+]}
+]},
+
+{
+id:'c3',icon:'💰',title:'利润表',desc:'一年的战绩：从收入到净利润，每一层都在漏钱。',
+levels:[
+{id:'3-1',type:'concept',title:'收入确认：钱到手 ≠ 收入',
+analogy:'你收了客户 1000 元定制蛋糕订金，蛋糕还没做。这 1000 元是收入吗？不是，是你欠人家一个蛋糕。收入确认的核心只有一句话：<b>你把该做的事做完了没有？</b>做完了才算赚到。',
+formal:'现行准则采用「五步法」：①识别与客户的合同 ②识别合同中的单项履约义务 ③确定交易价格 ④将交易价格分摊至各项履约义务 ⑤在履行每一项履约义务时确认收入。控制权转移是判断核心。',
+example:'某软件公司签 3 年合同 360 万，一次收款。若含「软件许可（交付即完成）+ 3 年运维（持续提供）」两项义务，需按公允价值分摊，例如许可 120 万当期确认，运维 240 万分 36 个月确认。若全部一次确认，就是虚增首年利润 240 万。',
+quiz:[
+{q:'收入确认最关键的判断标准是？',o:['是否收到现金','是否开具发票','履约义务是否完成、商品或服务的控制权是否转移','是否签订合同'],a:2,e:'现金、发票、合同都只是证据，不是标准。控制权转移才是实质。这也解释了为什么预收款不能确认收入。'},
+{q:'商场代销模式下（商场只收佣金、不承担存货风险），商场应确认的收入是？',o:['商品全额售价','仅佣金净额','售价的一半','不确认收入'],a:1,e:'这是「总额法 vs 净额法」。不承担存货风险、不控制商品的一方是「代理人」，只能按净额（佣金）确认。很多平台公司靠混用总额法虚增收入规模。'},
+{q:'某公司在 12 月 31 日突然向经销商大量发货并全额确认收入，次年 1 月大量退货。这属于？',o:['正常的季节性波动','渠道压货（channel stuffing），提前确认收入的操纵手法','谨慎性原则的体现','净额法应用'],a:1,e:'典型的期末冲收入。识别方法：看第四季度收入占比是否异常、看次年一季度收入是否骤降、看应收账款和存货（经销商端）是否暴增。'}
+]},
+{id:'3-2',type:'concept',title:'毛利与毛利率：一杯奶茶赚多少',
+analogy:'一杯奶茶卖 18 元，原料（茶叶、奶、珍珠、杯子）成本 5 元，毛利 13 元，毛利率 72%。但这 13 元还要付房租、店员工资、外卖平台抽成、总部管理费——最后到手可能只剩 2 元。<b>毛利率决定「有没有资格赚钱」，费用率决定「最终能不能赚到」。</b>',
+formal:'毛利 = 营业收入 − 营业成本；毛利率 = 毛利 ÷ 营业收入。营业成本只包含与产出直接相关的成本（原材料、直接人工、制造费用）。毛利率反映产品定价权与成本控制力，是判断商业模式质量的第一指标。',
+example:'贵州茅台毛利率长期在 91% 以上（极强定价权）；星巴克约 27%（含门店运营成本口径）；家电制造约 15%–25%；工程施工常低于 10%。<b>跨行业比毛利率毫无意义，必须同业对比。</b>',
+quiz:[
+{q:'收入 500 万、营业成本 300 万、销售费用 80 万、管理费用 50 万，毛利率是？',o:['14%','40%','60%','24%'],a:1,e:'毛利 = 500 − 300 = 200 万，200 ÷ 500 = 40%。销售费用与管理费用不进营业成本，不影响毛利率。'},
+{q:'某公司毛利率连续三年从 42% 降至 28%，最需要排查的是？',o:['公司一定造假','原材料涨价、产品降价竞争、产品结构变化或成本口径调整，需逐项拆解','管理层能力','税率变化'],a:1,e:'毛利率下滑是趋势性信号而非结论。拆解路径：量价拆分（是降价还是成本涨）→ 产品结构（低毛利产品占比升高？）→ 与同业对比（是行业性还是公司性）。'},
+{q:'一家公司毛利率显著高于所有同业（如同业 25%，它 55%），应该？',o:['直接判断为优质公司买入','警惕：核查是否成本归集口径不同、是否存在关联交易或虚增收入','认为行业分类错了','忽略此信息'],a:1,e:'异常高毛利要么是真护城河（专利、品牌），要么是财务异常。核查方法：把部分成本挪到销售/管理费用会人为抬高毛利率；关联方低价供货同理。这是侦探关的经典疑点。'}
+]},
+{id:'3-3',type:'mcq',title:'三费 + 财务费用',
+intro:'<b>销售费用</b>：为了把货卖出去（广告、渠道、销售人员薪酬）。<b>管理费用</b>：维持公司运转（行政、总部薪酬、办公）。<b>研发费用</b>：为了未来（研发人员、试验）。<b>财务费用</b>：用钱的代价（利息净支出、汇兑损益）。这四项从毛利里往外掏钱。',
+quiz:[
+{q:'外卖平台佣金支出应计入？',o:['营业成本','销售费用','管理费用','财务费用'],a:1,e:'属于为促成销售发生的支出，计入销售费用。不同公司归集口径可能不同，比较毛利率时要看附注确认口径一致。'},
+{q:'研发支出资本化 vs 费用化的差别是？',o:['没有差别','资本化计入无形资产（不减当期利润，未来摊销），费用化直接减少当期利润','资本化减少利润更多','只影响现金流'],a:1,e:'这是最重要的利润调节阀之一。高资本化率会推高当期利润、增厚资产。分析时应关注「研发资本化率」的突然上升，以及后续是否出现无形资产减值。'},
+{q:'销售费用率（销售费用/收入）从 12% 升至 25%，而收入仅增 5%，说明？',o:['营销效率提升','获客成本大幅上升、投入产出比恶化','产品竞争力增强','成本控制有效'],a:1,e:'花双倍的钱只换来 5% 增长，是典型的「买增长」。持续下去会侵蚀净利率。要看客单价、复购率是否同步改善。'},
+{q:'某公司财务费用为<b>负数</b>，说明？',o:['报表错误','利息收入大于利息支出，公司现金充裕、几乎无有息负债','公司在亏损','汇率一定升值了'],a:1,e:'现金富余型公司常出现（如茅台）。财务费用为负是低杠杆、高现金的标志之一，但也可能意味着资本运用效率不高。'}
+]},
+{id:'3-4',type:'concept',title:'从收入到净利润：瀑布结构',viz:'waterfall',
+analogy:'把收入想成山顶的一桶水，往下流经好几道闸门：先扣原料（营业成本）→ 再扣卖货和管人的钱（三费）→ 再扣利息（财务费用）→ 再扣税。每道闸门都放走一些，最后流到桶底的才是<b>净利润</b>。看财报要看「水在哪一道闸门漏得最多」。',
+formal:'营业收入 − 营业成本 − 税金及附加 − 销售/管理/研发/财务费用 ± 其他收益/投资收益/资产减值 = <b>营业利润</b>；± 营业外收支 = <b>利润总额</b>；− 所得税费用 = <b>净利润</b>；再分归母净利润与少数股东损益。',
+example:'某公司收入 100 亿：营业成本 62 亿 → 毛利 38 亿；销售 12、管理 6、研发 5、财务 1 → 营业利润 14 亿；营业外净收入 1 亿 → 利润总额 15 亿；所得税 3.4 亿 → 净利润 11.6 亿。净利率 11.6%。同时要问：14 亿营业利润里有多少是主营挣的？',
+quiz:[
+{q:'营业利润与利润总额的差别在于？',o:['是否扣所得税','是否包含营业外收支（如政府补助中的非经常项、资产处置损益等）','是否包含毛利','没有差别'],a:1,e:'营业利润衡量「主营生意本身赚不赚钱」，利润总额加入了偶发项。分析时更看重营业利润，因为它可持续。'},
+{q:'公司净利润 5 亿，其中卖掉一栋办公楼获利 4 亿，如何评价？',o:['盈利能力很强','扣非后仅约 1 亿，主营盈利能力弱，5 亿不可持续','与主营无关不必关心','说明资产管理优秀'],a:1,e:'必须看<b>扣非归母净利润</b>。一次性收益不能外推，用含非经常损益的利润做估值会严重高估。'},
+{q:'所得税费用 ÷ 利润总额 得出的有效税率远低于法定 25%，可能原因？',o:['一定是逃税','享受高新技术企业等税收优惠、有可弥补亏损、或确认了递延所得税资产','会计算错了','与利润无关'],a:1,e:'合理原因很多，但如果有效税率异常低且无法解释，需警惕利润虚增（虚构的利润通常不需要真交税，因此会拉低有效税率）。这是识别造假的一个交叉验证点。'}
+]},
+{id:'3-5',type:'mcq',title:'EPS 与非经常性损益',
+intro:'<b>EPS（每股收益）= 归母净利润 ÷ 加权平均普通股股数</b>。它把利润换算到「一股」的口径，方便跨公司比较，也是市盈率 PE 的分母。而<b>非经常性损益</b>是必须剔除的噪音。',
+quiz:[
+{q:'归母净利润 6 亿，加权平均股本 3 亿股，EPS 是？',o:['0.5 元','2 元','18 元','无法计算'],a:1,e:'6 ÷ 3 = 2 元/股。若股价 40 元，则 PE = 40 ÷ 2 = 20 倍。'},
+{q:'公司大额回购并注销股票，在净利润不变时 EPS 会？',o:['下降','上升，因为分母股本减少','不变','变成负数'],a:1,e:'这是苹果长期做的事：用现金回购推高 EPS。需注意这不代表主营变强，分析时要同时看净利润本身的增长。'},
+{q:'以下哪项属于非经常性损益？',o:['主营产品销售收入','出售子公司的一次性投资收益','正常的员工薪酬','日常原材料采购成本'],a:1,e:'非经常性损益包括资产处置损益、非流动资产减值、与主营无关的政府补助、债务重组收益等——特征是「不可持续」。'},
+{q:'用「稀释每股收益」而非「基本每股收益」的原因是？',o:['数字更好看','考虑可转债、期权等潜在稀释因素，给出更保守的口径','准则要求二选一','与股本无关'],a:1,e:'潜在普通股一旦转股会摊薄现有股东权益。稀释 EPS 更保守，投资分析中应以稀释口径为准。'}
+]},
+{id:'3-6',type:'boss',title:'BOSS：重建珍珠星球的利润表',time:180,
+quiz:[
+{q:'收入 8000 万、营业成本 4400 万，毛利率是？',o:['45%','55%','40%','36%'],a:0,e:'(8000−4400)/8000 = 3600/8000 = 45%。'},
+{q:'承上：销售费用 1400、管理费用 600、研发 200、财务费用 100、税金及附加 100，营业利润是？',o:['1200 万','1300 万','1100 万','3600 万'],a:0,e:'3600 − 100 − 1400 − 600 − 200 − 100 = 1200 万。营业利润率 15%。'},
+{q:'承上：营业外净收入 300 万（政府一次性奖励），所得税率 25%，净利润约？',o:['900 万','1125 万','1500 万','1200 万'],a:1,e:'利润总额 = 1200 + 300 = 1500；所得税 = 375；净利润 = 1125 万。'},
+{q:'承上：其中 300 万政府奖励属非经常性，扣非净利润约为？',o:['1125 万','900 万','825 万','1500 万'],a:2,e:'扣除税后影响：300 × (1−25%) = 225 万；1125 − 225 = 900 万。若按题目 A 股常用口径直接扣税后非经常项，答案为 900 万；若同时考虑该奖励对应无可抵扣项，825 万为更保守估计。<b>核心是记住：必须扣、且要扣税后金额。</b>'},
+{q:'若股本 3000 万股，基本 EPS（按净利润）约为？',o:['0.375 元','0.30 元','3.75 元','0.50 元'],a:0,e:'1125 ÷ 3000 = 0.375 元/股。用扣非利润算则约 0.30 元，估值时应参考后者。'},
+{q:'次年公司把 200 万研发支出全部资本化（上年全部费用化），对利润的影响？',o:['利润减少 200 万','当期利润增加约 200 万（税前），但资产增加、未来摊销压力后移','没有影响','现金流增加 200 万'],a:1,e:'会计政策变化制造的「纸面增长」。识别方法：对比研发资本化率的年度变化，并检查无形资产是否随后出现减值。'},
+{q:'毛利率 45% 但净利率仅 14%，漏损最大的环节是？',o:['所得税','销售费用（占收入 17.5%）','财务费用','研发费用'],a:1,e:'1400/8000 = 17.5%，是最大的单项支出。改善方向：提升复购降低获客成本、优化渠道结构。分析利润表要养成「算费用率」的习惯。'},
+{q:'关于利润表，下列说法正确的是？',o:['利润表上的利润等于当年增加的现金','利润表是权责发生制的产物，包含大量估计与判断，必须与现金流量表交叉验证','利润表不受会计政策影响','净利润越高现金一定越多'],a:1,e:'折旧年限、坏账比例、研发资本化、收入确认时点都是判断。所以「利润是观点，现金是事实」——这正是下一章的主题。'}
+]}
+]},
+
+{
+id:'c4',icon:'💧',title:'现金流量表',desc:'利润是观点，现金是事实。公司的血液检测。',
+levels:[
+{id:'4-1',type:'concept',title:'现金为王：为什么赚钱的公司会死',
+analogy:'你的奶茶店今年账面净利润 100 万，老板很开心。但这 100 万全在「应收账款」里——客户欠着没给。而房租、工资、奶粉款都要付现金。到了月底，你有 100 万利润，账上只有 3 万块，房东上门催租。<b>企业不是因为亏损而死，是因为没现金而死。</b>',
+formal:'现金流量表按<b>收付实现制</b>编制，反映一定期间现金及现金等价物的流入流出，分为经营活动、投资活动、筹资活动三大类。三者合计 + 汇率影响 = 现金净增加额，期初现金 + 净增加额 = 期末现金，与资产负债表的现金项目相互勾稽。',
+example:'某明星企业连续 5 年账面盈利，累计净利润 30 亿，但同期经营活动现金流净额累计为 −18 亿。差额被应收账款和存货吸收。第 6 年债务到期无法续贷，直接违约。<b>净利润与经营现金流长期背离，是最可靠的暴雷预警信号。</b>',
+quiz:[
+{q:'「利润是观点，现金是事实」的根本原因是？',o:['会计师喜欢现金','利润受收入确认时点、折旧年限、坏账估计等大量主观判断影响，而现金收付难以主观虚构','现金流量表更简单','准则规定'],a:1,e:'利润是多个估计叠加的结果，现金流则要求银行流水支撑。虽然现金流也可被操纵（如年末借款冲流水、票据置换），但难度和留痕都远高于调利润。'},
+{q:'一家公司连续三年净利润为正、经营现金流为负，最合理解读是？',o:['成长期正常现象，无需关注','利润未转化为现金，需核查应收账款、存货、关联交易与收入真实性','说明公司在扩张，是好事','现金流量表编错了'],a:1,e:'短期为负可能因扩张备货，但<b>连续三年</b>就是结构性问题。核查动作：净利润与 CFO 差额的构成、应收周转天数趋势、大客户是否关联方。'},
+{q:'现金流量表中的「现金及现金等价物」包括？',o:['只有库存现金','库存现金、银行存款及持有不超三个月、流动性强、价值变动风险小的投资','所有金融资产','应收账款'],a:1,e:'关键是「三个月内到期 + 流动性强 + 价值稳定」。长期理财、股票投资都不算，这会影响你计算真实可动用资金。'}
+]},
+{id:'4-2',type:'drag',title:'三大活动分类',
+intro:'<b>经营活动</b>：主营生意的日常收付（卖货收钱、买料付钱、发工资、交税）。<b>投资活动</b>：买卖长期资产与对外投资。<b>筹资活动</b>：与股东和债主之间的钱（借款、还款、增资、分红、付利息在我国准则下计入筹资）。把下列项目拖入正确分类。',
+buckets:['经营活动','投资活动','筹资活动'],
+items:[
+{t:'销售奶茶收到现金',b:'经营活动',e:'主营业务现金流入，经营活动的核心。'},
+{t:'支付供应商奶粉货款',b:'经营活动',e:'购买商品接受劳务支付的现金，经营活动流出。'},
+{t:'支付员工工资',b:'经营活动',e:'支付给职工以及为职工支付的现金。'},
+{t:'缴纳企业所得税',b:'经营活动',e:'支付的各项税费，归入经营活动。'},
+{t:'购买新门店的装修与设备',b:'投资活动',e:'购建固定资产支付的现金，即资本支出 CapEx，投资活动流出。'},
+{t:'收购一家竞品奶茶品牌',b:'投资活动',e:'取得子公司支付的现金净额，投资活动流出。'},
+{t:'出售闲置厂房收到现金',b:'投资活动',e:'处置固定资产收回的现金净额，投资活动流入。'},
+{t:'购买 3 年期理财产品',b:'投资活动',e:'投资支付的现金（非现金等价物），投资活动流出。'},
+{t:'向银行取得新贷款',b:'筹资活动',e:'取得借款收到的现金，筹资活动流入。'},
+{t:'偿还贷款本金',b:'筹资活动',e:'偿还债务支付的现金，筹资活动流出。'},
+{t:'支付借款利息',b:'筹资活动',e:'我国准则将支付利息列入筹资活动（分配股利、利润或偿付利息支付的现金）。IFRS 下可选列经营活动，跨境比较要留意。'},
+{t:'向股东派发现金红利',b:'筹资活动',e:'分配股利支付的现金，筹资活动流出。'}
+]},
+{id:'4-3',type:'concept',title:'核心难点：净利润 ≠ 经营现金流',viz:'bridge',
+analogy:'净利润像「体重秤读数」，经营现金流像「实际肌肉量」。要从前者推到后者，要做三类调整：①<b>加回不花钱的费用</b>（折旧、摊销、减值——它们减了利润却没出钱）②<b>剔除不属于经营的损益</b>（利息、投资收益、资产处置损益）③<b>调整运营资金变动</b>（应收增加要减掉，那是没收到的钱；存货增加要减掉，钱变成了货；应付增加要加回，那是暂时没付的钱）。',
+formal:'间接法公式：净利润 + 折旧摊销 + 减值损失 + 利息支出 ± 处置损益 ± 递延所得税 − 经营性应收项目的增加 − 存货的增加 + 经营性应付项目的增加 = <b>经营活动产生的现金流量净额（CFO）</b>。两个关键比率：净现比（CFO ÷ 净利润）应长期 ≥ 1；收现比（销售商品收到的现金 ÷ 营业收入）应接近 1+增值税率。',
+example:'珍珠星球本年：净利润 1125 万，折旧摊销 +480 万，利息支出 +100 万，应收账款增加 −620 万，存货增加 −310 万，应付账款增加 +240 万 → CFO = 1015 万。净现比 0.90，尚可接受。若应收再多增 500 万，CFO 就跌到 515 万，净现比 0.46——同样的利润，完全不同的健康度。',
+quiz:[
+{q:'为什么间接法要将折旧「加回」净利润？',o:['因为折旧是收入','因为折旧在利润表中扣减了利润，但它当期并未支付任何现金','因为折旧会增加资产','因为准则要求'],a:1,
+e:'现金在买设备那年就一次流出了（计入投资活动），之后每年的折旧只是账面分摊。所以从利润回推现金时必须加回。<b>这也意味着重资产行业的 CFO 天然高于净利润。</b>'},
+{q:'应收账款本年增加 800 万，在间接法中应如何调整？',o:['加 800 万','减 800 万','不调整','加 400 万'],a:1,
+e:'应收增加意味着有 800 万收入计入了利润但钱没到，必须从利润中减除。反之，应付增加说明你暂时欠着没付，要加回。'},
+{q:'某公司净利润 5 亿、CFO 0.5 亿，净现比 0.1，应优先排查？',o:['税率变化','应收账款与存货是否大幅增加，收入是否真实','毛利率','股本结构'],a:1,
+e:'净现比长期低于 0.5 是高危信号。拆解顺序：先看间接法补充资料里哪一项调整数额最大，再顺着那一项挖（通常是应收或存货）。'}
+]},
+{id:'4-4',type:'concept',title:'自由现金流 FCF：真正属于你的钱',
+analogy:'你的奶茶店今年经营收了 300 万现金，听起来很美。但为了保住生意，你必须每年花 250 万重新装修、换设备。真正能抽出来分红、还债、扩张的只有 50 万。<b>FCF 才是股东真正能拿到的钱，也是所有估值模型的分子。</b>',
+formal:'自由现金流 FCF = 经营活动现金流净额（CFO）− 资本性支出（CapEx，即购建固定资产、无形资产和其他长期资产支付的现金）。需区分<b>维护性 CapEx</b>（保住现有产能）与<b>成长性 CapEx</b>（扩张）：后者高并不一定是坏事。',
+example:'茅台式企业：CFO 100 亿、CapEx 8 亿 → FCF 92 亿，轻资产印钱机。重资产制造业：CFO 100 亿、CapEx 95 亿 → FCF 5 亿，赚的钱都得再投回去。同样 100 亿 CFO，投资价值天差地别。',
+quiz:[
+{q:'CFO 8 亿、购建固定资产支付现金 3 亿、分红 1 亿，FCF 是？',o:['4 亿','5 亿','8 亿','11 亿'],a:1,
+e:'FCF = 8 − 3 = 5 亿。分红是 FCF 的<b>用途</b>，不是计算 FCF 时的扣除项。这是最常见的计算陷阱。'},
+{q:'一家公司 FCF 长期为负，但 CFO 为大额正数，最可能的情况是？',o:['公司在亏损','处于大规模扩张期，资本支出很大；需判断扩张的回报率是否合理','一定是造假','现金流量表错了'],a:1,
+e:'亚马逊早期、台积电扩产期都是这种形态。关键是问：这些 CapEx 未来能否带来超过资本成本的回报？验证方式是跟踪 ROIC 与产能利用率。'},
+{q:'为什么估值用 FCF 而不是净利润？',o:['FCF 数字更大','净利润包含非现金项且未扣除维持经营必需的再投资，FCF 更接近股东可支配的真现金','净利润不可靠','两者没区别'],a:1,
+e:'估值的本质是「未来能从企业抽出多少现金」。净利润可以很高而企业仍在不断伸手要钱，那种利润对股东无意义。'}
+]},
+{id:'4-5',type:'mcq',title:'三符号组合：8 种公司体质画像',
+intro:'把经营（O）、投资（I）、筹资（F）三个净额的正负号排列，能快速画出一家公司的生命阶段：<br><b>+ − −</b> 成熟健康型（自己赚钱、自己投资、还能还债分红）——最优质<br><b>+ − +</b> 成长扩张型（边赚边借边投）<br><b>− − +</b> 高风险烧钱型（主营失血、靠融资活着）<br><b>+ + −</b> 收缩偿债型（卖资产还钱）',
+quiz:[
+{q:'经营 +、投资 −、筹资 − 的公司通常处于？',o:['初创期','成熟期：主营造血、持续投入、并能还债分红','衰退期','破产前夕'],a:1,
+e:'这是最健康的组合：不靠外部输血，自己就能支撑投资并回报股东。苹果、茅台、可口可乐长期展现这个形态。'},
+{q:'经营 −、投资 −、筹资 + 且已持续三年，最大风险是？',o:['利润下滑','一旦融资环境收紧，现金链立即断裂','毛利率下降','存货积压'],a:1,
+e:'主营不造血、还在大投资，完全靠借新还旧。这是典型的「庞氏骗局式」现金结构，历史上大多数债务违约案例在爆雷前 2–3 年就已呈现这个特征。'},
+{q:'经营 +、投资 +、筹资 −，最可能在做什么？',o:['大规模扩张','可能在变卖资产/收回投资并集中偿还债务或大额分红回购','新建工厂','大量备货'],a:1,
+e:'投资为正意味着在“收钱”而非花钱。可能是健康的聚焦主业（剥离不赚钱的业务），也可能是断臂求生。需看处置的是核心资产还是包袖。'},
+{q:'一家公司经营现金流很好但它是靠大量拖欠供应商货款实现的，如何评价？',o:['很健康','需警惕：应付账款/存货周转异常伸长可能是供应链强势，也可能是无钱可付','完全不重要','说明成本控制好'],a:1,
+e:'两种解释截然不同：京东、Costco 是真强势（同时存货周转快、银行存款充裕）；而现金果乘较少、应付突然拉长的公司往往是资金紧张。必须交叉比对存货周转与现金余额。'}
+]},
+{id:'4-6',type:'boss',title:'BOSS：现金流断裂危机',time:180,
+quiz:[
+{q:'净利润 2000、折旧摊销 600、应收增加 900、存货增加 400、应付增加 300（单位万元，忽略其他），CFO 是？',o:['1600 万','2600 万','1200 万','3000 万'],a:0,e:'2000 + 600 − 900 − 400 + 300 = 1600 万。口诀：非现金费用加回，应收存货增加减掉，应付增加加回。'},
+{q:'承上：当年购建固定资产支付 1300 万，FCF 是？',o:['300 万','2900 万','1600 万','−1300 万'],a:0,e:'1600 − 1300 = 300 万。虽然净利润 2000 万，真正自由的钱只有 300 万。'},
+{q:'承上：公司本年需偿还到期借款 1500 万、付利息 100 万，期初现金 600 万、无新增融资，期末现金为？',o:['−700 万，存在违约风险','1400 万','600 万','300 万'],a:0,e:'600 + 1600 − 1300 − 1500 − 100 = −700 万。现金不可能为负，说明必须再融资、展期或处置资产，否则违约。<b>这就是「赚钱的公司被现金流猝死」的完整推演。</b>'},
+{q:'面对上题危机，下列哪个动作<b>最快</b>缓解现金缺口且不损害主营？',o:['加大广告投放抢收入','加速应收回款与应收账款保理，同时推迟非必要 CapEx','大量备货防涨价','回购股票提振信心'],a:1,e:'现金危机的优先级是「收钱 + 少花」。应收保理/保守保发能快速变现，推迟 CapEx 直接减少流出。其他选项都是让现金更紧。'},
+{q:'收现比（销售商品提供劳务收到的现金 ÷ 营业收入）长期仅 0.6，说明？',o:['正常，因为有增值税','大约四成收入没收到现金，收入质量差','公司税负低','毛利率高'],a:1,e:'正常制造业收现比应在 1.0–1.13 之间（因含增值税）。长期 0.6 说明收入大量没变成钱，需要结合应收及票据一起看（有些公司收的是商业汇票，不计入现金）。'},
+{q:'公司年末大额短期借款让账上现金看起来很多，如何识穿？',o:['相信资产负债表就好','看现金流量表的筹资活动，并计算「现金 − 有息负债」的净现金','只看利润表','看存货'],a:1,e:'要算<b>净现金</b>（现金及等价物 − 短期借款 − 长期借款 − 应付债券）。同时看财务费用：真有钱的公司不会交大额利息。「存贷双高」是经典造假红旗。'},
+{q:'下列事项中，<b>不会</b>影响经营活动现金流的是？',o:['支付员工工资','计提商誉减值 5 亿','收回应收账款','支付供应商货款'],a:1,e:'商誉减值是纯账面处理，不动现金，在间接法下会被完全加回。这也是判断「巨亏是真失血还是账面洗澡」的关键工具。'},
+{q:'一家公司 CFO 连续三年高于净利润且 FCF 稳定为正，最合理的初步判断是？',o:['一定是好公司，可以无条件买入','盈利质量良好，但仍需确认增长持续性与估值是否合理','它在造假','它在衰退'],a:1,e:'这是强力的盈利质量证据（预收模式、重资产企业常见），但财务质量≠投资回报。还要看行业空间、竞争格局与价格。财报分析给你「排除项」，不直接给「买入价」。'}
+]}
+]},
+
+{
+id:'c5',icon:'🔗',title:'三表联动',desc:'核心难点：一笔交易如何同时穿透三张表。',
+levels:[
+{id:'5-1',type:'concept',title:'三表关系总图',viz:'linkmap',
+analogy:'把三张表想成一个水系：<b>利润表</b>是今年下了多少雨（本期经营成果），雨水流进<b>资产负债表</b>的水库（变成留存收益，抬高水位）；<b>现金流量表</b>则专门监测水库里「真正的液体水」增减了多少（因为有些雨落在了应收账款这块海绵上，还没流进水库）。',
+formal:'三表三条硬勾稽：<b>①</b>利润表的净利润 → 资产负债表的未分配利润（期末留存收益 = 期初 + 净利润 − 分红）；<b>②</b>现金流量表的期末现金 = 资产负债表的货币资金项；<b>③</b>现金流量表的经营净额 = 净利润 ± 非现金项目 ± 资产负债表运营资金科目的变动。',
+example:'任何一份真实报表都可以用这三条验证。实战技巧：拿到一份财报，先用「期初未分配利润 + 净利润 − 分红 = 期末未分配利润」算一遗，对不上就要去附注找原因（直接计入权益的项目、会计差错更正、股份支付等）。',
+quiz:[
+{q:'三表之间最根本的链接点是？',o:['毛利率','净利润进入留存收益，现金变动对应货币资金','存货周转率','股本'],a:1,
+e:'一个连接利润表与资产负债表，一个连接现金流量表与资产负债表。把这两根钉子记牢，三表就吐成一个模型。'},
+{q:'期初未分配利润 800 万，当年净利润 300 万，分红 100 万，期末未分配利润？',o:['1100 万','1000 万','900 万','700 万'],a:1,
+e:'800 + 300 − 100 = 1000 万。这条勾稽很多人从未手算过，但它是建模与查错的基本功。'},
+{q:'如果一家公司现金流量表期末现金与资产负债表货币资金不一致，最可能的合理解释是？',o:['一定是造假','货币资金中含受限制资金（保证金、冻结存款），不属于现金等价物','利润表算错','与分红有关'],a:1,
+e:'这是极具实战价值的细节：很多公司账上「现金很多」却不能用，因为大部分是开证保证金或被冻结。必须去附注看「使用受限制的货币资金」金额。'}
+]},
+{id:'5-2',type:'concept',title:'穿透演练一：赊销一笔',viz:'trisync',
+analogy:'你赊销了 100 万奶茶券，成本 40 万。<b>利润表</b>：收入 +100、成本 +40、利润 +60（忽略税）。<b>资产负债表</b>：应收账款 +100、存货 −40、留存收益 +60（左右各 +60，仍平衡）。<b>现金流量表</b>：经营净额 = +60（净利）−100（应收增）+40（存货减）= <b>0</b>。利润涨了 60 万，现金一分没动。',
+formal:'任何交易的穿透都按固定三步走：<b>第 1 步</b>先写分录（借什么、贷什么）；<b>第 2 步</b>看分录中是否碰到收入/费用类科目 → 影响利润表；<b>第 3 步</b>看分录中是否碰到货币资金 → 影响现金流量表。三个问题问完，三表影响自然浮现。',
+example:'这正是「高增长、高利润、零现金」公司的微观机制。把这一笔重复 20 次，就得到一家利润 1200 万、经营现金流 0 的公司——报表完全合规，但它交不出工资。',
+quiz:[
+{q:'赊销一笔业务，三表影响正确的是？',o:['利润↑、现金↑、资产↑','利润↑、现金不变、资产结构变化（应收↑存货↓）','利润不变、现金↑','三表都不变'],a:1,
+e:'赊销同时完成了两件事：确认收入（利润↑）与结转成本（存货↓）。没有任何现金科目被碰到，所以 CFO 不变。'},
+{q:'下月客户把 100 万还了，三表影响是？',o:['利润再↑100 万','利润不变，应收↓100、现金↑100，经营现金流 +100 万','负债↓','权益↑100 万'],a:1,
+e:'<b>收入只确认一次。</b>回款阶段仅是资产形态转换 + 现金流入。这也解释了为什么一家公司可能出现「收入下滑但经营现金流大增」（集中收回旧账）。'},
+{q:'若赊销后客户破产，计提 100% 坏账，当初确认的 60 万利润会？',o:['自动冲回','需通过信用减值损失 100 万冲减后期利润，累计看变成亏损 40 万','不用处理','只改现金流量表'],a:1,
+e:'收入不能追溯冲回，只能在<b>后期</b>计提减值。总账看：+60 − 100 = −40 万（即白派的 40 万成本）。这就是为什么激进赊销只能提前透支利润，早晚要还。'}
+]},
+{id:'5-3',type:'mcq',title:'穿透演练二：买设备付现',
+intro:'花 1000 万现金买一条生产线（预计用 10 年，无残值，直线法）。分录：借 固定资产 1000 / 贷 银行存款 1000。注意：<b>没有碰到任何收入费用科目</b>，所以当期利润完全不变；但现金实实在在少了 1000 万，计入<b>投资活动</b>。',
+quiz:[
+{q:'买设备当年对三表的影响是？',o:['利润↓1000 万、现金↓1000 万','利润不变、总资产不变（结构改变）、投资活动现金流出 1000 万','利润↑、现金↓','负债↑1000 万'],a:1,
+e:'现金→固定资产，都是资产，总额不变。利润表当期零影响。<b>这是为什么一家狂抗拟资本开支的公司可以利润很好看却没现金。</b>'},
+{q:'该设备第一年折旧 100 万（计入营业成本），对三表的影响？',o:['利润↓100、固定资产净值↓100、现金不变（间接法中加回）','利润↓100、现金↓100','只影响现金流','无影响'],a:0,
+e:'折旧是「上年已付过钱的资产在今年被用掉一部分」。它减利润、减资产，但不动现金——所以 CFO 计算时要加回。<b>这是全课最重要的一个知识点。</b>'},
+{q:'若公司把折旧年限从 10 年改为 20 年，当期影响？',o:['当期利润增加 50 万（少提折旧），但现金流完全不变','利润与现金同时增加','现金增加 50 万','无任何影响'],a:0,
+e:'折旧从 100 降为 50 万，利润凭空多了 50 万。这是典型的会计估计调节。<b>识别方法：对比附注中固定资产折旧年限与同业，年限明显偏长就要警惕。</b>'},
+{q:'重资产公司的 CFO 通常高于净利润，原因是？',o:['它们更优质','折旧摊销金额大，作为非现金费用被全部加回','它们不交税','应收很少'],a:1,
+e:'所以不能单看 CFO/净利润 高就说好，要进一步看 FCF（扣掉 CapEx）。重资产企业的 CFO 很大一部分必须拿去重新买设备。'}
+]},
+{id:'5-4',type:'concept',title:'穿透演练三：最反直觉的一关 · 计提折旧',viz:'trisync',
+analogy:'你买了一部 12000 元的手机，打算用 3 年。买的那天你真金白银掉了 12000（现金流出），但你不会说自己那个月「花了 12000 生活费」——你会说每月「摄销」了约 333 元。折旧就是企业版的这个动作：<b>现金早就付完了，之后每年只是把它一点点搬到利润表上。</b>',
+formal:'计提折旧分录：借 营业成本/管理费用 X / 贷 累计折旧 X。三表影响：利润表费用↑、利润↓X；资产负债表固定资产净值↓X、留存收益↓X（两边同时缩小，仍平衡）；现金流量表：<b>零影响</b>，在间接法中作为非现金项目全额加回。',
+example:'将同样道理套用到其他非现金项：无形资产摊销、商誉减值、存货跌价准备、坏账准备、股份支付费用——它们全部是「减利润不减现金」。掌握这一类，你就能看懂 90% 的净利润与 CFO 差异。',
+quiz:[
+{q:'计提折旧 500 万，对现金的影响是？',o:['现金减少 500 万','现金减少 125 万','完全不影响现金','现金增加 500 万'],a:2,
+e:'现金在购买设备那年已经一次流出完了。后续每年的折旧只是账面重新分配。这是零基础最高频的认知误区。'},
+{q:'折旧使资产负债表两边发生什么？',o:['只有左边减少，不再平衡','左边固定资产净值↓，右边留存收益↓，同额缩小仍平衡','右边负债↑','两边同时增加'],a:1,
+e:'费用侵蚀的是权益（通过净利润→留存收益）。这也再一次验证了「费用为何记借方」。'},
+{q:'一家公司本年净利润 −800 万（亏损），其中包含商誉减值 2000 万，其他正常。如何判断？',o:['公司真实失血 800 万','主营仍盈利约 1200 万，亏损主要来自一次性非现金减值，应看经营现金流确认','公司即将破产','无法判断'],a:1,
+e:'这是真实分析框架：把非现金、一次性项剔开，看主营底盘。同时要警惕反向情况：公司可能利用已经亏损的年度一次性计提大额减值（财务洗澡）。'}
+]},
+{id:'5-5',type:'sandbox',title:'三表联动沙盒'},
+{id:'5-6',type:'boss',title:'BOSS：十笔交易全穿透',time:240,
+quiz:[
+{q:'股东增资 500 万现金。三表影响？',o:['利润↑500、现金↑500','利润不变、资产↑500、权益↑500、筹资现金流入 500','负债↑500','经营现金流入 500'],a:1,e:'增资不是收入，不过利润表；现金流入属筹资活动。'},
+{q:'以现金 300 万购买存货。三表影响？',o:['利润↓300','利润不变、总资产不变、经营现金流出 300','投资现金流出 300','权益↓300'],a:1,e:'存货未卖出不结转成本，利润不变；但买原料属经营活动现金流出。<b>这就是备货拖累 CFO 的机制。</b>'},
+{q:'将上述存货中的 200 万以 400 万赊销。对 CFO 的影响？',o:['+400 万','+200 万','0（利润+200、应收−400、存货+200）','−200 万'],a:2,e:'利润 +200，应收增加要减 400，存货减少要加 200 → 净影响 0。利润凭空多了 200 万，现金一分未增。'},
+{q:'支付本年房租 150 万现金。三表影响？',o:['利润↓150、现金↓150、经营现金流出 150','利润不变','投资现金流出','只影响资产负债表'],a:0,e:'既碰费用又碰现金，三表全动。这类「利润与现金同步」的交易才是健康业务的主体。'},
+{q:'计提本年应付未付的年终奖金 200 万。三表影响？',o:['利润↓200、负债↑200、现金不变（CFO 不变）','利润↓200、现金↓200','无影响','资产↓200'],a:0,e:'计提未付，形成应付职工薪酬（负债）。利润已减但现金未出，间接法下作为经营性应付增加加回。<b>年末大量拖工资会美化 CFO。</b>'},
+{q:'偿还银行本金 300 万 + 利息 20 万。对利润表的影响？',o:['利润↓320 万','利润仅↓20 万（本金不过利润表）','利润不变','利润↓300 万'],a:1,e:'本金是负债减少，利息才是费用。两者在现金流量表上都归筹资活动（我国准则）。'},
+{q:'预收客户储值卡 600 万现金（未提供服务）。三表影响？',o:['收入↑600、利润↑','利润不变、现金↑600、合同负债↑600、经营现金流入 600','筹资现金流入 600','权益↑600'],a:1,e:'这是最美的业务形态：<b>现金先到、利润后确认</b>。它会造成 CFO 远大于净利润，是星巴克/Costco 模式的财务指纹。'},
+{q:'计提存货跌价准备 80 万。对 CFO 的影响？',o:['− 80 万','0（利润↓80 但作为非现金项加回）','+80 万','无法判断'],a:1,e:'非现金减值一律在间接法中加回。所以「大额减值年度的 CFO 反而显得很好看」并不奇怪。'},
+{q:'回购并注销股票 400 万。三表影响？',o:['利润↓400','利润不变、现金↓400、权益↓400、筹资现金流出 400（EPS 会上升）','投资现金流出','负债↓400'],a:1,e:'回购是对股东的资本返还，不进利润表。它降低权益、推高 ROE 与 EPS——看到 ROE 上升时必须先确认是否因为分母被回购缩小。'},
+{q:'综合判断：一家公司利润高速增长、CFO 接近零、CapEx 巨大、筹资活动持续大额流入。最合理的结论是？',o:['优质成长股，应重仓买入','高风险：利润未变现、扩张完全靠外部融资，一旦融资受限或应收坏账就会崩盘','完全健康','仅需关注毛利率'],a:1,e:'这是历史上绝大多数财务造假与债务爆雷公司的完整画像。三表联动的终极价值就在于：<b>单看任何一张表都可能被骗，三张一起看就很难骗你。</b>'}
+]}
+]},
+
+{
+id:'c6',icon:'🕵️',title:'财报分析实战',desc:'杜邦分析、周转率、偿债能力与造假识别。',
+levels:[
+{id:'6-1',type:'concept',title:'ROE 与杜邦分析三齿轮',viz:'gears',
+analogy:'股东只关心一件事：我投的 100 块今年给我赚了多少？这就是 ROE。而赚钱只有三种活法：<b>①卖得贵</b>（茅台：卖一矶赚很多）、<b>②卖得快</b>（沃尔玛：一矶赚得少但转得快）、<b>③借钱放大</b>（银行：用别人的钱做生意）。三个齿轮乘在一起就是 ROE。',
+formal:'ROE = 净利润 ÷ 平均净资产。杜邦拆解：<b>ROE = 销售净利率 × 总资产周转率 × 权益乘数</b>，即（净利润/收入）×（收入/总资产）×（总资产/净资产）。ROA = 净利润 ÷ 总资产，不含杠杆因素。',
+example:'三种 20% ROE：<b>A（高端白酒）</b>净利率 50% × 周转 0.5 × 杠杆 0.8 ≈ 20%；<b>B（超市）</b>净利率 2.5% × 周转 3.2 × 杠杆 2.5 ≈ 20%；<b>C（激进地产）</b>净利率 8% × 周转 0.25 × 杠杆 10 = 20%。同样的 ROE，风险天差地别——C 只需要银行抽贷就死。',
+quiz:[
+{q:'销售净利率 10%、总资产周转率 1.2、权益乘数 2.5，ROE 是？',o:['12%','30%','25%','13.7%'],a:1,e:'10% × 1.2 × 2.5 = 30%。同时 ROA = 10% × 1.2 = 12%，差额全靠杠杆放大。'},
+{q:'两家公司 ROE 都是 25%，A 靠高净利率，B 靠权益乘数 8 倍。哪家风险更大？',o:['A','B，因为高杠杆在行业下行或利率上升时会放大亏损与偿债风险','一样','无法判断'],a:1,e:'杠杆是双向放大器。看到高 ROE 必须先拆开看成因，否则你会把一家高危公司误认为优质企业。'},
+{q:'公司 ROE 从 15% 升至 24%，但净利率与周转率都没变，最可能原因？',o:['盈利能力提升','权益乘数上升（加杠杆或大额回购缩减净资产）','成本下降','税率下降'],a:1,e:'三个因子两个不变，变化必然来自第三个。区分「真赚钱能力提升」与「只是加了杠杆」是杜邦分析最大的实用价值。'}
+]},
+{id:'6-2',type:'mcq',title:'周转率家族：效率的体温计',
+intro:'<b>存货周转天数</b> = 平均存货 ÷ 营业成本 × 365（货在仓库躺多久）<br><b>应收周转天数</b> = 平均应收 ÷ 营业收入 × 365（钱在客户口袋躺多久）<br><b>应付周转天数</b> = 平均应付 ÷ 营业成本 × 365（你能拖供应商多久）<br><b>现金周转天数 CCC = 存货天 + 应收天 − 应付天</b>，越小越好，为负说明在无息占用上下游资金。',
+quiz:[
+{q:'存货天数 60、应收天数 45、应付天数 90，CCC 是？',o:['195 天','15 天','105 天','−15 天'],a:1,e:'60 + 45 − 90 = 15 天。意味着你只需自掉 15 天的运营资金，运营效率不错。'},
+{q:'CCC 为 −30 天意味着？',o:['公司在亏钱','公司先收客户钱、后付供应商款，相当于无息使用产业链资金','数据错误','应收太多'],a:1,e:'这是极强商业模式的标志（苹果、Costco、优秀便利店）。它的直接后果是 CFO 长期高于净利润、几乎不需要外部融资。'},
+{q:'存货周转天数从 45 天升至 120 天，最可能意味着？',o:['销量大增','产品滞销或为涨价囤货，需排查并警惕后续跌价准备','毛利率提升','应收减少'],a:1,e:'存货天数大幅拉长基本只有两种解释，且大多数时候是前者。验证：看同期收入增速、看附注库龄结构、看后一年是否计提跌价。'},
+{q:'总资产周转率长期低于同业，说明？',o:['定价权强','单位资产创收能力弱，可能存在闲置产能或低效资产','杠杆低','现金多'],a:1,e:'需结合产能利用率与在建工程看：大量在建工程长期不转固定资产，是资本开支浪费甚至资金被占用的经典信号。'}
+]},
+{id:'6-3',type:'mcq',title:'偿债能力：会不会猝死',
+intro:'<b>短期</b>：流动比率、速动比率、现金比率。<b>长期</b>：资产负债率、有息负债率、<b>利息保障倍数 = EBIT ÷ 利息支出</b>（赚的钱够付几倍利息）。最硬的一条：<b>经营现金流 ÷ 到期债务</b>——因为还债用的是现金，不是利润。',
+quiz:[
+{q:'EBIT 800 万、利息支出 400 万，利息保障倍数是？安全吗？',o:['2 倍，偏低，盈利小幅下降就可能付不出利息','2 倍，非常安全','0.5 倍','无法计算'],a:0,e:'一般要求 ≥ 3，优质企业常在 10 倍以上。仅 2 倍意味着没有缓冲空间，一旦行业下行就面临违约。'},
+{q:'一家公司资产负债率 75%，但负债中 90% 是预收货款与应付账款，如何判断？',o:['极度危险','风险小得多：这些是无息的经营性负债，不会被银行抽贷','一定会破产','说明利润差'],a:1,e:'必须区分<b>有息负债</b>与<b>经营性负债</b>。预收、应付是上下游在给你无息融资，是强势的体现。只看资产负债率一个数字会得出完全相反的结论。'},
+{q:'公司货币资金 30 亿、短期借款 28 亿、财务费用 2 亿，这种「存贷双高」可能意味着？',o:['公司非常有钱','现金可能被受限、被关联方占用、甚至不存在，需核查受限资金与护护护','利率太低','营收增长'],a:1,e:'真有 30 亿闲钱的公司不会同时背着 28 亿借款付 2 亿利息。此类红旗在多起造假案件中出现过。核查：附注受限制货币资金、利息收入与存款规模是否匹配。'},
+{q:'判断短期偿债风险，最硬的单一指标是？',o:['毛利率','经营活动现金流净额 ÷ 未来一年到期的有息债务','净利率','总资产规模'],a:1,e:'因为还债只能用现金。利润再高，如果都在应收里，也救不了到期的债。这也是为什么第 4 章要花那么大篇幅。'}
+]},
+{id:'6-4',type:'mcq',title:'趋势与同业对比',
+intro:'单年数据几乎没有意义。专业分析只做两件事：<b>纵向比（自己近 3–5 年趋势）</b>与<b>横向比（同行三家同期对比）</b>。任何异常都是相对而言的。',
+quiz:[
+{q:'三家同业奶茶公司毛利率分别 62%、65%、63%，第四家报出 88%，首要动作是？',o:['买入第四家','核查它的营业成本归集口径与关联交易','认为行业均值错了','忽略'],a:1,e:'先排除口径差异（是否把门店人工房租放到销售费用），再排除关联方低价供货，最后才考虑是真护城河。'},
+{q:'公司收入三年 CAGR 40%，但毛利率从 45% 降至 26%、销售费用率翻倍，如何评价？',o:['优质高成长','增长是靠降价与砧钱买来的，盈利质量恶化，需确认单位经济模型是否跑得通','成本控制优秀','与估值无关'],a:1,e:'「不赚钱的增长」。关键验证：单店模型（单店收入、单店利润率、回本周期），以及考虑获客成本后的 LTV/CAC。'},
+{q:'同一家公司，存货天数、应收天数、毛利率均优于同业，但经营现金流长期为负。最应怀疑？',o:['数据真实且它很优秀','指标之间矛盾：若周转和毛利都优秀，CFO 不可能长期为负，应怀疑报表真实性','行业特毊','应多给估值溢价'],a:1,e:'<b>交叉验证思维：好看的指标之间必须互相支撑。</b>很多造假公司能把单个指标做得很漂亮，但无法让所有指标互相自洽——尤其是现金。'}
+]},
+{id:'6-5',type:'detective',title:'财报侦探：三宗悬案',
+cases:[
+{name:'案一：星辰智能（制造业）',
+desc:'下表为近三年关键数据（单位：亿元）。请勾选所有<b>真正的异常信号</b>。',
+rows:[['指标','2023','2024','2025'],['营业收入','20.0','25.0','31.0'],['净利润','2.4','3.2','4.1'],['经营现金流净额','2.1','0.3','−1.8'],['应收账款','5.0','9.5','16.2'],['存货','3.0','4.0','5.1'],['毛利率','28%','29%','29%'],['货币资金','6.0','6.4','6.8'],['短期借款','1.0','4.5','9.0']],
+clues:[
+{t:'净利润连年增长，经营现金流却从 +2.1 跌至 −1.8',bad:true,
+why:'最核心的红旗。利润与现金反向背离且持续恶化，说明利润完全未变现。'},
+{t:'应收账款三年增长 224%，而收入仅增长 55%',bad:true,
+why:'应收增速是收入增速的 4 倍。应收周转天数从 91 天升至 191 天，基本只有两种解释：放宽信用压货或虚构销售。'},
+{t:'毛利率三年基本稳定在 28%–29%',bad:false,
+why:'这是正常现象，制造业毛利率稳定本身不是异常。不要把所有数字都当可疑点。'},
+{t:'货币资金稳在 6–7 亿，但短期借款从 1 亿飙至 9 亿',bad:true,
+why:'典型「存贷双高」。如果真有 6.8 亿可用现金，为何要背 9 亿有息负债付利息？需核查受限制货币资金。'},
+{t:'存货从 3.0 增至 5.1 亿',bad:false,
+why:'存货增长 70%，低于收入增长 55% 的同量级、周转基本稳定，属于随规模自然增长，不构成独立红旗。'},
+{t:'公司靠持续增加借款来维持运转',bad:true,
+why:'经营不造血 + 筹资持续流入 = 现金链完全依赖外部。一旦银行抽贷即面临违约。'}
+]},
+{name:'案二：碧泉食品（消费品）',
+desc:'该公司被市场称为「小茅台」。请勾选真正的异常信号。',
+rows:[['指标','碧泉','同业 A','同业 B'],['毛利率','78%','41%','44%'],['销售费用率','32%','15%','17%'],['净利率','21%','14%','15%'],['存货周转天','210','65','72'],['应收周转天','12','45','40'],['CFO/净利润','1.35','1.05','0.95'],['前五大供应商占比','86%','32%','28%']],
+clues:[
+{t:'毛利率 78%，远高于同业；但销售费用率也高达 32%',bad:true,
+why:'这两个数字同时异常高，最常见的解释是<b>成本口径转移</b>：把应属营业成本的支出放进销售费用，人为抬高毛利率。需看附注口径并重算。'},
+{t:'应收周转仅 12 天，远优于同业',bad:false,
+why:'快消品经销商预付模式天然应收很低，且有 CFO/净利润 1.35 互相支撑。这是真实强势的证据。'},
+{t:'存货周转 210 天，是同业的 3 倍以上',bad:false,
+why:'<b>陷阱题</b>。如果产品需要长期窖藏（白酒、酱油、火腿），高存货天数是商业模式使然。需先确认产品属性再判断，否则会误判。'},
+{t:'前五大供应商占采购额 86%',bad:true,
+why:'极高集中度。需核查这些供应商是否为关联方或壳公司——关联方低价供货可以凭空制造高毛利，是造假常用手法。'},
+{t:'CFO/净利润 = 1.35，高于同业',bad:false,
+why:'盈利质量的正面证据。现金是最难伪造的一环，它部分抵消了其他疑点的严重程度。侦探工作不是找黑料，是归集证据。'}
+]},
+{name:'案三：鸿图集团（并购型）',
+desc:'近三年完成 11 起收购。请勾选真正的异常信号。',
+rows:[['指标','2023','2024','2025'],['营业收入','30','52','70'],['归母净利润','3.0','5.5','7.2'],['扣非归母净利润','2.8','2.9','2.4'],['商誉','8','26','41'],['净资产','30','48','55'],['研发资本化率','12%','35%','58%'],['有效税率','24%','13%','7%']],
+clues:[
+{t:'归母净利润逐年大增，但扣非净利润基本停滞甚至下降',bad:true,
+why:'增长全部来自非经常项（并购重估收益、处置损益、补助）。主营根本没有变强，这是最关键的一层揭穿。'},
+{t:'商誉从 8 亿增至 41 亿，占净资产 75%',bad:true,
+why:'净资产三分之二以上是收购溢价。一旦标的不达预期，商誉减值就可能直接抹平净资产。'},
+{t:'研发资本化率从 12% 飙升至 58%',bad:true,
+why:'资本化率三年翻五倍，直接把本应减利润的研发支出变成了资产。这是红旗级的会计政策激进化。'},
+{t:'营业收入三年从 30 亿增至 70 亿',bad:false,
+why:'并购带来合并报表收入增长本身不是异常。要看的是<b>内生增长</b>多少，但单看这一行无法定罪。'},
+{t:'有效税率从 24% 降至 7%',bad:true,
+why:'异常低税率需解释。若无税优支撑，可能意味着利润中包含大量不需缴税的「非现金、估值型」收益，即利润含水。'}
+]}
+]},
+{id:'6-6',type:'boss',title:'终极 BOSS：完整财报体检报告',time:400,
+quiz:[
+{q:'杜邦拆解中，能反映「不依赖杠杆的真实资产盈利能力」的指标是？',o:['ROE','销售净利率 × 总资产周转率（即 ROA）','权益乘数','流动比率'],a:1,e:'ROA 剔除了杠杆。比较两家公司盈利能力时，先看 ROA，再看它们用了多少杠杆把 ROA 放大成 ROE。'},
+{q:'收入 50 亿、净利润 5 亿、平均总资产 40 亿、平均净资产 16 亿。ROE 与权益乘数分别是？',o:['31.25% 与 2.5','12.5% 与 2.5','31.25% 与 0.4','10% 与 2.5'],a:0,e:'ROE = 5/16 = 31.25%；权益乘数 = 40/16 = 2.5。验算：净利率 10% × 周转 1.25 × 2.5 = 31.25% ✓'},
+{q:'一家公司毛利率稳定、存货周转稳定、应收周转稳定，但 CFO 突然从 10 亿降至 1 亿。最可能的技术性原因？',o:['一定是造假','可能是应付项目大幅减少（集中付了供应商款）或预收大幅下降','毛利率下降','股本变动'],a:1,e:'间接法有三大类调整项：非现金费用、非经营损益、运营资金变动。若前两类与应收存货都稳，就要去看<b>应付与预收</b>这两个常被忽略的项目。'},
+{q:'下列哪一组信号组合，对「利润含水」的指向最强？',o:['毛利率稳定 + 存货稳定 + CFO 稳定','应收增速远超收入 + CFO 长期低于净利润 + 有效税率异常低 + 存贷双高','销售费用率上升 + 研发增加','分红增加 + 回购增加'],a:1,e:'单一信号可能有合理解释，但四个信号同时出现且互相印证时，概率极高。<b>财报分析的方法论核心就是交叉验证，而非单指标投井。</b>'},
+{q:'公司季度收入分布为 Q1 10%、Q2 15%、Q3 20%、Q4 55%，且历年如此，次年 Q1 总伴大量销售退回。应怀疑？',o:['行业季节性，正常','期末渠道压货与提前确认收入','成本控制能力强','现金管理优秀'],a:1,e:'关键不是 Q4 高，而是<b>Q4 高 + 次年 Q1 大量退货</b>这个组合。真实季节性不会伴随系统性退货。'},
+{q:'一家公司 ROE 28%、CFO/净利润 1.2、CCC 为 −15 天、有息负债率 5%、扣非利润占净利润 95%。初步判断？',o:['财务质量优秀，具备较强商业模式；但仍需评估估值与行业前景','一定造假','风险极高','无法判断'],a:0,e:'五个指标互相支撑：高回报、现金真实、无息占用上下游、低杠杆、利润干净。但记住：<b>财报优秀 ≠ 股票能买</b>，价格仍是独立变量。'},
+{q:'分析一家公司时，正确的工作顺序应是？',o:['先看市盈率再看报表','先看商业模式与行业 → 再读三表与附注 → 算关键比率做纵横对比 → 最后才谈估值','只看现金流','只看 ROE'],a:1,e:'数字只有在商业语境里才有意义。先知道它靠什么赚钱，才知道哪些指标应该好看、哪些天然难看。'},
+{q:'附注在财报分析中的定位是？',o:['可以跳过','三表只给结果，附注才给构成与假设（折旧年限、客户集中度、受限资金、关联交易），是真正的信息金矿','只是法律免责文本','只对审计师有用'],a:1,e:'本课教的所有红旗（商誉构成、受限现金、关联方、资本化率、存货库龄）几乎全部需要附注才能验证。只看三张表的人永远只能看到一半。'},
+{q:'面试被问「你怎么判断一家公司的利润是真的」，最好的回答框架是？',o:['看净利润增长率','看利润能否被现金验证（CFO、收现比）、能否被资产验证（应收存货周转）、能否被外部验证（税负、同业、上下游）','看审计意见就够了','看股价走势'],a:1,e:'三重验证框架：<b>现金验证 · 资产验证 · 外部验证</b>。这就是本课六个章节的最终交付物。你已经具备读懂任何一家上市公司财报的能力了。'},
+{q:'关于财报分析，最接近真相的说法是？',o:['财报能精确告诉你公司未来值多少钱','财报不能证明一家公司一定好，但能帮你高效排除大部分坑','财报没用，全靠调研','只看一个指标就够'],a:1,e:'财报的最大价值是<b>降低犯大错的概率</b>。它是漏斗的第一层筛子，不是最后一层。保持这份清醒，你已经比大多数人专业了。'}
+]}
+]}
+];
+</script>
+
+<style>
+/* ===== 引擎专用样式（eg- 前缀，与上方主样式互不干扰） ===== */
+.eg-wrap{max-width:1000px;margin:0 auto;padding-bottom:60px}
+.eg-h{font-size:23px;font-weight:800;margin:0 0 6px;letter-spacing:.5px}
+.eg-sub{color:var(--dim);font-size:13px;line-height:1.7;margin:0 0 16px}
+.eg-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:14px}
+.eg-card h4{margin:0 0 8px;font-size:14px;letter-spacing:1px;color:var(--cy)}
+.eg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.eg-grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.eg-lv{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.eg-lv:hover{transform:translateY(-3px);border-color:var(--cy);box-shadow:0 8px 24px rgba(34,211,238,.12)}
+.eg-lv.done{border-color:rgba(52,211,153,.55)}
+.eg-lv.done:after{content:'✓';position:absolute;top:10px;right:12px;color:var(--gn);font-weight:800}
+.eg-lv b{display:block;font-size:14px;margin-bottom:6px;line-height:1.4}
+.eg-lv span{font-size:11px;color:var(--dim)}
+.eg-tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:20px;background:var(--card2);color:var(--dim);border:1px solid var(--line);margin-right:5px}
+.eg-tag.cy{color:var(--cy);border-color:rgba(34,211,238,.4)}
+.eg-tag.pk{color:var(--pk);border-color:rgba(244,114,182,.4)}
+.eg-tag.am{color:var(--am);border-color:rgba(251,191,36,.4)}
+.eg-tag.gn{color:var(--gn);border-color:rgba(52,211,153,.4)}
+.eg-tag.rd{color:var(--rd);border-color:rgba(251,113,133,.4)}
+.eg-tag.pu{color:var(--pu);border-color:rgba(167,139,250,.4)}
+.eg-btn{display:inline-block;background:linear-gradient(135deg,var(--cy),#0ea5b7);color:#04121a;border:none;padding:11px 22px;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;transition:.18s;font-family:inherit}
+.eg-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.eg-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.eg-btn.gh{background:transparent;border:1px solid var(--line);color:var(--txt)}
+.eg-btn.gh:hover{border-color:var(--cy);color:var(--cy)}
+.eg-btn.pk{background:linear-gradient(135deg,var(--pk),#db2777);color:#fff}
+.eg-btn.sm{padding:7px 14px;font-size:12px;border-radius:9px}
+.eg-tb{background:var(--card2);border-left:3px solid var(--cy);border-radius:10px;padding:14px 16px;margin-bottom:10px;line-height:1.85;font-size:14px}
+.eg-tb.a{border-left-color:var(--am)}
+.eg-tb.f{border-left-color:var(--cy)}
+.eg-tb.e{border-left-color:var(--pk)}
+.eg-tb .lb{display:block;font-size:11px;letter-spacing:2px;color:var(--dim);margin-bottom:6px;font-weight:700}
+.eg-q{font-size:16px;font-weight:700;line-height:1.7;margin:18px 0 12px}
+.eg-opt{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:9px;cursor:pointer;transition:.15s;font-size:14px;line-height:1.6;display:flex;gap:10px;align-items:flex-start}
+.eg-opt:hover{border-color:var(--cy);background:#1e2a4a}
+.eg-opt .ix{width:22px;height:22px;flex:0 0 22px;border-radius:6px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--dim)}
+.eg-opt.ok{border-color:var(--gn);background:rgba(52,211,153,.13)}
+.eg-opt.ok .ix{background:var(--gn);color:#04121a;border-color:var(--gn)}
+.eg-opt.no{border-color:var(--rd);background:rgba(251,113,133,.13)}
+.eg-opt.no .ix{background:var(--rd);color:#2a0710;border-color:var(--rd)}
+.eg-opt.lk{pointer-events:none}
+.eg-opt.sel{border-color:var(--pu);background:rgba(167,139,250,.13)}
+.eg-exp{border-radius:12px;padding:14px 16px;margin:10px 0 4px;font-size:13.5px;line-height:1.85;background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.28);animation:egIn .3s ease}
+.eg-exp.bad{background:rgba(251,113,133,.07);border-color:rgba(251,113,133,.3)}
+.eg-exp .t{font-weight:800;display:block;margin-bottom:6px}
+@keyframes egIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.eg-bar{height:9px;background:var(--card2);border-radius:20px;overflow:hidden;border:1px solid var(--line)}
+.eg-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cy),var(--pu));border-radius:20px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.eg-kpi{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:13px}
+.eg-kpi .k{font-size:10.5px;letter-spacing:1.5px;color:var(--dim);margin-bottom:5px}
+.eg-kpi .v{font-size:19px;font-weight:800}
+.eg-hearts{font-size:19px;letter-spacing:3px}
+.eg-timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:17px;color:var(--cy)}
+.eg-timer.warn{color:var(--rd);animation:egPulse .6s infinite}
+@keyframes egPulse{50%{opacity:.35}}
+.eg-tok{display:inline-block;background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:9px 14px;margin:5px;font-size:13px;cursor:grab;transition:.15s;user-select:none}
+.eg-tok:hover{border-color:var(--am);transform:translateY(-2px)}
+.eg-tok.sel{border-color:var(--pu);background:rgba(167,139,250,.18);box-shadow:0 0 0 3px rgba(167,139,250,.15)}
+.eg-tok.gone{display:none}
+.eg-buck{background:var(--card2);border:2px dashed var(--line);border-radius:14px;padding:12px;min-height:110px;transition:.15s}
+.eg-buck.hot{border-color:var(--cy);background:rgba(34,211,238,.08)}
+.eg-buck .bt{font-size:12px;font-weight:800;letter-spacing:1px;color:var(--cy);margin-bottom:8px;text-align:center}
+.eg-buck .it{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:12px;margin-bottom:6px}
+.eg-buck .it.ok{border-color:var(--gn);color:var(--gn)}
+.eg-buck .it.no{border-color:var(--rd);color:var(--rd)}
+.eg-jr{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.eg-jr select,.eg-jr input{background:var(--card);border:1px solid var(--line);color:var(--txt);border-radius:9px;padding:9px 10px;font-size:13px;font-family:inherit;width:100%}
+.eg-jr .r{display:grid;grid-template-columns:64px 1fr 1fr;gap:8px;align-items:center;margin-bottom:8px}
+.eg-jr .r .lb{font-size:12px;font-weight:800;color:var(--am)}
+.eg-bal{font-size:12.5px;padding:8px 12px;border-radius:9px;background:var(--card);border:1px solid var(--line);margin-top:6px}
+.eg-bal.ok{color:var(--gn);border-color:rgba(52,211,153,.5)}
+.eg-bal.no{color:var(--rd);border-color:rgba(251,113,133,.5)}
+.eg-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.eg-tbl td,.eg-tbl th{border:1px solid var(--line);padding:8px 10px;text-align:right}
+.eg-tbl td:first-child,.eg-tbl th:first-child{text-align:left;color:var(--dim)}
+.eg-tbl tr:first-child td{background:var(--card2);font-weight:800;color:var(--cy);text-align:center}
+.eg-tbl tr:first-child td:first-child{text-align:left}
+.eg-clue{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-size:13.5px;line-height:1.65;transition:.15s;display:flex;gap:10px}
+.eg-clue:hover{border-color:var(--am)}
+.eg-clue .bx{width:20px;height:20px;flex:0 0 20px;border:1px solid var(--line);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.eg-clue.sel{border-color:var(--pu);background:rgba(167,139,250,.12)}
+.eg-clue.sel .bx{background:var(--pu);color:#0b0616;border-color:var(--pu)}
+.eg-clue.rt{border-color:var(--gn)}
+.eg-clue.wr{border-color:var(--rd)}
+.eg-clue .wy{display:block;margin-top:7px;font-size:12.5px;color:var(--dim);line-height:1.75}
+.eg-viz{background:linear-gradient(160deg,#0c1322,#131c31);border:1px solid var(--line);border-radius:14px;padding:20px 16px;margin:12px 0}
+.eg-viz .vt{text-align:center;font-size:11px;letter-spacing:2px;color:var(--dim);margin-bottom:16px;font-weight:700}
+.eg-hd{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.eg-hd>div{flex:1;min-width:210px;border-radius:12px;padding:14px;font-size:12.5px;line-height:1.8}
+.eg-hd .L{background:rgba(34,211,238,.09);border:1px solid rgba(34,211,238,.35)}
+.eg-hd .R{background:rgba(244,114,182,.09);border:1px solid rgba(244,114,182,.35)}
+.eg-hd .hh{font-size:14px;font-weight:800;margin-bottom:8px;text-align:center}
+.eg-hd .L .hh{color:var(--cy)}
+.eg-hd .R .hh{color:var(--pk)}
+.eg-sc{display:flex;align-items:stretch;gap:0;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.eg-sc>div{padding:16px 12px;font-size:12.5px;line-height:1.75}
+.eg-sc .a{flex:1;background:rgba(34,211,238,.09)}
+.eg-sc .eq{flex:0 0 34px;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:var(--dim);background:var(--card2)}
+.eg-sc .b{flex:1;background:rgba(251,113,133,.09)}
+.eg-sc .c{flex:1;background:rgba(52,211,153,.09)}
+.eg-wf{display:flex;align-items:flex-end;gap:6px;height:190px;padding:0 4px}
+.eg-wf .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:10px;color:var(--dim);text-align:center}
+.eg-wf .col i{display:block;width:100%;border-radius:6px 6px 0 0;margin-bottom:6px}
+.eg-tl{position:relative;padding:8px 0 0}
+.eg-tl .ln{height:3px;background:var(--line);border-radius:3px;margin:34px 0 10px;position:relative}
+.eg-tl .pt{position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--card);border:2px solid var(--cy);transform:translateX(-50%);display:flex;align-items:center;justify-content:center;font-size:10px}
+.eg-tl .cap{position:absolute;top:26px;transform:translateX(-50%);font-size:11px;width:120px;text-align:center;color:var(--dim);line-height:1.5}
+.eg-flow{display:flex;flex-direction:column;gap:10px}
+.eg-flow .bx2{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.7}
+.eg-flow .ar{text-align:center;color:var(--cy);font-size:18px;line-height:1}
+.eg-gear{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;align-items:center}
+.eg-gear .g{background:var(--card2);border:1px solid var(--line);border-radius:50px;padding:16px 12px;text-align:center;font-size:12px}
+.eg-gear .g b{display:block;font-size:15px;color:var(--am);margin-bottom:4px}
+.eg-bw{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.eg-bg2{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 8px;text-align:center;transition:.2s}
+.eg-bg2.on{border-color:var(--am);box-shadow:0 0 0 3px rgba(251,191,36,.12)}
+.eg-bg2.off{opacity:.32;filter:grayscale(1)}
+.eg-bg2 .ic{font-size:26px;margin-bottom:6px}
+.eg-bg2 .nm{font-size:11.5px;font-weight:800;margin-bottom:3px}
+.eg-bg2 .ds{font-size:10px;color:var(--dim);line-height:1.45}
+.eg-row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:8px;font-size:13px}
+.eg-row.me{border-color:var(--cy);background:rgba(34,211,238,.08)}
+.eg-row .rk{width:26px;font-weight:800;color:var(--dim)}
+.eg-row .nm{flex:1}
+.eg-fl{display:flex;gap:6px;flex-wrap:wrap}
+.eg-fl div{width:38px;height:46px;border-radius:10px;background:var(--card2);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:9px;color:var(--dim)}
+.eg-fl div.on{border-color:var(--am);background:rgba(251,191,36,.13)}
+.eg-mk{position:fixed;inset:0;background:rgba(3,6,14,.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px;animation:egIn .25s ease}
+.eg-mc{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px 24px;max-width:420px;width:100%;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.eg-mc .bi{font-size:56px;margin-bottom:10px;animation:egPop .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes egPop{0%{transform:scale(0) rotate(-25deg)}100%{transform:none}}
+.eg-mc h3{margin:0 0 8px;font-size:20px}
+.eg-mc p{color:var(--dim);font-size:13.5px;line-height:1.75;margin:0 0 18px}
+.eg-rw{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:14px;font-size:13.5px;line-height:1.8;text-align:left}
+.eg-sl{margin-bottom:14px}
+.eg-sl label{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:7px;color:var(--dim)}
+.eg-sl label b{color:var(--cy);font-variant-numeric:tabular-nums}
+.eg-sl input[type=range]{width:100%;-webkit-appearance:none;height:5px;border-radius:20px;background:var(--card2);outline:none}
+.eg-sl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:19px;height:19px;border-radius:50%;background:var(--cy);cursor:pointer;border:3px solid var(--bg2)}
+.eg-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px}
+.eg-st{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:14px;font-size:12.5px}
+.eg-st .sh{font-size:12px;font-weight:800;letter-spacing:1px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.eg-st .ln2{display:flex;justify-content:space-between;padding:4px 0;line-height:1.6}
+.eg-st .ln2 b{font-variant-numeric:tabular-nums}
+.eg-st .ln2.tt{border-top:1px solid var(--line);margin-top:6px;padding-top:7px;font-weight:800}
+.eg-up{color:var(--gn)}.eg-dn{color:var(--rd)}
+.eg-note{font-size:12px;color:var(--dim);line-height:1.8;background:var(--card2);border-radius:10px;padding:11px 13px;margin-top:10px}
+.eg-navb{display:flex;flex-direction:column;gap:4px}
+.eg-navb a{display:block;padding:10px 13px;border-radius:10px;font-size:13px;color:var(--dim);cursor:pointer;transition:.15s;text-decoration:none}
+.eg-navb a:hover{background:var(--card2);color:var(--txt)}
+.eg-navb a.on{background:var(--card2);color:var(--cy);font-weight:700}
+.eg-cbo{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.4);opacity:0;font-size:52px;font-weight:900;pointer-events:none;z-index:900;transition:.28s;text-shadow:0 0 40px rgba(251,191,36,.8);color:var(--am)}
+.eg-cbo.go{opacity:1;transform:translate(-50%,-50%) scale(1)}
+.eg-fx{position:fixed;inset:0;pointer-events:none;z-index:880}
+@media(max-width:700px){.eg-jr .r{grid-template-columns:1fr}.eg-wf{height:150px}.eg-tl .cap{width:80px;font-size:10px}}
+</style>
+
+<script>
+/* ==================== 引擎：常量 ==================== */
+var RK=[[0,'记账小白','🐣'],[300,'出纳','💵'],[800,'会计','🧾'],[1800,'财务主管','📊'],[3500,'财务总监','🎯'],[6000,'CFO','👑'],[9000,'财报之神','🌟']];
+var STG=[
+{n:'街边奶茶推车',i:'🛒',st:1,as:'3 万',pr:'—'},
+{n:'社区奶茶小店',i:'🏠',st:3,as:'42 万',pr:'—'},
+{n:'城市连锁品牌',i:'🏬',st:28,as:'1,850 万',pr:'—'},
+{n:'区域连锁集团',i:'🏤',st:160,as:'2.4 亿',pr:'—'},
+{n:'全国连锁·Pre-IPO',i:'🏗️',st:820,as:'18 亿',pr:'—'},
+{n:'上市集团（敌铃）',i:'🔔',st:2100,as:'96 亿',pr:'¥28.6'},
+{n:'行业霸主·千亿市值',i:'🌏',st:6400,as:'520 亿',pr:'¥142.8'}];
+var BD=[
+{id:'first',i:'👣',n:'第一步',d:'完成首关'},
+{id:'bal',i:'⚖️',n:'天生平衡',d:'记账模拟全对'},
+{id:'ch1',i:'🌱',n:'世界观成形',d:'通关第一章'},
+{id:'ch2',i:'🏛️',n:'资产表大师',d:'通关第二章'},
+{id:'ch3',i:'💰',n:'利润表大师',d:'通关第三章'},
+{id:'ch4',i:'💧',n:'现金流献人',d:'通关第四章'},
+{id:'ch5',i:'🔗',n:'三表打通',d:'通关第五章'},
+{id:'ch6',i:'🕵️',n:'财报侦探',d:'通关第六章'},
+{id:'cb5',i:'🔥',n:'五连击',d:'Combo 达 5'},
+{id:'cb10',i:'⚡',n:'十连击',d:'Combo 达 10'},
+{id:'cb20',i:'🌪️',n:'二十连击',d:'Combo 达 20'},
+{id:'perf',i:'💯',n:'满分初体验',d:'首次关卡全对'},
+{id:'perfch',i:'🏆',n:'完美主官',d:'5 关满分'},
+{id:'nohit',i:'🛡️',n:'无伤通关',d:'BOSS 不掉血'},
+{id:'st3',i:'🌙',n:'三日不断',d:'连继 3 天'},
+{id:'st7',i:'📆',n:'七日均勤',d:'连继 7 天'},
+{id:'st30',i:'💎',n:'一个月',d:'连继 30 天'},
+{id:'xp1k',i:'🌟',n:'千分选手',d:'XP 达 1000'},
+{id:'xp5k',i:'🚀',n:'五千俱乐部',d:'XP 达 5000'},
+{id:'rev10',i:'🔁',n:'遗忘曲线征服者',d:'完成 10 道复习'},
+{id:'clean',i:'🧹',n:'错题清空',d:'错题本清零'},
+{id:'sbx',i:'🧪',n:'沙盒科学家',d:'使用三表沙盒'},
+{id:'det',i:'🔎',n:'神探',d:'侦探关全对'},
+{id:'box5',i:'🎁',n:'开箱达人',d:'开启 5 个宝箱'}];
+var AI=[['陈子敏',7420],['张伟',5180],['李雨桐',3960],['王思瑞',2740],['赵明智',1880],['周佳佳',1150],['吴宇航',640],['郑小彬',210]];
+var LT={concept:['教学关','cy'],mcq:['练习关','pu'],drag:['拖拽关','am'],journal:['记账模拟','gn'],sandbox:['三表沙盒','pk'],detective:['侦探关','rd'],boss:['BOSS 战','rd']};
+
+/* ==================== 存档 ==================== */
+var SK='cfo_rise_save_v1',S;
+function defS(){return{xp:0,cleared:{},best:{},wrong:[],streak:{last:'',n:0,shield:1},badges:[],boxes:0,reviews:0,perfects:0,comboMax:0,sbxUsed:0,v:1};}
+function load(){try{var r=localStorage.getItem(SK);S=r?JSON.parse(r):defS();}catch(e){S=defS();}
+var d=defS();for(var k in d){if(S[k]===undefined)S[k]=d[k];}if(!S.streak)S.streak=d.streak;}
+function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
+function exportSave(){var t=JSON.stringify(S);modal('📦','存档已生成','下方文本就是你的全部进度，复制保存到任意地方即可备份。',
+'<textarea class="eg-jr" style="width:100%;height:110px;font-size:11px" onclick="this.select()">'+esc(t)+'</textarea>');}
+function importSave(){var t=prompt('粘贴之前导出的存档文本：');if(!t)return;try{var o=JSON.parse(t);S=o;load2();save();go('map');toast('✅ 存档已恢复');}catch(e){alert('存档格式不正确');}}
+function load2(){var d=defS();for(var k in d){if(S[k]===undefined)S[k]=d[k];}}
+function resetSave(){if(!confirm('确定清空全部进度？此操作不可恢复。'))return;S=defS();save();go('map');}
+
+/* ==================== 工具 ==================== */
+function el(i){return document.getElementById(i)}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function today(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
+function dayNum(){return Math.floor(Date.now()/86400000)}
+function fmt(n,p){var v=(Math.round(n*100)/100);var s=v.toFixed(p===undefined?1:p);return s.replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+function allLv(){var a=[];CHAPTERS.forEach(function(c){c.levels.forEach(function(l){a.push({c:c,l:l})})});return a}
+function findLv(id){var r=null;allLv().forEach(function(x){if(x.l.id===id)r=x});return r}
+function done(id){return !!S.cleared[id]}
+function chDone(c){return c.levels.every(function(l){return done(l.id)})}
+function chProg(c){var n=0;c.levels.forEach(function(l){if(done(l.id))n++});return n}
+function chOpen(ci){if(ci===0)return true;return chProg(CHAPTERS[ci-1])>=Math.ceil(CHAPTERS[ci-1].levels.length*0.6)}
+function totalLv(){return allLv().length}
+function doneLv(){var n=0;allLv().forEach(function(x){if(done(x.l.id))n++});return n}
+function rank(){var r=RK[0];for(var i=0;i<RK.length;i++){if(S.xp>=RK[i][0])r=RK[i]}return r}
+function rankNext(){for(var i=0;i<RK.length;i++){if(S.xp<RK[i][0])return RK[i]}return null}
+function stage(){var n=0;CHAPTERS.forEach(function(c){if(chDone(c))n++});var i=Math.min(STG.length-1,n===0?(doneLv()>0?0:0):n);
+if(n===0&&doneLv()>=3)i=1;return STG[Math.min(i,STG.length-1)]}
+function addXp(n){S.xp+=n;save();renderDash();var r=rank();if(!S._lastRank)S._lastRank=r[1];if(S._lastRank!==r[1]){S._lastRank=r[1];setTimeout(function(){modal(r[2],'晓级！'+r[1],'你的职位已提升为【'+r[1]+'】。公司也随之成长，继续保持。','');},450);}
+chk();}
+
+/* ==================== 音效（Web Audio，无外部文件） ==================== */
+var AC=null;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){AC=false}}return AC}
+function tone(f,dur,type,vol,delay){var c=ac();if(!c)return;try{var o=c.createOscillator(),g=c.createGain();o.type=type||'sine';o.frequency.value=f;
+var t=c.currentTime+(delay||0);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol||0.14,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur+0.02);}catch(e){}}
+function sOk(){tone(660,0.12,'triangle',0.11,0);tone(880,0.16,'triangle',0.10,0.08)}
+function sBad(){tone(200,0.20,'sawtooth',0.07,0);tone(150,0.26,'sawtooth',0.06,0.09)}
+function sWin(){[523,659,784,1047].forEach(function(f,i){tone(f,0.24,'triangle',0.11,i*0.11)})}
+function sBox(){[784,988,1319].forEach(function(f,i){tone(f,0.3,'sine',0.10,i*0.09)})}
+function sTick(){tone(440,0.05,'square',0.05,0)}
+
+/* ==================== 粒子 ==================== */
+var CV,CX,PS=[];
+function initFx(){CV=el('fx');if(!CV)return;CX=CV.getContext('2d');rz();window.addEventListener('resize',rz);requestAnimationFrame(tick)}
+function rz(){if(!CV)return;CV.width=innerWidth;CV.height=innerHeight}
+function burst(x,y,cols,n){if(!CX)return;cols=cols||['#22d3ee','#f472b6','#fbbf24','#34d399','#a78bfa'];
+for(var i=0;i<(n||26);i++){var a=Math.random()*Math.PI*2,sp=2+Math.random()*6;
+PS.push({x:x,y:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,l:1,c:cols[i%cols.length],s:2+Math.random()*4});}}
+function tick(){if(!CX)return;CX.clearRect(0,0,CV.width,CV.height);
+for(var i=PS.length-1;i>=0;i--){var p=PS[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.17;p.vx*=0.99;p.l-=0.016;
+if(p.l<=0){PS.splice(i,1);continue}CX.globalAlpha=Math.max(0,p.l);CX.fillStyle=p.c;CX.beginPath();CX.arc(p.x,p.y,p.s,0,6.3);CX.fill();}
+CX.globalAlpha=1;requestAnimationFrame(tick)}
+function burstEl(e){if(!e)return;var r=e.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2)}
+
+/* ==================== Combo ==================== */
+var CB=0;
+function comboUp(){CB++;if(CB>S.comboMax){S.comboMax=CB;save()}
+if(CB>=3){var c=el('combo');if(c){c.textContent=CB+' 连击!';c.className='eg-cbo go';setTimeout(function(){c.className='eg-cbo'},700)}}
+if(CB>=5)grant('cb5');if(CB>=10)grant('cb10');if(CB>=20)grant('cb20');}
+function comboReset(){CB=0}
+function comboMul(){return CB>=8?2:CB>=5?1.5:CB>=3?1.2:1}
+
+/* ==================== 弹窗 / 提示 ==================== */
+function modal(icon,title,body,extra){var d=document.createElement('div');d.className='eg-mk';
+d.innerHTML='<div class="eg-mc"><div class="bi">'+icon+'</div><h3>'+title+'</h3><p>'+body+'</p>'+(extra||'')+'<button class="eg-btn" style="width:100%">知道了</button></div>';
+d.querySelector('button').onclick=function(){d.remove()};d.onclick=function(e){if(e.target===d)d.remove()};document.body.appendChild(d);}
+function toast(t){var d=document.createElement('div');d.textContent=t;
+d.style.cssText='position:fixed;left:50%;bottom:34px;transform:translateX(-50%);background:#131b2e;border:1px solid #243049;color:#e8eefc;padding:12px 20px;border-radius:12px;z-index:1000;font-size:13.5px;box-shadow:0 12px 32px rgba(0,0,0,.5)';
+document.body.appendChild(d);setTimeout(function(){d.style.transition='.4s';d.style.opacity=0;setTimeout(function(){d.remove()},420)},1900);}
+
+/* ==================== Streak ==================== */
+function touchStreak(){var t=today();if(S.streak.last===t)return;
+var y=new Date(Date.now()-86400000);var ys=y.getFullYear()+'-'+(y.getMonth()+1)+'-'+y.getDate();
+if(S.streak.last===ys){S.streak.n++;}
+else if(S.streak.last===''){S.streak.n=1;}
+else{if(S.streak.shield>0){S.streak.shield--;S.streak.n++;toast('🛡️ 断点保护卡已自动使用，连继天数保住！');}else{S.streak.n=1;}}
+S.streak.last=t;if(S.streak.n>=3)grant('st3');if(S.streak.n>=7)grant('st7');if(S.streak.n>=30)grant('st30');save();}
+
+/* ==================== 徽章 ==================== */
+function hasB(id){return S.badges.indexOf(id)>=0}
+function grant(id){if(hasB(id))return;var b=null;BD.forEach(function(x){if(x.id===id)b=x});if(!b)return;
+S.badges.push(id);save();setTimeout(function(){modal(b.i,'解锁徽章：'+b.n,b.d+'。徽章墙已更新，去看看你的收藏。','');burst(innerWidth/2,innerHeight/2,null,40);sBox();},300);}
+function chk(){if(doneLv()>=1)grant('first');if(S.xp>=1000)grant('xp1k');if(S.xp>=5000)grant('xp5k');
+if(S.perfects>=5)grant('perfch');if(S.reviews>=10)grant('rev10');if(S.boxes>=5)grant('box5');
+if(S.sbxUsed>0)grant('sbx');CHAPTERS.forEach(function(c){if(chDone(c))grant(c.id.replace('c','ch'))});}
+
+/* ==================== 错题本 / SRS ==================== */
+var IVL=[1,3,7,15,30];
+function addWrong(lvId,qi,q){for(var i=0;i<S.wrong.length;i++){if(S.wrong[i].k===lvId+'#'+qi){S.wrong[i].box=0;S.wrong[i].due=dayNum()+1;save();return}}
+S.wrong.push({k:lvId+'#'+qi,lv:lvId,qi:qi,box:0,due:dayNum()+1});save();}
+function clrWrong(k){for(var i=0;i<S.wrong.length;i++){if(S.wrong[i].k===k){S.wrong[i].box++;
+if(S.wrong[i].box>=IVL.length){S.wrong.splice(i,1);}else{S.wrong[i].due=dayNum()+IVL[S.wrong[i].box];}save();return}}}
+function dueList(){return S.wrong.filter(function(w){return w.due<=dayNum()})}
+function wrongQ(w){var x=findLv(w.lv);if(!x||!x.l.quiz||!x.l.quiz[w.qi])return null;return x.l.quiz[w.qi]}
+function ghost(lv){/* 30% 幽灵重现：将一道到期错题插入本关 */
+var d=dueList();if(!d.length||!lv.quiz||Math.random()>0.3)return null;
+var w=d[Math.floor(Math.random()*d.length)];var q=wrongQ(w);if(!q)return null;return{w:w,q:q};}
+
+/* ==================== 可视化图示（纯 CSS） ==================== */
+var VIZ={
+hands:function(){return v('借贷方向 · 左手右手直觉法',
+'<div class="eg-hd"><div class="L"><div class="hh">👈 左手 = 借方 Debit</div>资产 ↑ 增加<br>费用 ↑ 增加<br><span style="color:var(--dim)">口诀：东西变多了、钱花掉了 → 记左边</span></div>'+
+'<div class="R"><div class="hh">👉 右手 = 贷方 Credit</div>负债 ↑ 增加<br>权益 ↑ 增加<br>收入 ↑ 增加<br><span style="color:var(--dim)">口诀：钱从哪来、赚了多少 → 记右边</span></div></div>'+
+'<div class="eg-note">反方向就取反：资产减少记右（贷），负债减少记左（借）。任何一笔分录，<b>左边金额 = 右边金额</b>，永远成立。</div>')},
+doubleentry:function(){return v('复式记账 · 每笔交易至少两个科目',
+'<div class="eg-flow"><div class="bx2">💸 花 300 元现金买一台封口机</div><div class="ar">↓ 拆成两个动作</div>'+
+'<div class="bx2" style="border-color:rgba(34,211,238,.5)"><b style="color:var(--cy)">借（左）：固定资产 300</b><br>我多了一台机器（资产增加）</div>'+
+'<div class="bx2" style="border-color:rgba(244,114,182,.5)"><b style="color:var(--pk)">贷（右）：银行存款 300</b><br>我少了 300 现金（资产减少）</div>'+
+'<div class="ar">↓</div><div class="bx2" style="text-align:center;color:var(--gn)">✅ 借方 300 = 贷方 300，平衡</div></div>')},
+timeline:function(){return v('权责发生制 vs 收付实现制',
+'<div class="eg-tl"><div class="ln">'+
+'<div class="pt" style="left:12%">1</div><div class="cap" style="left:12%">3月10日<br>签合同</div>'+
+'<div class="pt" style="left:38%;border-color:var(--am)">2</div><div class="cap" style="left:38%;color:var(--am)">4月1日<br><b>交付商品</b><br>→ 确认收入</div>'+
+'<div class="pt" style="left:64%">3</div><div class="cap" style="left:64%">5月20日<br>开发票</div>'+
+'<div class="pt" style="left:88%;border-color:var(--gn)">4</div><div class="cap" style="left:88%;color:var(--gn)">7月5日<br><b>客户付款</b><br>→ 现金流入</div>'+
+'</div><div style="height:78px"></div>'+
+'<div class="eg-note"><b>权责发生制</b>（财报采用）：在第 2 个时点确认收入，因为义务已履行。<br><b>收付实现制</b>（现金流量表采用）：在第 4 个时点才认定现金流入。<br><b>两个时点之间的缝隙，就是应收账款，也是所有财务造假的温床。</b></div></div>')},
+balance:function(){return v('资产 = 负债 + 所有者权益',
+'<div class="eg-sc"><div class="a"><b style="color:var(--cy)">资产 1000</b><br>钱变成了什么？<br><span style="color:var(--dim)">现金 200 · 存货 300<br>设备 500</span></div>'+
+'<div class="eq">=</div><div class="b"><b style="color:var(--rd)">负债 400</b><br>多少是别人的？<br><span style="color:var(--dim)">应付 150<br>借款 250</span></div>'+
+'<div class="eq">+</div><div class="c"><b style="color:var(--gn)">权益 600</b><br>多少是自己的？<br><span style="color:var(--dim)">实收资本 500<br>留存收益 100</span></div></div>'+
+'<div class="eg-note">左边回答「钱花到哪去了」，右边回答「钱从哪里来」。同一笔钱的两面，所以永远相等——<b>这不是巧合，是定义。</b></div>')},
+waterfall:function(){return v('利润表矀布图 · 收入如何一层层被扣成净利润',
+'<div class="eg-wf">'+
+wf('营业收入',100,'#22d3ee','100')+wf('−营业成本',60,'#fb7185','−40')+wf('=毛利',60,'#fbbf24','60')+
+wf('−三费',38,'#fb7185','−22')+wf('=营业利润',38,'#a78bfa','38')+wf('−税等',28,'#fb7185','−10')+wf('=净利润',28,'#34d399','28')+
+'</div><div class="eg-note">每一层都回答一个不同的问题：<b>毛利</b>=产品本身赚不赚钱；<b>营业利润</b>=把公司运转起来后还赚不赚；<b>净利润</b>=所有事情算完后股东拿到多少。分析时要看<b>哪一层在恶化</b>。</div>')},
+bridge:function(){return v('净利润 → 经营现金流 · 间接法桥',
+'<div class="eg-flow"><div class="bx2" style="border-color:rgba(167,139,250,.5)"><b style="color:var(--pu)">净利润 100</b>（体重秤读数）</div>'+
+'<div class="ar">+ 加回不花钱的费用</div><div class="bx2" style="border-color:rgba(52,211,153,.5)"><b class="eg-up">+折旧摊销 40、+减值损失 10</b><br>这些减了利润却没减现金</div>'+
+'<div class="ar">± 运营资金占用</div><div class="bx2" style="border-color:rgba(251,113,133,.5)"><b class="eg-dn">−应收增加 60、−存货增加 20、+应付增加 15</b><br>钱被卡在上下游了</div>'+
+'<div class="ar">− 剔除不属于经营的损益</div><div class="bx2">−资产处置收益 5、+财务费用 8</div>'+
+'<div class="ar">=</div><div class="bx2" style="border-color:rgba(34,211,238,.6);text-align:center"><b style="color:var(--cy)">经营现金流净额 88</b>（真背趿肉）</div></div>'+
+'<div class="eg-note">只要记住三大类调整：<b>①非现金费用加回 ②运营资金变动 ③剔除非经营损益</b>，你就能自己搭出这张桥。</div>')},
+linkmap:function(){return v('三表关系总图',
+'<div class="eg-3"><div class="eg-st"><div class="sh" style="color:var(--pu)">💰 利润表（一段时期）</div>收入 − 成本费用<br>= <b>净利润</b><div class="eg-note" style="margin-top:8px">回答：这一年赚了多少？</div></div>'+
+'<div class="eg-st"><div class="sh" style="color:var(--cy)">🏛️ 资产负债表（某一时点）</div>资产 = 负债 + 权益<br>权益包含 <b>未分配利润</b><div class="eg-note" style="margin-top:8px">回答：现在家底多厚？</div></div>'+
+'<div class="eg-st"><div class="sh" style="color:var(--gn)">💧 现金流量表（一段时期）</div>经营 + 投资 + 筹资<br>= <b>现金净增加</b><div class="eg-note" style="margin-top:8px">回答：钱真的进来了吗？</div></div></div>'+
+'<div class="eg-note" style="margin-top:12px"><b>三根硬钉子：</b><br>① 利润表净利润 → 资产负债表未分配利润（期初+净利−分红=期末）<br>② 现金流量表期末现金 → 资产负债表货币资金<br>③ 经营现金流 = 净利润 ± 非现金项 ± 运营资金变动（同时引用了利润表与资产负债表）</div>')},
+trisync:function(){return v('一笔交易穿透三表 · 固定三步法',
+'<div class="eg-flow"><div class="bx2"><b style="color:var(--am)">第 1 步：先写分录</b><br>它碰了哪两个科目？</div><div class="ar">↓</div>'+
+'<div class="bx2"><b style="color:var(--pu)">第 2 步：碰到收入/费用了吗？</b><br>碰到 → 利润表变 · 没碰 → 利润表不变</div><div class="ar">↓</div>'+
+'<div class="bx2"><b style="color:var(--gn)">第 3 步：碰到货币资金了吗？</b><br>碰到 → 现金流量表变 · 没碰 → 现金流量表不变</div><div class="ar">↓</div>'+
+'<div class="bx2" style="border-color:rgba(34,211,238,.6)"><b style="color:var(--cy)">第 4 步：资产负债表一定会变</b><br>因为它是存量表，任何分录都会落到它身上，且必然仍然平衡</div></div>'+
+'<div class="eg-note">例：赊销 100（成本 40）。分录碰了收入与成本 → 利润 +60；没碰现金 → CFO 不变；资产表上应收+100、存货−40、权益+60。<b>三个问题问完，答案自动浮现。</b></div>')},
+gears:function(){return v('杜邦分析 · ROE 三齿轮',
+'<div class="eg-gear"><div class="g"><b>销售净利率</b>净利润/收入<br><span style="color:var(--dim)">卖得贵吗？</span></div>'+
+'<div style="text-align:center;font-size:22px;color:var(--dim)">×</div>'+
+'<div class="g"><b>总资产周转率</b>收入/总资产<br><span style="color:var(--dim)">转得快吗？</span></div>'+
+'<div style="text-align:center;font-size:22px;color:var(--dim)">×</div>'+
+'<div class="g"><b>权益乘数</b>总资产/净资产<br><span style="color:var(--dim)">借得多吗？</span></div></div>'+
+'<div class="eg-note">三种 20% ROE：<b>白酒</b> 50%×0.5×0.8 · <b>超市</b> 2.5%×3.2×2.5 · <b>激进地产</b> 8%×0.25×10。同样的结果，风险完全不同——<b>看到高 ROE 必须先拆开看成因。</b></div>')}
+};
+function v(t,b){return '<div class="eg-viz"><div class="vt">'+t+'</div>'+b+'</div>'}
+function wf(lb,h,c,val){return '<div class="col"><i style="height:'+h+'%;background:'+c+'"></i><b style="color:'+c+';font-size:11px">'+val+'</b>'+lb+'</div>'}
+
+/* ==================== 仪表盘 ==================== */
+function renderDash(){var d=el('dash');if(!d)return;var r=rank(),nx=rankNext(),st=stage();
+var base=nx?RK[RK.indexOf(r)][0]:r[0];var pct=nx?Math.min(100,(S.xp-base)/(nx[0]-base)*100):100;
+d.innerHTML='<div class="eg-card" style="margin-bottom:14px">'+
+'<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">'+
+'<div style="font-size:40px">'+st.i+'</div>'+
+'<div style="flex:1;min-width:180px"><div style="font-size:11px;letter-spacing:2px;color:var(--dim)">珍珠星球奶茶 · 当前形态</div>'+
+'<div style="font-size:17px;font-weight:800">'+st.n+'</div></div>'+
+'<div style="text-align:right"><div style="font-size:11px;color:var(--dim)">'+r[2]+' '+r[1]+'</div>'+
+'<div style="font-size:19px;font-weight:800;color:var(--cy)">'+S.xp+' XP</div></div></div>'+
+'<div class="eg-bar" style="margin-top:12px"><i style="width:'+pct+'%"></i></div>'+
+'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-top:6px">'+
+'<span>'+doneLv()+' / '+totalLv()+' 关已通过</span><span>'+(nx?('还需 '+(nx[0]-S.xp)+' XP → '+nx[2]+' '+nx[1]):'已达最高职级 🌟')+'</span></div></div>'+
+'<div class="eg-grid4" style="margin-bottom:14px">'+
+kpi('门店数','🏪 '+st.st)+kpi('总资产','💰 '+st.as)+kpi('股价','📈 '+st.pr)+
+kpi('连继天数','🔥 '+S.streak.n+' 天')+kpi('错题本','📕 '+S.wrong.length+' 道')+kpi('徽章','🏅 '+S.badges.length+'/'+BD.length)+'</div>';}
+function kpi(k,v2){return '<div class="eg-kpi"><div class="k">'+k+'</div><div class="v">'+v2+'</div></div>'}
+
+/* ==================== 导航 ==================== */
+var VIEW='map';
+function renderNav(){var items=[['map','🗺️ 冒险地图'],['kmap','🧩 知识地图'],['review','🔁 每日复习'+(dueList().length?' ('+dueList().length+')':'')],['badges','🏅 徽章墙'],['board','👑 排行榜']];
+var h='<div class="eg-navb">';items.forEach(function(x){h+='<a class="'+(VIEW===x[0]?'on':'')+'" onclick="go(\''+x[0]+'\')">'+x[1]+'</a>'});h+='</div>';
+if(el('nav'))el('nav').innerHTML=h;
+if(el('mnav')){var m='';items.forEach(function(x){m+='<a class="'+(VIEW===x[0]?'on':'')+'" onclick="go(\''+x[0]+'\')" style="flex:1;text-align:center;padding:9px 4px;font-size:10.5px;cursor:pointer">'+x[1].split(' ')[0]+'<br>'+x[1].split(' ')[1]+'</a>'});el('mnav').innerHTML=m;}}
+function go(v2,arg){VIEW=v2;renderNav();renderDash();var w=el('view');if(!w)return;window.scrollTo(0,0);
+if(v2==='map')w.innerHTML=vMap();
+else if(v2==='chapter')w.innerHTML=vChapter(arg);
+else if(v2==='level'){startLevel(arg);return}
+else if(v2==='kmap')w.innerHTML=vKmap();
+else if(v2==='review'){vReview();return}
+else if(v2==='badges')w.innerHTML=vBadges();
+else if(v2==='board')w.innerHTML=vBoard();}
+
+/* ==================== 视图：地图 ==================== */
+function vMap(){var h='<div class="eg-wrap"><div class="eg-h">🗺️ 冒险地图 · 六大大陆</div>'+
+'<div class="eg-sub">你是珍珠星球奶茶新任 CFO。从街边推车开始，每通一关公司就长大一步。建议按顺序推进；完成上一章 60% 即可解锁下一章。</div>';
+CHAPTERS.forEach(function(c,ci){var open=chOpen(ci),p=chProg(c),n=c.levels.length;
+h+='<div class="eg-card" style="'+(open?'':'opacity:.5')+'">'+
+'<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px"><div style="font-size:28px">'+c.icon+'</div>'+
+'<div style="flex:1"><div style="font-size:16px;font-weight:800">第 '+(ci+1)+' 章 · '+c.title+(chDone(c)?' <span class="eg-tag gn">已完成</span>':'')+(open?'':' <span class="eg-tag">🔒 未解锁</span>')+'</div>'+
+'<div style="font-size:12px;color:var(--dim);margin-top:3px">'+c.desc+'</div></div>'+
+'<div style="text-align:right;font-size:12px;color:var(--dim)">'+p+'/'+n+'</div></div>'+
+'<div class="eg-bar" style="margin:10px 0 14px"><i style="width:'+(p/n*100)+'%"></i></div><div class="eg-grid">';
+c.levels.forEach(function(l,li){var t=LT[l.type]||['关卡','cy'];var lk=!open;
+var prevOk=li===0||done(c.levels[li-1].id)||done(l.id);
+if(l.type==='boss'&&p<n-1&&!done(l.id))lk=true;
+h+='<div class="eg-lv '+(done(l.id)?'done':'')+'" onclick="'+(lk?'toast(\'🔒 先完成前置内容再挑战本关\')':'go(\'level\',\''+l.id+'\')')+'">'+
+'<b>'+l.id+' '+l.title+'</b><span class="eg-tag '+t[1]+'">'+t[0]+'</span>'+
+'<span class="eg-tag">'+(l.quiz?l.quiz.length+' 题':l.type==='drag'?l.items.length+' 项':l.type==='journal'?l.entries.length+' 笔':l.type==='detective'?l.cases.length+' 案':'互动')+'</span>'+
+(S.best[l.id]?'<span class="eg-tag am">次佳 '+S.best[l.id]+'%</span>':'')+'</div>';});
+h+='</div></div>';});
+return h+'</div>'}
+
+function vKmap(){var h='<div class="eg-wrap"><div class="eg-h">🧩 知识地图</div><div class="eg-sub">绿色 = 已掌握，灰色 = 尚未学习。可以直接点击跳转到对应关卡。</div>';
+CHAPTERS.forEach(function(c,ci){h+='<div class="eg-card"><h4>'+c.icon+' 第 '+(ci+1)+' 章 '+c.title+'</h4>';
+c.levels.forEach(function(l){h+='<div class="eg-row" onclick="go(\'level\',\''+l.id+'\')" style="cursor:pointer">'+
+'<div class="rk">'+(done(l.id)?'<span style="color:var(--gn)">●</span>':'<span style="color:var(--dim)">○</span>')+'</div>'+
+'<div class="nm">'+l.title+'</div><div style="font-size:11px;color:var(--dim)">'+(LT[l.type]||['',''])[0]+'</div></div>';});
+h+='</div>';});return h+'</div>'}
+
+function vBadges(){var h='<div class="eg-wrap"><div class="eg-h">🏅 成就徽章墙</div><div class="eg-sub">已解锁 '+S.badges.length+' / '+BD.length+'。徽章不影响学习，但它们很好看。</div><div class="eg-bw">';
+BD.forEach(function(b){var on=hasB(b.id);h+='<div class="eg-bg2 '+(on?'on':'off')+'"><div class="ic">'+(on?b.i:'🔒')+'</div><div class="nm">'+b.n+'</div><div class="ds">'+b.d+'</div></div>';});
+return h+'</div></div>'}
+
+function vBoard(){var list=AI.map(function(x){return{n:x[0],x:x[1],me:false}});list.push({n:'你（'+rank()[1]+'）',x:S.xp,me:true});
+list.sort(function(a,b){return b.x-a.x});
+var h='<div class="eg-wrap"><div class="eg-h">👑 本周排行榜</div><div class="eg-sub">本地模拟榜单（离线运行，对手为虚拟同学）。目标：干掉陈子敏。</div>';
+list.forEach(function(x,i){h+='<div class="eg-row '+(x.me?'me':'')+'"><div class="rk">'+(i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1))+'</div>'+
+'<div class="nm">'+x.n+'</div><div style="font-weight:800;color:'+(x.me?'var(--cy)':'var(--dim)')+'">'+x.x+' XP</div></div>';});
+return h+'</div>'}
+
+/* ==================== 复习模块 ==================== */
+function vReview(){var d=dueList(),w=el('view');
+if(!d.length){w.innerHTML='<div class="eg-wrap"><div class="eg-h">🔁 每日复习</div>'+
+'<div class="eg-card" style="text-align:center;padding:40px 20px"><div style="font-size:44px;margin-bottom:10px">✨</div>'+
+'<div style="font-size:16px;font-weight:800;margin-bottom:8px">今天没有到期题目</div>'+
+'<div style="color:var(--dim);font-size:13px;line-height:1.8">错题会按遗忘曲线（1/3/7/15/30 天）自动安排重现。<br>错题本当前共 '+S.wrong.length+' 道，去关卡里继续推进吧。</div></div></div>';
+if(S.wrong.length===0&&doneLv()>3)grant('clean');return}
+var qs=[];d.forEach(function(x){var q=wrongQ(x);if(q)qs.push({q:q,w:x})});
+if(!qs.length){w.innerHTML='<div class="eg-wrap"><div class="eg-card">没有可复习的题目。</div></div>';return}
+SES={mode:'review',qs:qs,i:0,right:0,wrong:0,hearts:99,lv:null};
+w.innerHTML='<div class="eg-wrap"><div class="eg-h">🔁 每日复习 · '+qs.length+' 道到期题</div>'+
+'<div class="eg-sub">答对一道，它就会被推到更长的间隔后再出现；答错则回到第一格，明天再见。</div><div id="qz"></div></div>';
+nextQ();}
+
+/* ==================== 关卡引擎 ==================== */
+var SES=null,TMR=null;
+function startLevel(id){var x=findLv(id);if(!x)return;var l=x.l,w=el('view');clearInterval(TMR);
+var head='<div class="eg-wrap"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">'+
+'<button class="eg-btn gh sm" onclick="clearInterval(TMR);go(\'map\')">← 返回地图</button>'+
+'<span class="eg-tag '+(LT[l.type]||['','cy'])[1]+'">'+(LT[l.type]||['关卡'])[0]+'</span></div>'+
+'<div class="eg-h">'+l.id+' · '+l.title+'</div>';
+if(l.type==='concept'){
+w.innerHTML=head+'<div class="eg-sub">先看懂，再去答题。不要跳过讲解。</div>'+
+'<div class="eg-tb a"><span class="lb">生活类比</span>'+l.analogy+'</div>'+
+'<div class="eg-tb f"><span class="lb">正式定义</span>'+l.formal+'</div>'+
+'<div class="eg-tb e"><span class="lb">真实例子</span>'+l.example+'</div>'+
+(l.viz&&VIZ[l.viz]?VIZ[l.viz]():'')+
+'<div style="text-align:center;margin:18px 0"><button class="eg-btn" onclick="beginQuiz(\''+l.id+'\')">我看懂了，开始答题 →</button></div><div id="qz"></div></div>';}
+else if(l.type==='mcq'){
+w.innerHTML=head+(l.intro?'<div class="eg-tb f"><span class="lb">要点回顾</span>'+l.intro+'</div>':'')+
+(l.viz&&VIZ[l.viz]?VIZ[l.viz]():'')+'<div id="qz"></div></div>';beginQuiz(l.id);}
+else if(l.type==='boss'){
+w.innerHTML=head+'<div class="eg-card" style="text-align:center"><div style="font-size:40px;margin-bottom:8px">⚔️</div>'+
+'<div style="font-size:15px;font-weight:800;margin-bottom:8px">章末 BOSS 战</div>'+
+'<div style="color:var(--dim);font-size:13px;line-height:1.8">共 '+l.quiz.length+' 题，限时 '+l.time+' 秒，你有 <b>3 颗生命</b>。<br>答错一道扣 1 颗；生命归零或超时则本次挑战失败（可无限重试）。<br>错题会自动进入错题本，后续复习重现。</div>'+
+'<div style="margin-top:16px"><button class="eg-btn pk" onclick="beginQuiz(\''+l.id+'\')">开始挑战</button></div></div><div id="qz"></div></div>';}
+else if(l.type==='drag')w.innerHTML=head+renderDrag(l)+'</div>';
+else if(l.type==='journal')w.innerHTML=head+renderJournal(l)+'</div>';
+else if(l.type==='detective')w.innerHTML=head+renderDet(l)+'</div>';
+else if(l.type==='sandbox'){w.innerHTML=head+renderSbx()+'</div>';sbxCalc();S.sbxUsed=1;save();chk();}
+}
+
+function beginQuiz(id){var x=findLv(id),l=x.l;var qs=l.quiz.map(function(q,i){return{q:q,src:l.id,qi:i}});
+var g=ghost(l);if(g)qs.push({q:g.q,w:g.w,gh:true});
+SES={mode:l.type,lv:l,ch:x.c,qs:qs,i:0,right:0,wrong:0,hearts:l.type==='boss'?3:3,hit:false,t:l.time||0};
+if(l.type==='boss'){SES.left=l.time;TMR=setInterval(function(){SES.left--;var t=el('tmr');
+if(t){t.textContent=Math.floor(SES.left/60)+':'+('0'+(SES.left%60)).slice(-2);t.className='eg-timer'+(SES.left<=30?' warn':'');}
+if(SES.left<=10&&SES.left>0)sTick();if(SES.left<=0){clearInterval(TMR);failLevel('⏰ 时间到！');}},1000);}
+nextQ();}
+
+function nextQ(){var z=el('qz');if(!z)return;
+if(SES.i>=SES.qs.length){finish();return}
+var it=SES.qs[SES.i],q=it.q;
+var bar='';
+if(SES.mode==='boss')bar='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+'<span class="eg-hearts">'+'❤️'.repeat(SES.hearts)+'🖤'.repeat(3-SES.hearts)+'</span><span class="eg-timer" id="tmr">'+Math.floor(SES.left/60)+':'+('0'+(SES.left%60)).slice(-2)+'</span></div>';
+var h='<div class="eg-card">'+bar+
+'<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--dim);margin-bottom:8px">'+
+'<span>第 '+(SES.i+1)+' / '+SES.qs.length+' 题'+(it.gh?' · 👻 <b style="color:var(--pu)">错题重现</b>':'')+(SES.mode==='review'?' · 🔁 复习':'')+'</span>'+
+'<span>'+(CB>=3?'🔥 '+CB+' 连击 ×'+comboMul():'')+'</span></div>'+
+'<div class="eg-bar" style="margin-bottom:14px"><i style="width:'+(SES.i/SES.qs.length*100)+'%"></i></div>'+
+'<div class="eg-q">'+q.q+'</div><div id="ops">';
+q.o.forEach(function(o,i){h+='<div class="eg-opt" data-i="'+i+'" onclick="pick('+i+',this)"><div class="ix">'+'ABCD'.charAt(i)+'</div><div>'+o+'</div></div>'});
+h+='</div><div id="fb"></div></div>';z.innerHTML=h;}
+
+function pick(i,node){var it=SES.qs[SES.i],q=it.q,ok=(i===q.a);
+var ops=el('ops').children;for(var k=0;k<ops.length;k++){ops[k].className='eg-opt lk'+(k===q.a?' ok':(k===i&&!ok?' no':''))}
+if(ok){SES.right++;comboUp();sOk();burstEl(node);var gain=Math.round(12*comboMul());addXp(gain);
+if(it.gh){clrWrong(it.w.k);S.reviews++;save();}
+if(SES.mode==='review'){clrWrong(it.w.k);S.reviews++;save();}}
+else{SES.wrong++;comboReset();sBad();SES.hit=true;
+if(!it.gh&&SES.mode!=='review')addWrong(it.src,it.qi,q);else if(it.w){for(var j=0;j<S.wrong.length;j++){if(S.wrong[j].k===it.w.k){S.wrong[j].box=0;S.wrong[j].due=dayNum()+1}}save();}
+if(SES.mode==='boss'){SES.hearts--;if(SES.hearts<=0){el('fb').innerHTML=expHtml(ok,q);setTimeout(function(){failLevel('💔 生命归零！')},2200);return}}}
+el('fb').innerHTML=expHtml(ok,q)+'<div style="text-align:center;margin-top:12px"><button class="eg-btn" onclick="SES.i++;nextQ()">'+(SES.i+1>=SES.qs.length?'提交并结算 →':'下一题 →')+'</button></div>';
+renderDash();}
+function expHtml(ok,q){return '<div class="eg-exp'+(ok?'':' bad')+'"><span class="t">'+(ok?'✅ 正确！':'❗ 没关系，这道题本来就是难点——看完解析你就赚到了')+'</span>'+q.e+'</div>'}
+
+function failLevel(msg){clearInterval(TMR);comboReset();var id=SES.lv?SES.lv.id:null;
+el('qz').innerHTML='<div class="eg-card" style="text-align:center;padding:34px 20px"><div style="font-size:44px;margin-bottom:10px">💪</div>'+
+'<div style="font-size:17px;font-weight:800;margin-bottom:8px">'+msg+'</div>'+
+'<div style="color:var(--dim);font-size:13px;line-height:1.85;margin-bottom:18px">失败不扣 XP，你刚答对的那几道已经入账。<br>错的那几道已自动进入错题本，休息一下再来。<br><b>BOSS 战平均要打 2–3 次，这很正常。</b></div>'+
+(id?'<button class="eg-btn pk" onclick="go(\'level\',\''+id+'\')">再战一次</button> ':'')+
+'<button class="eg-btn gh" onclick="go(\'map\')">回地图</button></div>';}
+
+function finish(){clearInterval(TMR);var n=SES.qs.length,pct=Math.round(SES.right/n*100);
+if(SES.mode==='review'){touchStreak();chk();
+el('qz').innerHTML='<div class="eg-card" style="text-align:center;padding:34px 20px"><div style="font-size:44px">🔁</div>'+
+'<div style="font-size:17px;font-weight:800;margin:8px 0">复习完成：'+SES.right+'/'+n+'</div>'+
+'<div style="color:var(--dim);font-size:13px;line-height:1.8;margin-bottom:16px">答对的题已推到更长间隔，答错的明天再来。<br>错题本剩余 '+S.wrong.length+' 道。</div>'+
+'<button class="eg-btn" onclick="go(\'map\')">回到地图</button></div>';sWin();return}
+var l=SES.lv,pass=pct>=70;
+if(pass){var first=!done(l.id);S.cleared[l.id]=1;
+if(!S.best[l.id]||pct>S.best[l.id])S.best[l.id]=pct;
+var bonus=(l.type==='boss'?120:40)+(pct===100?30:0);addXp(bonus);touchStreak();
+if(pct===100){S.perfects++;save();grant('perf')}
+if(l.type==='boss'&&!SES.hit)grant('nohit');
+burst(innerWidth/2,innerHeight/2.4,null,50);sWin();chk();
+if(first&&doneLv()%3===0)setTimeout(chest,900);}
+save();renderDash();
+var nxt=nextLevelId(l.id);
+el('qz').innerHTML='<div class="eg-card" style="text-align:center;padding:34px 20px">'+
+'<div style="font-size:46px;margin-bottom:8px">'+(pct===100?'💯':pass?'🎉':'📚')+'</div>'+
+'<div style="font-size:19px;font-weight:800;margin-bottom:6px">'+(pass?'通关！':'再差一点点')+' '+SES.right+'/'+n+'（'+pct+'%）</div>'+
+'<div style="color:var(--dim);font-size:13px;line-height:1.85;margin-bottom:18px">'+
+(pass?'获得 '+((l.type==='boss'?120:40)+(pct===100?30:0))+' XP 通关奖励（答题 XP 已即时入账）。'+(pct===100?'<br>满分！额外 +30 XP。':''):'正确率需达 70% 才能通关。你已经看过全部解析，再来一次命中率会高得多。')+'</div>'+
+(pass&&nxt?'<button class="eg-btn" onclick="go(\'level\',\''+nxt+'\')">下一关 →</button> ':'')+
+(!pass?'<button class="eg-btn pk" onclick="go(\'level\',\''+l.id+'\')">重新挑战</button> ':'')+
+'<button class="eg-btn gh" onclick="go(\'map\')">回到地图</button></div>';}
+function nextLevelId(id){var a=allLv();for(var i=0;i<a.length;i++){if(a[i].l.id===id&&a[i+1])return a[i+1].l.id}return null}
+
+/* ==================== 宝箱 ==================== */
+function chest(){var rw=[[80,'💰 奖金 80 XP'],[150,'💎 大额奖金 150 XP'],[40,'🧃 小额奖金 40 XP'],[0,'🛡️ 断点保护卡 ×1（断签时自动生效）']];
+var p=rw[Math.floor(Math.random()*rw.length)];S.boxes++;
+if(p[0]>0)addXp(p[0]);else S.streak.shield++;save();sBox();burst(innerWidth/2,innerHeight/2,null,50);
+modal('🎁','开宝箱！','每通过 3 关触发一次随机奖励。这是你的第 '+S.boxes+' 个宝箱。','<div class="eg-rw">'+p[1]+'</div>');chk();}
+
+/* ==================== 拖拽关 ==================== */
+var DRG={sel:null,put:{}};
+function renderDrag(l){DRG={sel:null,put:{}};
+var h='<div class="eg-sub">'+l.intro+'<br><b>手机用户</b>：先点科目，再点下方分类框。<b>电脑</b>：直接拖过去。</div><div class="eg-card" id="toks">';
+l.items.forEach(function(it,i){h+='<span class="eg-tok" id="tk'+i+'" draggable="true" data-i="'+i+'" onclick="tkSel('+i+')" ondragstart="DRG.sel='+i+'">'+it.t+'</span>'});
+h+='</div><div class="eg-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">';
+l.buckets.forEach(function(b,bi){h+='<div class="eg-buck" id="bk'+bi+'" ondragover="event.preventDefault();this.className=\'eg-buck hot\'" ondragleave="this.className=\'eg-buck\'" ondrop="event.preventDefault();this.className=\'eg-buck\';tkPut('+bi+')" onclick="tkPut('+bi+')">'+
+'<div class="bt">'+b+'</div><div class="bd" id="bd'+bi+'"></div></div>'});
+h+='</div><div style="text-align:center;margin-top:16px"><button class="eg-btn" id="dgo" onclick="dragCheck()">提交批改</button></div><div id="dres"></div>';
+window._DL=l;return h}
+function tkSel(i){DRG.sel=i;var t=el('toks').children;for(var k=0;k<t.length;k++)t[k].className='eg-tok'+(k===i?' sel':'');}
+function tkPut(bi){if(DRG.sel===null)return toast('先选中一个科目');var l=window._DL,i=DRG.sel;
+DRG.put[i]=bi;el('tk'+i).className='eg-tok gone';DRG.sel=null;
+var bd=el('bd'+bi);bd.innerHTML+='<div class="it" data-i="'+i+'">'+l.items[i].t+'</div>';
+var left=l.items.length-Object.keys(DRG.put).length;if(left===0)toast('全部分完，可以提交了');}
+function dragCheck(){var l=window._DL,tot=l.items.length,ok=0,html='';
+if(Object.keys(DRG.put).length<tot)return toast('还有 '+(tot-Object.keys(DRG.put).length)+' 个科目没分类');
+l.items.forEach(function(it,i){var right=l.buckets.indexOf(it.b)===DRG.put[i];if(right)ok++;
+var box=el('bd'+DRG.put[i]).querySelector('[data-i="'+i+'"]');if(box)box.className='it '+(right?'ok':'no');
+html+='<div class="eg-exp'+(right?'':' bad')+'" style="margin-bottom:8px"><span class="t">'+(right?'✅ ':'❌ ')+it.t+' → 正确归类：'+it.b+'</span>'+it.e+'</div>';});
+var pct=Math.round(ok/tot*100);el('dgo').disabled=true;
+if(pct>=70){S.cleared[l.id]=1;if(!S.best[l.id]||pct>S.best[l.id])S.best[l.id]=pct;addXp(40+ok*10);touchStreak();
+if(pct===100){S.perfects++;grant('perf')}sWin();burst(innerWidth/2,innerHeight/2.4,null,44);
+if(doneLv()%3===0)setTimeout(chest,900);}else sBad();
+save();renderDash();chk();
+el('dres').innerHTML='<div class="eg-card"><h4>批改结果：'+ok+'/'+tot+'（'+pct+'%）'+(pct>=70?' · 通关✅':' · 未达 70%')+'</h4>'+html+
+'<div style="text-align:center;margin-top:12px"><button class="eg-btn '+(pct>=70?'':'pk')+'" onclick="go(\'level\',\''+l.id+'\')">再练一次</button> <button class="eg-btn gh" onclick="go(\'map\')">回到地图</button></div></div>';}
+
+/* ==================== 记账模拟器 ==================== */
+function renderJournal(l){window._JL=l;window._JI=0;window._JR=0;setTimeout(jRender,0);
+return '<div class="eg-sub">'+l.intro+'</div><div id="jz"></div>'}
+function jRender(){var l=window._JL,i=window._JI,z=el('jz');
+if(i>=l.entries.length){var pct=Math.round(window._JR/l.entries.length*100);
+if(pct>=70){S.cleared[l.id]=1;if(!S.best[l.id]||pct>S.best[l.id])S.best[l.id]=pct;addXp(60);touchStreak();
+if(pct===100){S.perfects++;grant('perf');grant('bal')}sWin();burst(innerWidth/2,innerHeight/2.4,null,44);if(doneLv()%3===0)setTimeout(chest,900);}
+save();renderDash();chk();
+z.innerHTML='<div class="eg-card" style="text-align:center;padding:32px 20px"><div style="font-size:44px">'+(pct===100?'💯':pct>=70?'🎉':'📚')+'</div>'+
+'<div style="font-size:18px;font-weight:800;margin:8px 0">记账完成：'+window._JR+'/'+l.entries.length+'（'+pct+'%）</div>'+
+'<div style="color:var(--dim);font-size:13px;line-height:1.8;margin-bottom:16px">'+(pct>=70?'通关！你已经具备手工处理日常分录的能力。':'多练两遂，借贷方向是肌肉记忆，不是理解问题。')+'</div>'+
+'<button class="eg-btn" onclick="go(\'level\',\''+l.id+'\')">再练一次</button> <button class="eg-btn gh" onclick="go(\'map\')">回到地图</button></div>';return}
+var e=l.entries[i];var op='<option value="">-- 选择科目 --</option>';l.accounts.forEach(function(a){op+='<option>'+a+'</option>'});
+z.innerHTML='<div class="eg-card"><div style="font-size:11px;color:var(--dim);margin-bottom:8px">第 '+(i+1)+' / '+l.entries.length+' 笔 · 已对 '+window._JR+' 笔</div>'+
+'<div class="eg-bar" style="margin-bottom:14px"><i style="width:'+(i/l.entries.length*100)+'%"></i></div>'+
+'<div class="eg-q">📝 '+e.biz+'</div>'+
+'<div class="eg-jr"><div class="r"><span class="lb">借（左）</span><select id="jd">'+op+'</select><input id="jda" type="number" placeholder="金额" oninput="jBal()"></div>'+
+'<div class="r"><span class="lb" style="color:var(--pk)">贷（右）</span><select id="jc">'+op+'</select><input id="jca" type="number" placeholder="金额" oninput="jBal()"></div>'+
+'<div class="eg-bal" id="jbal">⚖️ 借方 0 · 贷方 0 · 等待输入</div></div>'+
+'<div style="text-align:center;margin-top:6px"><button class="eg-btn" onclick="jCheck()">提交本笔分录</button></div><div id="jfb"></div></div>';}
+function jBal(){var d=+(el('jda').value||0),c=+(el('jca').value||0),b=el('jbal');
+if(!d&&!c){b.className='eg-bal';b.textContent='⚖️ 借方 0 · 贷方 0 · 等待输入';return}
+if(d===c){b.className='eg-bal ok';b.textContent='✅ 借方 '+d+' = 贷方 '+c+' · 已平衡'}
+else{b.className='eg-bal no';b.textContent='❌ 借方 '+d+' ≠ 贷方 '+c+' · 相差 '+Math.abs(d-c)+'，分录不成立'}}
+function jCheck(){var l=window._JL,e=l.entries[window._JI];
+var d=el('jd').value,c=el('jc').value,da=+(el('jda').value||0),ca=+(el('jca').value||0);
+if(!d||!c||!da||!ca)return toast('请完整填写借贷科目与金额');
+var ok=(d===e.d&&c===e.c&&da===e.amt&&ca===e.amt);
+if(ok){window._JR++;comboUp();sOk();addXp(Math.round(14*comboMul()));}else{comboReset();sBad();}
+el('jfb').innerHTML='<div class="eg-exp'+(ok?'':' bad')+'"><span class="t">'+(ok?'✅ 分录正确！':'❗ 再看一遍正确分录')+'</span>'+
+'<div style="background:var(--card2);border-radius:9px;padding:10px 12px;margin:8px 0;font-size:13px;line-height:1.9">'+
+'<b style="color:var(--cy)">借：'+e.d+' '+e.amt+'</b><br><b style="color:var(--pk)">　贷：'+e.c+' '+e.amt+'</b></div>'+e.e+'</div>'+
+'<div style="text-align:center;margin-top:12px"><button class="eg-btn" onclick="window._JI++;jRender()">'+(window._JI+1>=l.entries.length?'结算 →':'下一笔 →')+'</button></div>';
+renderDash();}
+
+/* ==================== 侦探关 ==================== */
+function renderDet(l){window._DT=l;window._DC=0;window._DS={};window._DR=0;setTimeout(dtRender,0);return '<div class="eg-sub">每个案例给一组数据与候选线索。<b>只勾选真正的异常信号</b>——多选也会扣分，因为真实工作中误报同样有代价。</div><div id="dtz"></div>'}
+function dtRender(){var l=window._DT,ci=window._DC,z=el('dtz');if(!z)return;
+if(ci>=l.cases.length){var pct=Math.round(window._DR/l.cases.length*100);
+if(pct>=70){S.cleared[l.id]=1;if(!S.best[l.id]||pct>S.best[l.id])S.best[l.id]=pct;addXp(90);touchStreak();
+if(pct>=100){grant('det');S.perfects++;grant('perf')}sWin();burst(innerWidth/2,innerHeight/2.4,null,50);if(doneLv()%3===0)setTimeout(chest,900);}
+save();renderDash();chk();
+z.innerHTML='<div class="eg-card" style="text-align:center;padding:32px 20px"><div style="font-size:44px">🔎</div>'+
+'<div style="font-size:18px;font-weight:800;margin:8px 0">结案：'+window._DR+'/'+l.cases.length+' 个案例完全正确（'+pct+'%）</div>'+
+'<div style="color:var(--dim);font-size:13px;line-height:1.85;margin-bottom:16px">真实的财报尽职调查就是这个过程：<b>先列候选疑点，再逐个排除合理解释，剩下的才是真红旗。</b></div>'+
+'<button class="eg-btn" onclick="go(\'level\',\''+l.id+'\')">再查一次</button> <button class="eg-btn gh" onclick="go(\'map\')">回到地图</button></div>';return}
+var c=l.cases[ci];window._DS={};
+var tb='<table class="eg-tbl">';c.rows.forEach(function(r){tb+='<tr>';r.forEach(function(x){tb+='<td>'+x+'</td>'});tb+='</tr>'});tb+='</table>';
+var cl='';c.clues.forEach(function(x,i){cl+='<div class="eg-clue" id="cl'+i+'" onclick="dtTog('+i+')"><div class="bx"></div><div>'+x.t+'</div></div>'});
+z.innerHTML='<div class="eg-card"><div style="font-size:11px;color:var(--dim);margin-bottom:8px">案例 '+(ci+1)+' / '+l.cases.length+'</div>'+
+'<div class="eg-q">'+c.name+'</div><div class="eg-sub">'+c.desc+'</div>'+tb+
+'<h4 style="margin-top:18px">候选线索（多选）</h4>'+cl+
+'<div style="text-align:center;margin-top:14px"><button class="eg-btn" id="dtgo" onclick="dtCheck()">提交侦探报告</button></div><div id="dtfb"></div></div>';}
+function dtTog(i){window._DS[i]=!window._DS[i];var e=el('cl'+i);e.className='eg-clue'+(window._DS[i]?' sel':'');e.querySelector('.bx').textContent=window._DS[i]?'✓':'';}
+function dtCheck(){var l=window._DT,c=l.cases[window._DC],tp=0,fp=0,fn=0;
+c.clues.forEach(function(x,i){var s=!!window._DS[i];var e=el('cl'+i);
+if(x.bad&&s){tp++;e.className='eg-clue rt'}else if(!x.bad&&s){fp++;e.className='eg-clue wr'}
+else if(x.bad&&!s){fn++;e.className='eg-clue wr'}else e.className='eg-clue';
+e.innerHTML+='<span class="wy">'+(x.bad?'🚩 <b>真红旗</b>：':'✅ <b>合理现象，不应勾选</b>：')+x.why+'</span>';});
+var bad=c.clues.filter(function(x){return x.bad}).length;var perfect=(tp===bad&&fp===0);
+if(perfect){window._DR++;sOk();addXp(50);burst(innerWidth/2,innerHeight/2,null,36)}else sBad();
+el('dtgo').disabled=true;
+el('dtfb').innerHTML='<div class="eg-exp'+(perfect?'':' bad')+'" style="margin-top:14px"><span class="t">'+
+(perfect?'✅ 完美结案！所有红旗全中、无误报':'📊 本案得分：命中 '+tp+'/'+bad+' · 误报 '+fp+' · 遗漏 '+fn)+'</span>'+
+'上方每条线索已展开详解，特别看你误报的那几条——<b>学会排除合理现象，比背下红旗清单重要得多。</b></div>'+
+'<div style="text-align:center;margin-top:12px"><button class="eg-btn" onclick="window._DC++;dtRender()">'+(window._DC+1>=l.cases.length?'结算 →':'下一案 →')+'</button></div>';
+renderDash();}
+
+/* ==================== 三表联动沙盒 ==================== */
+var B0={cash:800,ar:600,inv:400,ppe:2400,ap:200,loan:0,eq:4000};
+function renderSbx(){return '<div class="eg-sub">你是 CFO，拖动下方滑块做经营决策，右侧三张表<b>实时联动</b>。重点观察：<b>利润变好的时候，现金可能同时变差。</b>期初：现金 800、应收 600、存货 400、固定资产净值 2400、应付 200、借款 0、权益 4000（单位：万元）。</div>'+
+'<div class="eg-3"><div class="eg-card"><h4>经营决策面板</h4>'+
+sl('sPrice','商品涨价幅度','%',-20,40,0,1)+
+sl('sCredit','给审户的赊账天数','天',0,180,60,5)+
+sl('sInv','存货备货月数','个月',0.5,6,2,0.5)+
+sl('sStore','新开门店数（每家 CapEx 80）','家',0,20,0,1)+
+sl('sLoan','新增银行借款','万',0,3000,0,100)+
+sl('sBuy','回购股票金额','万',0,1500,0,100)+
+'<div class="eg-note" id="sbxTip"></div></div><div id="sbxOut"></div></div>'}
+function sl(id,lb,u,mn,mx,vl,st){return '<div class="eg-sl"><label>'+lb+'<b id="'+id+'v">'+vl+' '+u+'</b></label>'+
+'<input type="range" id="'+id+'" min="'+mn+'" max="'+mx+'" step="'+st+'" value="'+vl+'" oninput="sbxCalc()"></div>'}
+function sbxCalc(){var p=+el('sPrice').value,cd=+el('sCredit').value,im=+el('sInv').value,ns=+el('sStore').value,ln=+el('sLoan').value,bb=+el('sBuy').value;
+el('sPricev').textContent=p+' %';el('sCreditv').textContent=cd+' 天';el('sInvv').textContent=im+' 个月';
+el('sStorev').textContent=ns+' 家';el('sLoanv').textContent=ln+' 万';el('sBuyv').textContent=bb+' 万';
+/* 收入：基础 30 家店 × 每店 100 万；涨价需求弹性 −1.2 */
+var stores=30+ns,vol=Math.max(0,1-1.2*(p/100));
+var rev=stores*100*(1+p/100)*vol;
+var cogs=rev*0.4;
+var ppeAdd=ns*80,ppe1=B0.ppe+ppeAdd;
+var depr=ppe1*0.10;
+var sga=stores*100*0.30;
+var interest=(B0.loan+ln)*0.05;
+var ebit=rev-cogs-sga-depr;
+var pretax=ebit-interest;
+var tax=Math.max(0,pretax*0.25);
+var net=pretax-tax;
+var ar1=rev*cd/365,inv1=cogs*im/12,ap1=cogs*30/365;
+var dAR=ar1-B0.ar,dINV=inv1-B0.inv,dAP=ap1-B0.ap;
+var cfo=net+depr-dAR-dINV+dAP;
+var cfi=-ppeAdd;
+var cff=ln-bb;
+var cash1=B0.cash+cfo+cfi+cff;
+var ppeNet1=ppe1-depr;
+var eq1=B0.eq+net-bb;
+var assets=cash1+ar1+inv1+ppeNet1;
+var liab=ap1+B0.loan+ln;
+var diff=assets-(liab+eq1);
+var warn=[];
+if(cash1<0)warn.push('🚨 <b>现金为负</b>：公司已断现金流。即使利润为正也会直接死亡——这就是「利润表好看却破产」的真实机制。');
+if(net>0&&cfo<0)warn.push('⚠️ <b>赚利润但失现金</b>：净利润 '+fmt(net)+' 但经营现金流 '+fmt(cfo)+'。利润全卡在应收与存货里了。');
+if(cd>=120)warn.push('📌 赊账 '+cd+' 天意味着应收高达 '+fmt(ar1)+'，占收入 '+fmt(ar1/rev*100,0)+'%。现实中这种结构几乎必然伴随大额坏账。');
+if(im>=4)warn.push('📌 备货 '+im+' 个月 → 存货 '+fmt(inv1)+'。奶茶原料有保质期，这会直接变成跌价准备。');
+if(p>=25)warn.push('📌 涨价 '+p+'% 后销量已降至原来的 '+fmt(vol*100,0)+'%。涨价不是免费的——需求弹性会吃掉毛利。');
+if(ln>=2000)warn.push('📌 借款 '+ln+' 万带来利息 '+fmt(interest)+' 万/年，并抬高权益乘数。ROE 会奇迹般上升，但风险同步放大。');
+if(!warn.length)warn.push('✅ 当前组合相对健康。试试把赊账天数拉到 150 天、备货拉到 5 个月，看看利润与现金如何彻底背道而驰。');
+el('sbxTip').innerHTML=warn.join('<br><br>');
+el('sbxOut').innerHTML=
+st2('💰 利润表','var(--pu)',[['营业收入',rev],['营业成本',-cogs],['毛利',rev-cogs,1],['销售管理费用',-sga],['折旧费用',-depr],['营业利润',ebit,1],['利息支出',-interest],['所得税',-tax],['净利润',net,1]])+
+st2('💧 现金流量表','var(--gn)',[['净利润',net],['+ 折旧（非现金）',depr],['− 应收增加',-dAR],['− 存货增加',-dINV],['+ 应付增加',dAP],['经营活动 CFO',cfo,1],['投资活动（CapEx）',cfi,1],['筹资活动（借款−回购）',cff,1],['现金净增加',cfo+cfi+cff,1],['期末现金',cash1,1]])+
+st2('🏛️ 资产负债表','var(--cy)',[['货币资金',cash1],['应收账款',ar1],['存货',inv1],['固定资产净值',ppeNet1],['资产合计',assets,1],['应付账款',ap1],['借款',B0.loan+ln],['所有者权益',eq1],['负债+权益',liab+eq1,1],['平衡差额',diff,1]])+
+'<div class="eg-card"><h4>关键比率</h4>'+
+'<div class="eg-st" style="border:none;padding:0">'+
+ln2('毛利率',fmt((rev-cogs)/rev*100)+'%')+ln2('净利率',fmt(net/rev*100)+'%')+
+ln2('ROE',fmt(net/eq1*100)+'%')+ln2('ROA',fmt(net/assets*100)+'%')+
+ln2('权益乘数',fmt(assets/eq1,2))+ln2('总资产周转率',fmt(rev/assets,2))+
+ln2('资产负债率',fmt(liab/assets*100)+'%')+
+ln2('CFO / 净利润',net!==0?fmt(cfo/net,2):'—')+
+ln2('应收周转天数',fmt(ar1/rev*365,0)+' 天')+
+ln2('存货周转天数',fmt(inv1/cogs*365,0)+' 天')+
+ln2('现金周转天数 CCC',fmt(ar1/rev*365+inv1/cogs*365-ap1/cogs*365,0)+' 天')+
+ln2('自由现金流 FCF',fmt(cfo-ppeAdd)+' 万')+
+'</div><div class="eg-note">平衡差额永远为 0，说明沙盒完全遵守会计恒等式。你可以把它当作一个微型财务模型反复实验。</div></div>';
+}
+function st2(t,c,rows){var h='<div class="eg-st"><div class="sh" style="color:'+c+'">'+t+'</div>';
+rows.forEach(function(r){var v2=r[1],cls=r[2]?' tt':'';var col=v2<0?'eg-dn':(r[2]?'eg-up':'');
+h+='<div class="ln2'+cls+'"><span>'+r[0]+'</span><b class="'+col+'">'+fmt(v2)+'</b></div>'});return h+'</div>'}
+function ln2(k,v2){return '<div class="ln2"><span>'+k+'</span><b>'+v2+'</b></div>'}
+
+/* ==================== 启动 ==================== */
+function boot(){load();initFx();
+var t=today();if(S.streak.last!==t&&S.streak.last!==''){/* 首次打开不立即计数，完成一关后计入 */}
+S._lastRank=rank()[1];renderNav();renderDash();go('map');chk();
+var d=dueList().length;
+if(d>0)setTimeout(function(){toast('🔁 今天有 '+d+' 道错题到期复习，建议先清掉')},1200);
+if(S.xp===0)setTimeout(function(){modal('🧋','欢迎就任，CFO','你接手的是一家叫「珍珠星球奶茶」的街边推车，总资产 3 万元。<br><br>你的任务：从看懂第一笔账开始，一路把它带到千亿市值。<br><br>建议每天 15 分钟，不要赶进度，让错题本帮你巩固。','');},600);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+</script>
+</body>
+</html>
