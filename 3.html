@@ -6,67 +6,67 @@
 <title>经济学与金融学文明：总督学院</title>
 <style>
 :root{
-  --bg:#07111f;--panel:#101d30;--panel2:#16263d;--line:#29405f;
-  --text:#eaf2ff;--muted:#93a8c7;--gold:#ffd166;--green:#55d69e;
-  --red:#ff7085;--blue:#64b5ff;--purple:#b69cff
+  --bg:#f4f7fb;--panel:#ffffff;--panel2:#f0f4fa;--line:#d4dce8;
+  --text:#22303f;--muted:#5c6b80;--gold:#b7791f;--green:#1f9d63;
+  --red:#d63a52;--blue:#1c6fd1;--purple:#7c5cd6
 }
 *{box-sizing:border-box}
 body{
-  margin:0;background:radial-gradient(circle at top,#142b4c 0,#07111f 48%);
+  margin:0;background:radial-gradient(circle at top,#e4edf9 0,#f4f7fb 48%);
   color:var(--text);font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif
 }
 button,select,input{font:inherit}
 button{
   border:1px solid var(--line);border-radius:9px;padding:9px 13px;
-  color:var(--text);background:#19304d;cursor:pointer
+  color:var(--text);background:#ffffff;cursor:pointer
 }
 button:hover{border-color:var(--blue);transform:translateY(-1px)}
-button.primary{background:#1769aa;border-color:#3999e8}
-button.good{background:#126848;border-color:#35bf87}
-button.warn{background:#744523;border-color:#d98b43}
-button.danger{background:#742f3d;border-color:#db5b71}
+button.primary{background:#1c6fd1;border-color:#1c6fd1;color:#fff}
+button.good{background:#1f9d63;border-color:#1f9d63;color:#fff}
+button.warn{background:#c05621;border-color:#c05621;color:#fff}
+button.danger{background:#d63a52;border-color:#d63a52;color:#fff}
 button:disabled{opacity:.45;cursor:not-allowed;transform:none}
 header{
   position:sticky;top:0;z-index:10;padding:12px 18px;
-  background:rgba(7,17,31,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)
+  background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)
 }
 .header-row{max-width:1450px;margin:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .logo{font-size:20px;font-weight:800;color:var(--gold)}
 .header-stats{display:flex;gap:8px;flex:1;flex-wrap:wrap}
-.pill{background:#13243a;border:1px solid var(--line);padding:5px 9px;border-radius:20px;font-size:13px}
+.pill{background:#f0f4fa;border:1px solid var(--line);padding:5px 9px;border-radius:20px;font-size:13px}
 .layout{max-width:1450px;margin:16px auto;display:grid;grid-template-columns:220px 1fr 300px;gap:14px;padding:0 14px}
-.panel{background:rgba(16,29,48,.94);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 12px 35px #0004}
+.panel{background:#ffffff;border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 12px 35px rgba(0,0,0,.07)}
 nav button{display:block;width:100%;margin-bottom:7px;text-align:left}
-nav button.active{background:#225985;border-color:var(--blue)}
-h1,h2,h3{margin-top:0} h2{font-size:21px} h3{font-size:16px;color:#cfe2ff}
+nav button.active{background:#dbeafe;border-color:var(--blue)}
+h1,h2,h3{margin-top:0} h2{font-size:21px} h3{font-size:16px;color:#33475e}
 .muted{color:var(--muted)} .small{font-size:13px}.gold{color:var(--gold)}.green{color:var(--green)}.red{color:var(--red)}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:12px}
 .card.locked{filter:saturate(.25);opacity:.65}
-.card.done{border-color:#2f8f69}
+.card.done{border-color:#1f9d63}
 .metric{font-size:25px;font-weight:800}
-.bar{height:8px;background:#071321;border-radius:9px;overflow:hidden;margin-top:5px}
+.bar{height:8px;background:#e2e8f2;border-radius:9px;overflow:hidden;margin-top:5px}
 .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--green));width:0}
 .event{border-left:4px solid var(--gold)}
 .option{display:block;width:100%;text-align:left;margin:7px 0;padding:11px}
-.option.correct{border-color:var(--green);background:#174b3c}
-.option.wrong{border-color:var(--red);background:#552a37}
-.tag{display:inline-block;padding:3px 7px;border-radius:7px;background:#263d5c;color:#bed5f5;font-size:12px;margin:2px}
+.option.correct{border-color:var(--green);background:#dcf5e8}
+.option.wrong{border-color:var(--red);background:#fbe0e5}
+.tag{display:inline-block;padding:3px 7px;border-radius:7px;background:#e3ecf7;color:#33517a;font-size:12px;margin:2px}
 table{width:100%;border-collapse:collapse}td,th{padding:7px;border-bottom:1px solid var(--line);text-align:left}
 .lesson-text{line-height:1.75;font-size:15px}
-.callout{background:#112943;border-left:4px solid var(--blue);padding:11px;border-radius:7px;margin:10px 0}
+.callout{background:#e8f0fa;border-left:4px solid var(--blue);padding:11px;border-radius:7px;margin:10px 0}
 .modal{
-  position:fixed;inset:0;background:#020812dc;z-index:30;display:flex;
+  position:fixed;inset:0;background:rgba(244,247,251,.92);z-index:30;display:flex;
   align-items:center;justify-content:center;padding:15px
 }
-.modal-box{max-width:750px;width:100%;max-height:90vh;overflow:auto;background:#13243a;border:1px solid #45698f;border-radius:15px;padding:20px}
+.modal-box{max-width:750px;width:100%;max-height:90vh;overflow:auto;background:#ffffff;border:1px solid #c3cfe0;border-radius:15px;padding:20px}
 .hidden{display:none!important}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.chart{width:100%;height:190px;background:#091522;border-radius:9px;border:1px solid var(--line)}
+.chart{width:100%;height:190px;background:#f8fafc;border-radius:9px;border:1px solid var(--line)}
 .quest{padding:8px 0;border-bottom:1px solid var(--line)}
-code{background:#071321;padding:2px 5px;border-radius:5px}
-.toast{position:fixed;right:18px;bottom:18px;z-index:50;background:#193552;border:1px solid #4f79a3;border-radius:10px;padding:11px 16px;display:none}
-textarea{width:100%;min-height:100px;background:#081524;color:white;border:1px solid var(--line);border-radius:8px;padding:8px}
+code{background:#eef2f7;padding:2px 5px;border-radius:5px}
+.toast{position:fixed;right:18px;bottom:18px;z-index:50;background:#ffffff;border:1px solid #c3cfe0;border-radius:10px;padding:11px 16px;display:none}
+textarea{width:100%;min-height:100px;background:#f8fafc;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px}
 @media(max-width:1050px){.layout{grid-template-columns:190px 1fr}.right{grid-column:1/-1}}
 @media(max-width:700px){.layout{display:block}nav{margin-bottom:12px}nav button{display:inline-block;width:auto}.right{margin-top:12px}}
 </style>
@@ -95,9 +95,9 @@ textarea{width:100%;min-height:100px;background:#081524;color:white;border:1px s
       游戏不能替代学位与研究训练，但能帮助你建立系统知识地图和经济直觉。
     </div>
     <label>城邦名称</label>
-    <input id="cityName" value="启明共和国" style="width:100%;margin:6px 0 12px;padding:9px;background:#091522;color:white;border:1px solid #36516e;border-radius:8px">
+    <input id="cityName" value="启明共和国" style="width:100%;margin:6px 0 12px;padding:9px;background:#f8fafc;color:#22303f;border:1px solid #c9d4e4;border-radius:8px">
     <label>难度</label>
-    <select id="difficulty" style="width:100%;margin:6px 0 12px;padding:9px;background:#091522;color:white;border:1px solid #36516e;border-radius:8px">
+    <select id="difficulty" style="width:100%;margin:6px 0 12px;padding:9px;background:#f8fafc;color:#22303f;border:1px solid #c9d4e4;border-radius:8px">
       <option value="story">故事模式：适合零基础</option>
       <option value="normal" selected>学者模式：完整反馈</option>
       <option value="expert">专家模式：波动更大、解释更少</option>
@@ -317,9 +317,9 @@ function renderTop(){
 function renderNav(){
  let items=[["dashboard","🏠 总督府"],["curriculum","🗺️ 知识地图"],["city","🏙️ 城邦模拟"],
  ["review","🧠 间隔复习"],["lab","🧪 经济实验室"],["journal","📓 研究日志"],["achievements","🏆 学者档案"]];
- document.getElementById("nav").innerHTML=`<h3>${state.city}</h3><div class="small muted">第 ${state.season} 赛季 · ${stages[level()-1]}</div><hr style="border-color:#29405f">`+
+ document.getElementById("nav").innerHTML=`<h3>${state.city}</h3><div class="small muted">第 ${state.season} 赛季 · ${stages[level()-1]}</div><hr style="border-color:#d4dce8">`+
  items.map(x=>`<button class="${currentView==x[0]?'active':''}" onclick="go('${x[0]}')">${x[1]}</button>`).join("")+
- `<hr style="border-color:#29405f"><button onclick="exportSave()">导出存档</button><button onclick="resetGame()" class="danger">开启新文明</button>`;
+ `<hr style="border-color:#d4dce8"><button onclick="exportSave()">导出存档</button><button onclick="resetGame()" class="danger">开启新文明</button>`;
 }
 function renderRight(){
  let learned=Object.keys(state.learned).length,total=curriculum.length;
@@ -557,16 +557,16 @@ function endSeason(win){
 }
 function drawChart(){
  let c=document.getElementById("chart");if(!c)return;
- let d=state.history.slice(-30);if(d.length<2){let x=c.getContext("2d");x.fillStyle="#93a8c7";x.fillText("推进季度后生成宏观曲线",20,30);return}
+ let d=state.history.slice(-30);if(d.length<2){let x=c.getContext("2d");x.fillStyle="#5c6b80";x.fillText("推进季度后生成宏观曲线",20,30);return}
  c.width=c.clientWidth*devicePixelRatio;c.height=c.clientHeight*devicePixelRatio;
  let x=c.getContext("2d");x.scale(devicePixelRatio,devicePixelRatio);
- let w=c.clientWidth,h=c.clientHeight;x.strokeStyle="#29405f";
+ let w=c.clientWidth,h=c.clientHeight;x.strokeStyle="#d4dce8";
  for(let y=20;y<h;y+=35){x.beginPath();x.moveTo(0,y);x.lineTo(w,y);x.stroke()}
- [["g","#55d69e"],["i","#ffd166"],["u","#ff7085"]].forEach(([k,color])=>{
+ [["g","#1f9d63"],["i","#b7791f"],["u","#d63a52"]].forEach(([k,color])=>{
   x.strokeStyle=color;x.lineWidth=2;x.beginPath();
   d.forEach((p,i)=>{let xx=i/(d.length-1)*(w-20)+10,yy=h-20-clamp(p[k]+5,0,20)/20*(h-40);i?x.lineTo(xx,yy):x.moveTo(xx,yy)});x.stroke()
  });
- x.fillStyle="#55d69e";x.fillText("增长",10,14);x.fillStyle="#ffd166";x.fillText("通胀",55,14);x.fillStyle="#ff7085";x.fillText("失业",100,14);
+ x.fillStyle="#1f9d63";x.fillText("增长",10,14);x.fillStyle="#b7791f";x.fillText("通胀",55,14);x.fillStyle="#d63a52";x.fillText("失业",100,14);
 }
 function showModal(html){document.getElementById("modalBody").innerHTML=html;document.getElementById("modal").classList.remove("hidden")}
 function closeModal(){document.getElementById("modal").classList.add("hidden")}

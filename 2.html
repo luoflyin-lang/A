@@ -6,40 +6,40 @@
 <title>EconQuest · 经济学与金融学闯关</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#0e1117;color:#e6edf3;line-height:1.6}
-header{padding:14px 18px;background:linear-gradient(90deg,#132033,#1b2a1f);border-bottom:1px solid #263041;position:sticky;top:0;z-index:9}
+body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;background:#f6f8fa;color:#1f2328;line-height:1.6}
+header{padding:14px 18px;background:linear-gradient(90deg,#dbeafe,#dcfce7);border-bottom:1px solid #d0d7de;position:sticky;top:0;z-index:9}
 h1{font-size:18px;margin:0 0 6px}
-.small{font-size:12px;color:#93a1b3}
-.bar{height:8px;background:#1e2734;border-radius:6px;overflow:hidden;margin-top:6px}
-.bar>i{display:block;height:100%;background:linear-gradient(90deg,#3fb950,#58a6ff)}
-nav{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;background:#111722;border-bottom:1px solid #222b38;position:sticky;top:78px;z-index:8}
-nav button{background:#1b2431;color:#c9d6e4;border:1px solid #2a3441;border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer}
-nav button.on{background:#1f6feb;color:#fff;border-color:#1f6feb}
+.small{font-size:12px;color:#57606a}
+.bar{height:8px;background:#e7ebf0;border-radius:6px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,#2da44e,#0969da)}
+nav{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;background:#f0f3f6;border-bottom:1px solid #d8dee4;position:sticky;top:78px;z-index:8}
+nav button{background:#ffffff;color:#3b424b;border:1px solid #d0d7de;border-radius:20px;padding:6px 14px;font-size:13px;cursor:pointer}
+nav button.on{background:#0969da;color:#fff;border-color:#0969da}
 main{max-width:860px;margin:0 auto;padding:16px}
-.card{background:#161b22;border:1px solid #262d38;border-radius:12px;padding:14px;margin-bottom:12px}
+.card{background:#ffffff;border:1px solid #d8dee4;border-radius:12px;padding:14px;margin-bottom:12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
-.mod{background:#161b22;border:1px solid #262d38;border-radius:12px;padding:12px;cursor:pointer;transition:.15s}
-.mod:hover{border-color:#1f6feb;transform:translateY(-2px)}
+.mod{background:#ffffff;border:1px solid #d8dee4;border-radius:12px;padding:12px;cursor:pointer;transition:.15s}
+.mod:hover{border-color:#0969da;transform:translateY(-2px)}
 .mod.lock{opacity:.45;cursor:not-allowed}
 .mod b{display:block;font-size:15px}
-button.b{background:#1f6feb;color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:14px;cursor:pointer;margin:4px 6px 4px 0}
-button.b.g{background:#238636}button.b.y{background:#9e6a03}button.b.r{background:#a1242e}button.b.o{background:#26303d;color:#c9d6e4}
+button.b{background:#0969da;color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:14px;cursor:pointer;margin:4px 6px 4px 0}
+button.b.g{background:#2da44e}button.b.y{background:#bf8700}button.b.r{background:#cf222e}button.b.o{background:#e7ebf0;color:#3b424b}
 button.b:disabled{opacity:.4;cursor:default}
-.opt{display:block;width:100%;text-align:left;background:#1b2431;color:#e6edf3;border:1px solid #2a3441;border-radius:10px;padding:11px 13px;margin:7px 0;font-size:14px;cursor:pointer}
-.opt:hover{border-color:#58a6ff}
-.opt.ok{background:#12381f;border-color:#3fb950}
-.opt.no{background:#3d1418;border-color:#f85149}
-.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:#22303f;color:#8fb8e8;margin-right:6px}
-.tag.gold{background:#3a2f08;color:#e3b341}
+.opt{display:block;width:100%;text-align:left;background:#ffffff;color:#1f2328;border:1px solid #d0d7de;border-radius:10px;padding:11px 13px;margin:7px 0;font-size:14px;cursor:pointer}
+.opt:hover{border-color:#0969da}
+.opt.ok{background:#dafbe1;border-color:#2da44e}
+.opt.no{background:#ffebe9;border-color:#cf222e}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:#ddf4ff;color:#0969da;margin-right:6px}
+.tag.gold{background:#fff8c5;color:#9a6700}
 input[type=range]{width:100%}
 table{width:100%;border-collapse:collapse;font-size:13px}
-td,th{border-bottom:1px solid #232c38;padding:5px 4px;text-align:right}
+td,th{border-bottom:1px solid #d8dee4;padding:5px 4px;text-align:right}
 td:first-child,th:first-child{text-align:left}
-.kv{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:#a9b8c9}
+.kv{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:#57606a}
 .big{font-size:26px;font-weight:700}
-.hint{font-size:13px;color:#9aa8b8;background:#121a24;border-left:3px solid #1f6feb;padding:8px 10px;border-radius:0 8px 8px 0;margin:8px 0}
+.hint{font-size:13px;color:#57606a;background:#eef2f6;border-left:3px solid #0969da;padding:8px 10px;border-radius:0 8px 8px 0;margin:8px 0}
 .flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.pill{font-size:12px;background:#1b2431;border:1px solid #2a3441;border-radius:8px;padding:4px 8px}
+.pill{font-size:12px;background:#ffffff;border:1px solid #d0d7de;border-radius:8px;padding:4px 8px}
 </style>
 </head>
 <body>
@@ -409,7 +409,7 @@ function mkRender(){
  r.oninput=function(){mk.p=parseFloat(r.value);mkRender()};c.appendChild(r);
  a.appendChild(c);
  const g=el('<div class="card"><b>提交你认为的均衡价格</b><div class="small">误差 ≤0.5 得满分奖励。</div></div>');
- const inp=el('<input style="background:#0e1117;color:#e6edf3;border:1px solid #2a3441;border-radius:8px;padding:8px;width:120px" placeholder="如 12.5">');
+ const inp=el('<input style="background:#f6f8fa;color:#1f2328;border:1px solid #d0d7de;border-radius:8px;padding:8px;width:120px" placeholder="如 12.5">');
  const sb=el('<button class="b g">提交</button>');
  sb.onclick=function(){const v=parseFloat(inp.value);if(isNaN(v))return toast("请输入数字");
   const err=Math.abs(v-mk.pe);const sc=err<=0.5?100:Math.max(0,Math.round(100-err*12));

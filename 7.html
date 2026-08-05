@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>偏差大陆 · 行为金融学游戏化学习系统</title>
 <style>
-:root{--bg:#0b0e14;--bg2:#121722;--bg3:#1a2130;--line:#26303f;--tx:#e6edf6;--tx2:#93a2b8;--ac:#4dd6c1;--ac2:#7c8cff;--warn:#ffb347;--bad:#ff5d73;--good:#3ddc97}
+:root{--bg:#f6f7f9;--bg2:#ffffff;--bg3:#eef1f6;--line:#d9dde5;--tx:#232a35;--tx2:#5d6a7d;--ac:#0d9488;--ac2:#5b6ee1;--warn:#c07f10;--bad:#e0415f;--good:#18a058}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans SC','PingFang SC','Microsoft Yahei',sans-serif;line-height:1.65}
 body{max-width:900px;margin:0 auto;padding:0 14px 90px}
-header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#0b0e14 70%,rgba(11,14,20,.85));padding:10px 0 8px;border-bottom:1px solid var(--line)}
+header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#f6f7f9 70%,rgba(246,247,249,.88));padding:10px 0 8px;border-bottom:1px solid var(--line)}
 .hrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .lv{font-weight:700;font-size:15px;color:var(--ac)}
 .pill{background:var(--bg3);border:1px solid var(--line);border-radius:999px;padding:2px 10px;font-size:12px;color:var(--tx2)}
@@ -38,7 +38,7 @@ button.b:disabled{opacity:.45;cursor:not-allowed}
 @keyframes pop{0%{transform:scale(.97)}60%{transform:scale(1.02)}100%{transform:scale(1)}}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--tx2);margin-right:6px}
-.tag.t1{color:var(--good);border-color:#1d5f45}.tag.t2{color:var(--warn);border-color:#6b4a17}.tag.t3{color:var(--ac2);border-color:#39408a}
+.tag.t1{color:var(--good);border-color:#18a058}.tag.t2{color:var(--warn);border-color:#c07f10}.tag.t3{color:var(--ac2);border-color:#5b6ee1}
 .rev{border-left:3px solid var(--ac);padding-left:12px;margin-top:12px}
 .rev b{color:var(--ac)}
 .kp{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0;background:var(--bg2)}
@@ -62,8 +62,8 @@ canvas{max-width:100%;display:block;margin:0 auto}
 .cardx{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px;position:relative}
 .cardx.locked{opacity:.35}
 .cardx .ty{font-size:11px;color:var(--ac2)}
-.r3{border-color:#8a6a1f;box-shadow:0 0 0 1px rgba(255,179,71,.25) inset}
-.r2{border-color:#39408a}
+.r3{border-color:#c07f10;box-shadow:0 0 0 1px rgba(255,179,71,.25) inset}
+.r2{border-color:#5b6ee1}
 textarea{width:100%;min-height:110px;background:var(--bg3);color:var(--tx);border:1px solid var(--line);border-radius:10px;padding:8px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 </style>
 </head>
@@ -447,7 +447,7 @@ function toast(msg){const el=document.getElementById('toast');el.textContent=msg
 
 /* XP、成就 */
 function addXp(n){const before=lvIndex(S.xp);S.xp+=n;const after=lvIndex(S.xp);
- if(after>before){beep('lv');toast('段位提升：'+LEVELS[after].n);burst(window.innerWidth/2,120,'#4dd6c1')}}
+ if(after>before){beep('lv');toast('段位提升：'+LEVELS[after].n);burst(window.innerWidth/2,120,'#0d9488')}}
 function checkAch(){ACHIEVEMENTS.forEach(a=>{if(S.ach.indexOf(a.id)<0){let ok=false;try{ok=!!a.f(S)}catch(e){ok=false}
  if(ok){S.ach.push(a.id);toast('成就解锁 '+a.ic+' '+a.name);beep('lv')}}})}
 
@@ -579,7 +579,7 @@ function ansScen(i,ev){const s=SES.items[SES.i];const o=s.opts[i];const ok=!!o.o
  const btn=document.getElementById('o'+i);if(btn)btn.classList.add(ok?'right':'wrong');
  s.opts.forEach((oo,k)=>{if(oo.ok){const b2=document.getElementById('o'+k);if(b2)b2.classList.add('right')}
   const b3=document.getElementById('o'+k);if(b3)b3.setAttribute('onclick','')});
- if(ok&&ev)burst(ev.clientX,ev.clientY,'#3ddc97');
+ if(ok&&ev)burst(ev.clientX,ev.clientY,'#18a058');
  const kp=kpById(s.kp);
  const rev='<div class="card rev"><p><b>结论：</b>'+esc(s.rev.c)+'</p>'+
   '<p><b>直觉类比：</b>'+esc(s.rev.a)+'</p>'+
@@ -593,7 +593,7 @@ function ansRecall(i,ev){const it=SES.items[SES.i];const ok=it.opts[i]===it.answ
  S.stats.ans++;S.stats[ok?'right':'wrong']++;S.stats.rev++;nightCheck();
  hitDim(it.dim,ok);srsInit(it.kp);srsSchedule(it.kp,ok?5:2);
  addXp(ok?8:3);if(ok)SES.right++;beep(ok?'ok':'bad');
- if(ok&&ev)burst(ev.clientX,ev.clientY,'#4dd6c1');
+ if(ok&&ev)burst(ev.clientX,ev.clientY,'#0d9488');
  if(!ok)S.mistakes.unshift({id:'recall:'+it.kp,kp:it.kp,chose:it.opts[i],ts:Date.now()});
  it.opts.forEach((o,k)=>{const b=document.getElementById('o'+k);if(!b)return;
   if(o===it.answer)b.classList.add('right');else if(k===i)b.classList.add('wrong');b.setAttribute('onclick','')});
@@ -614,7 +614,7 @@ function gacha(){if(Math.random()>0.34)return null;
  if(!pool.length){addXp(10);return null}
  const w=[];pool.forEach(c=>{const n=c.r===3?1:(c.r===2?3:5);for(let i=0;i<n;i++)w.push(c)});
  const c=w[Math.floor(Math.random()*w.length)];S.cards.push(c.id);S.stats.pulls++;beep('lv');
- burst(window.innerWidth/2,window.innerHeight/2,'#ffb347');return c}
+ burst(window.innerWidth/2,window.innerHeight/2,'#c07f10');return c}
 function endSession(){const drop=gacha();
  if(SES.kind==='daily'&&S.dailyDate!==todayStr()){
   if(S.dailyDate===yStr()||!S.dailyDate)S.streak=S.streak+1;else S.streak=1;
@@ -646,7 +646,7 @@ function bossPick(i,ev){const r=BS.b.rounds[BS.i],o=r.opts[i];const best=Math.ma
  const good=o.d>=best;beep(good?'ok':'bad');
  const b=document.getElementById('o'+i);if(b)b.classList.add(good?'right':'wrong');
  r.opts.forEach((x,k)=>{const bb=document.getElementById('o'+k);if(bb)bb.setAttribute('onclick','')});
- if(good&&ev)burst(ev.clientX,ev.clientY,'#3ddc97');
+ if(good&&ev)burst(ev.clientX,ev.clientY,'#18a058');
  if(o.tag==='sunk')S.stats.sunk=1;
  document.getElementById('view').insertAdjacentHTML('beforeend','<div class="card rev"><p><b>点评：</b>'+esc(o.why)+'</p><p>本回合得分 '+o.d+' / '+best+'</p><p><button class="b" onclick="bossNext()">继续</button></p></div>')}
 function bossNext(){BS.i++;if(BS.i>=BS.b.rounds.length)bossEnd(false);else bossRound()}
@@ -682,8 +682,8 @@ function drawRadar(){const cv=document.getElementById('rd');if(!cv)return;const 
  x.beginPath();
  for(let i=0;i<n;i++){const a=-Math.PI/2+i*2*Math.PI/n,r=R*Math.min(1,Math.max(0.03,dimRate(S,DIMS[i].k)));
   const px=cx+Math.cos(a)*r,py=cy+Math.sin(a)*r;i?x.lineTo(px,py):x.moveTo(px,py)}
- x.closePath();x.fillStyle='rgba(255,93,115,.28)';x.fill();x.strokeStyle='#ff5d73';x.lineWidth=2;x.stroke();
- x.fillStyle='#93a2b8';x.font='12px sans-serif';x.textAlign='center';
+ x.closePath();x.fillStyle='rgba(255,93,115,.28)';x.fill();x.strokeStyle='#e0415f';x.lineWidth=2;x.stroke();
+ x.fillStyle='#5d6a7d';x.font='12px sans-serif';x.textAlign='center';
  for(let i=0;i<n;i++){const a=-Math.PI/2+i*2*Math.PI/n;
   x.fillText(DIMS[i].n,cx+Math.cos(a)*(R+26),cy+Math.sin(a)*(R+26)+4)}}
 
