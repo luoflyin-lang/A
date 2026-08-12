@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F2EFE9">
-<title>BN Chart v9.4</title>
+<title>BN Chart v9.5</title>
 <style>
 /* 护眼配色（iPad LED 直射光屏、长时间盯盘）：
    1) 不用纯白底——纯白在 LED 上等于把最大亮度糊在脸上，换成暖白纸底 #F2EFE9；
@@ -91,6 +91,21 @@ body.locked #cv{opacity:.42}
 .ci .r .a{display:block;font-size:13px}
 .ci .r .b{display:block;font-size:11px}
 .hold{font-size:10px;padding:1px 5px;border-radius:5px;background:var(--raised);color:var(--text)}
+#bStar{height:28px;min-width:30px;padding:0 7px;border-radius:8px;font-size:16px;line-height:1;
+  color:var(--faint);background:var(--tint)}
+#bStar.on{color:var(--amber);background:var(--raised)}
+.fab.hot{color:var(--amber)}
+.wi{display:flex;align-items:center;gap:10px;padding:10px;border-radius:9px;cursor:pointer}
+.wi:hover{background:var(--raised)}
+.wi.due{background:var(--tint)}
+.wi .n{font-size:13.5px;font-weight:550}
+.wi .m{display:block;margin-top:1px;font-size:11px;color:var(--faint);font-family:var(--mono)}
+.wi .r{margin-left:auto;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.wi .cd{display:block;font-size:13px}
+.wi .cd.due{color:var(--amber);font-weight:600}
+.wi .dd{display:block;font-size:11px}
+.wi .wx{margin-left:6px;width:26px;height:26px;border-radius:7px;color:var(--faint);font-size:13px}
+.wi .wx:hover{background:var(--raised);color:var(--text)}
 .none{padding:22px 10px;color:var(--faint);font-size:13px;line-height:1.7}
 table{width:100%;border-collapse:collapse;font-size:12.5px}
 th{text-align:right;font-weight:400;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
@@ -186,12 +201,14 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <div id="tl">
   <div id="name"><span class="s" id="nS">BTC</span><span class="caret">▾</span></div>
   <div class="tfs"><button data-tf="5m">5m</button><button class="on" data-tf="1h">1h</button></div>
+  <button id="bStar" title="标记这个机会（W）：等这根 K 线收盘再下单">☆</button>
 </div>
 
 <div id="clk" title="点击切换配色 · 长按看版本">--:--</div>
 
 <div id="br">
   <button class="fab" id="bPos">持仓</button>
+  <button class="fab" id="bWat">机会</button>
 </div>
 <div id="brr">
   <button class="fab icon" id="prev" title="上一个品种">‹</button>
@@ -211,6 +228,13 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
   <div class="sh"><b>持仓</b><span class="num" style="font-size:11.5px;color:var(--faint)" id="av"></span>
     <button class="x" data-close>✕</button></div>
   <div class="sbody" id="pb"><div class="none">账户数据加载中…</div></div>
+</aside>
+
+<aside class="sheet" id="shWat">
+  <div class="sh"><b>机会</b><span class="num" style="font-size:11.5px;color:var(--faint)" id="wCnt"></span>
+    <button class="x" data-close>✕</button></div>
+  <div class="filt"><span>标记后等这根 K 线收盘，收盘会响一声提醒你下单</span></div>
+  <div class="sbody" id="wlist"></div>
 </aside>
 
 <div id="lockbar"></div>
@@ -278,6 +302,9 @@ const PENDBR_TTL=864e5;                 // 待补挂止损止盈记录的保质�
 const ENTRY_TTL=1.08e7;                 // 页面开着时的兼底：未成交入场单挂满 3 小时自动撤；设 0 关闭
 const AWAY_TTL=18e5;                    // 网页关掉（或设备休眠）超过 30 分钟，重新打开时把关之前留下的未成交入场单撤掉；设 0 关闭
 const ALIVE_MS=15000;                   // 心跳落盘间隔：页面关着一行代码也跑不了，只能靠心跳时间戳算“关了多久”
+const WATCH_KEEP=36e5;                  // 机会标记：收盘后再留 1 小时，过期自动清掉，免得清单越堆越长
+const WATCH_MAX=20;                     // 最多 20 条；再多说明该动手了，而不是继续记
+const TFMS={"5m":3e5,"1h":36e5};        // K 线收盘时刻是按 epoch 对齐的，本地能算，不用问接口
 const LOCK_CANCEL_ENTRY=true;           // 行情锁定（断线/停更）时自动撤掉未成交入场单
 const LOCK_CANCEL_COLDSTART=false;      // 冷启动（本次打开从没收到过实时价）时也撤？默认否，见 onLocked()
 const NUDGE_TICKS=2;                    // 只挂单被拒时，把价格往盘口外挪几个 tick 重试
@@ -290,7 +317,7 @@ const RPAD_BARS=2;                      // 图表右侧留白，按 K 线根数�
 const RIGHT_LOCK=true;                  // 右端锁定：最新一根 K 线永远贴右侧，缩放、划拉都不会把它推走
 const PREATTACH_TP=true;                // 止盈也随入场单预挂一张触发市价单兜底：关页面也能落袋
 const TP_FB_OFF=0.001;                  // 兜底止盈的触发价再远 0.1%，让页面挂的限价止盈先成交（省手续费）
-const VER="v9.4 · 2026-08-12";            // 版本号：长按右上角时间可以看到
+const VER="v9.5 · 2026-08-12";            // 版本号：长按右上角时间可以看到
 const RECV=5000;                        // recvWindow
 const WORK="MARK_PRICE";                // 触发价基准：MARK_PRICE 抗插针；改 CONTRACT_PRICE = 最新成交价
 const LEV_DEF=20;                       // 默认杠杆（会被品种上限与名义档位自动压低）
@@ -1331,8 +1358,114 @@ addEventListener("resize",fit);
 function head(){
   const p=mid(S.sym);
   $("#nS").textContent=disp(S.sym);
-  document.title=px(p)+" "+disp(S.sym);render();
+  const bell=WATCH.some(w=>w.fired&&Date.now()-w.due<3e5);   // 刚收盘 5 分钟内：标签页标题也挂个铃铛
+  document.title=(bell?"🔔 ":"")+px(p)+" "+disp(S.sym);render();
 }
+
+/* ================= 机会清单 =================
+   看到形态好、但这根 K 线还没走完 —— 从「看到」到「能下单」这段空窗最容易忘。
+   顶栏 ☆ 或按 W 记一笔，收盘那一刻响一声把你叫回来，不用写纸上。
+   收盘时刻按 epoch 对齐直接算，不依赖行情推送；页面关着时响不了，重开会补提醒。*/
+const WKEY="bn_watch";
+let WATCH=[],_wsig="",WAC=null,WGEST=false;
+function wLoad(){try{WATCH=JSON.parse(localStorage.getItem(WKEY)||"[]")||[];}catch(e){WATCH=[];}
+  if(!Array.isArray(WATCH))WATCH=[];}
+function wSave(){try{localStorage.setItem(WKEY,JSON.stringify(WATCH));}catch(e){}}
+function tfMs(tf){return TFMS[tf]||36e5;}
+function wDue(tf,from){const m=tfMs(tf);return Math.ceil(((from||Date.now())+1)/m)*m;}   // 下一根收盘时刻
+function wFind(sym,tf){return WATCH.findIndex(w=>w.sym===sym&&w.tf===tf);}
+function wHas(sym){return WATCH.some(w=>w.sym===sym);}
+function wLeft(w){return w.due-Date.now();}
+function cdTxt(ms){                                  // 倒计时：mm:ss，超过一小时才带小时
+  if(ms<=0)return "已收盘";
+  const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60),ss=s%60,p=n=>String(n).padStart(2,"0");
+  return h?h+":"+p(m)+":"+p(ss):m+":"+p(ss);}
+function hhmm(t){const d=new Date(t);return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+function wPrune(){const n=Date.now(),b=WATCH.length;
+  WATCH=WATCH.filter(w=>w&&w.sym&&w.tf&&n-w.due<WATCH_KEEP);
+  if(WATCH.length>WATCH_MAX)WATCH=WATCH.slice(-WATCH_MAX);
+  return WATCH.length!==b;}
+/* 提示音：用 WebAudio 现生成，不用外部音频文件（单文件网页带不了资源）。
+   浏览器要求先有用户手势才让出声，标记这一下点击正好把它解锁。*/
+function wAudioInit(){try{if(!WAC)WAC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+function wBeep(){
+  if(!WGEST)return;                                  // 还没点过任何地方时浏览器不让出声，强发只会往控制台吐错；
+                                                     // 此时靠 toast + 标题铃铛 + 按钮变色提醒，一样看得见
+  try{wAudioInit();if(WAC){if(WAC.state==="suspended")WAC.resume();
+    [0,190].forEach(d=>{const o=WAC.createOscillator(),g=WAC.createGain(),t=WAC.currentTime+d/1000;
+      o.type="sine";o.frequency.value=880;
+      g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.22,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.17);
+      o.connect(g);g.connect(WAC.destination);o.start(t);o.stop(t+0.2);});}}catch(e){log("beep err "+e.message);}
+  try{if(WGEST&&navigator.vibrate)navigator.vibrate([90,60,90]);}catch(e){}}
+function wToggle(sym,tf){
+  sym=sym||S.sym;tf=tf||S.tf;
+  const i=wFind(sym,tf);
+  if(i>=0){WATCH.splice(i,1);wSave();wSync();toast("已取消标记 "+disp(sym)+" "+tf);return false;}
+  const due=wDue(tf);
+  WATCH.push({sym:sym,tf:tf,at:Date.now(),px:mid(sym)||0,due:due,fired:false});
+  if(WATCH.length>WATCH_MAX)WATCH=WATCH.slice(-WATCH_MAX);
+  wSave();wAudioInit();wSync();
+  toast("已标记 "+disp(sym)+" "+tf+" · 收盘还有 "+cdTxt(due-Date.now()));
+  return true;}
+function wRemove(sym,tf){const i=wFind(sym,tf);if(i>=0){WATCH.splice(i,1);wSave();_wsig="";wSync();}}
+async function wJump(sym,tf){                        // 点清单里一条：切过去，周期也跟着切回标记时那个
+  const tfNew=tf&&tf!==S.tf;
+  if(tfNew){S.tf=tf;applyPrefUI();hv=null;}
+  if(sym&&sym!==S.sym){await pick(sym);}
+  else if(tfNew){savePref();await kline();head();}
+  wSync();}
+function wSync(){                                    // 顶栏 ☆、机会按钮、清单，三处一起刷
+  const st=$("#bStar");
+  if(st){const on=wFind(S.sym,S.tf)>=0;
+    st.classList.toggle("on",on);st.textContent=on?"★":"☆";
+    st.title=(on?"取消标记":"标记这个机会")+"（W）：等这根 K 线收盘再下单";}
+  const b=$("#bWat");
+  if(b){const due=WATCH.filter(w=>wLeft(w)<=0).length;
+    b.classList.toggle("hot",due>0);
+    b.textContent=!WATCH.length?"机会"
+      :due?("机会 "+WATCH.length+" · 可下单")
+      :("机会 "+WATCH.length+" · "+cdTxt(Math.min.apply(null,WATCH.map(wLeft))));}
+  const sh=$("#shWat");
+  if(sh&&sh.classList.contains("on"))wList(true);}
+function wList(soft){
+  const box=$("#wlist");if(!box)return;
+  const rows=WATCH.slice().sort((a,b)=>a.due-b.due),sig=rows.map(w=>w.sym+w.tf).join(",");
+  const cnt=$("#wCnt");if(cnt)cnt.textContent=rows.length?rows.length+" 个":"";
+  if(soft&&sig===_wsig&&rows.length){                // 每秒只改倒计时那几个字，不重建 DOM
+    rows.forEach(w=>{const el=box.querySelector('.wi[data-c="'+w.sym+'"][data-tf="'+w.tf+'"]');if(!el)return;
+      const l=wLeft(w),cd=el.querySelector(".cd"),dd=el.querySelector(".dd"),p=mid(w.sym);
+      el.classList.toggle("due",l<=0);
+      if(cd){cd.textContent=l<=0?"收盘了 · 可下单":cdTxt(l);cd.classList.toggle("due",l<=0);}
+      if(dd&&w.px>0&&p>0){const ch=(p-w.px)/w.px*100;
+        dd.textContent=(ch>=0?"+":"")+ch.toFixed(2)+"%";dd.className="dd "+(ch>=0?"up":"down");}});
+    return;}
+  _wsig=sig;
+  if(!rows.length){box.innerHTML='<div class="none">还没有标记。<br>看到机会但 K 线还没收盘时，点顶栏的 ☆（或按 W）记一笔，'
+    +"收盘会响一声叫你回来下单。</div>";return;}
+  box.innerHTML=rows.map(w=>{const l=wLeft(w),p=mid(w.sym),ch=w.px>0&&p>0?(p-w.px)/w.px*100:0;
+    return '<div class="wi'+(l<=0?" due":"")+'" data-c="'+w.sym+'" data-tf="'+w.tf+'">'
+      +'<span><span class="n">'+disp(w.sym)+'</span> <span class="hold">'+w.tf+'</span>'
+      +'<span class="m">标记价 '+px(w.px,w.sym)+" · "+hhmm(w.at)+"</span></span>"
+      +'<span class="r"><span class="cd'+(l<=0?" due":"")+'">'+(l<=0?"收盘了 · 可下单":cdTxt(l))+"</span>"
+      +'<span class="dd '+(ch>=0?"up":"down")+'">'+(ch>=0?"+":"")+ch.toFixed(2)+"%</span></span>"
+      +'<button class="wx" title="移除">✕</button></div>';}).join("");}
+function wTick(){
+  if(wPrune()){wSave();_wsig="";}
+  const now=Date.now(),ring=[];
+  WATCH.forEach(w=>{if(!w.fired&&now>=w.due){w.fired=true;ring.push(w);}});
+  if(ring.length){wSave();_wsig="";wBeep();
+    toast(ring.map(w=>disp(w.sym)+" "+w.tf).join("、")+(ring.length>1?" 都收盘了":" 收盘了")+"，可以下单了");}
+  wSync();}
+wLoad();if(wPrune())wSave();wSync();                 // 过期的得真删掉，否则只在内存里没了，本地存储里一直堆着
+/* 关页期间收的盘，重开要补一声提醒 —— 但不能一打开就弹：
+   那时候“已加载：总资金…”紧跟着就把它盖掉了，等于没提醒。让启动那句先说完。*/
+setTimeout(()=>{wTick();setInterval(wTick,1000);},2500);
+function wGest(){WGEST=true;wAudioInit();}           // 第一次点击/按键：顺手把音频解锁备着
+addEventListener("pointerdown",wGest,{once:true});
+addEventListener("keydown",wGest,{once:true});
+/* 后台标签页里定时器会被浏览器压到一分钟一次，切回来立刻补算一次，别让提醒迟到 */
+addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")wTick();});
 
 /* ================= 品种列表 ================= */
 function pool(){
@@ -1343,7 +1476,7 @@ function pool(){
 }
 let _sig="";
 function list(soft){
-  const l=pool(),sig=l.map(x=>x.n).join(",")+"|"+S.sym;
+  const l=pool(),sig=l.map(x=>x.n).join(",")+"|"+S.sym+"|"+WATCH.map(w=>w.sym).join(",");
   if(soft&&sig===_sig){                       // 行数没变时只刷价格文本，不重建 DOM
     const box=$("#clist");
     l.forEach(x=>{const el=box.querySelector('.ci[data-c="'+x.n+'"]');if(!el)return;
@@ -1354,20 +1487,20 @@ function list(soft){
   _sig=sig;
   $("#cnt").textContent=l.length+" 个";
   $("#clist").innerHTML=l.map(x=>'<div class="ci'+(x.n===S.sym?" on":"")+'" data-c="'+x.n+'">'+
-    '<span><span class="n">'+x.d+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+'<span class="v">Vol $'+ab(x.vol)+'</span></span>'+
+    '<span><span class="n">'+x.d+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+(wHas(x.n)?' <span class="hold">★</span>':"")+'<span class="v">Vol $'+ab(x.vol)+'</span></span>'+
     '<span class="r"><span class="a">'+px(x.p,x.n)+'</span><span class="b '+(x.ch>=0?"up":"down")+'">'+(x.ch>=0?"+":"")+x.ch.toFixed(2)+'%</span></span></div>').join("")
     ||'<div class="none">暂无品种。</div>';
 }
 let posPollT=null;
 function stopPosPoll(){if(posPollT){clearInterval(posPollT);posPollT=null;}}
 function open(id){$$(".sheet").forEach(s=>s.classList.toggle("on",s.id===id));$("#mask").classList.add("on");
-  subArr(id==="shList");                      // 全品种价只有币种列表要看
+  subArr(id==="shList"||id==="shWat");                      // 全品种价只有币种列表要看
   if(id!=="shPos")stopPosPoll();              // 持仓面板那 5 秒一次的轮询：从持仓切到币种列表也得停，否则会一直跑到关页面
-  if(id==="shList")list();}
+  if(id==="shList")list();if(id==="shWat")wList();}
 function close(){$$(".sheet").forEach(s=>s.classList.remove("on"));$("#mask").classList.remove("on");
   subArr(false);stopPosPoll();}
 async function pick(sym){if(!sym)return;close();if(sym===S.sym)return;S.sym=sym;hv=null;
-  if(F.on)endFlow();useMaxLev();savePref();await kline();head();}
+  if(F.on)endFlow();useMaxLev();savePref();await kline();head();wSync();}
 function step(n){const l=pool();if(!l.length)return;
   let i=l.findIndex(x=>x.n===S.sym);if(i<0)i=0;
   pick(l[(i+n+l.length)%l.length].n);}
@@ -1667,7 +1800,7 @@ function onChart(t){
 
 /* ---- 事件 ---- */
 $$("[data-tf]").forEach(b=>b.addEventListener("click",()=>{
-  $$("[data-tf]").forEach(x=>x.classList.remove("on"));b.classList.add("on");S.tf=b.dataset.tf;hv=null;
+  $$("[data-tf]").forEach(x=>x.classList.remove("on"));b.classList.add("on");S.tf=b.dataset.tf;hv=null;wSync();
   savePref();kline();}));
 $("#name").addEventListener("click",()=>open("shList"));
 $("#bPos").addEventListener("click",()=>{posView();open("shPos");load(true);   // 打开持仓面板：强制拉一次最新数据
@@ -1676,6 +1809,14 @@ $("#prev").addEventListener("click",()=>step(-1));
 $("#next").addEventListener("click",()=>step(1));
 $("#mask").addEventListener("click",close);
 $$("[data-close]").forEach(b=>b.addEventListener("click",close));
+/* 机会清单：顶栏 ☆ 标记当前品种+周期，左下角按钮开清单 */
+$("#bStar").addEventListener("click",()=>wToggle());
+$("#bWat").addEventListener("click",()=>{wList();open("shWat");});
+$("#wlist").addEventListener("click",e=>{
+  const row=e.target.closest(".wi");if(!row)return;
+  const sym=row.dataset.c,tf=row.dataset.tf;
+  if(e.target.closest(".wx")){e.stopPropagation();wRemove(sym,tf);wList();return;}   // ✕ 只移除，不跳转
+  close();wJump(sym,tf);});
 /* 密钥设置入口：持仓面板标题右边那行 */
 avHint();
 $("#av").addEventListener("click",()=>{const r=readRec();openKey(!HASKEY&&r&&r.mode==="aes"?"unlock":"set");});
@@ -1859,6 +2000,7 @@ addEventListener("keydown",e=>{
   if(e.key==="ArrowRight")step(1);
   if(e.key==="o"||e.key==="O"){F.on?endFlow():startFlow();}
   if(e.key==="t"||e.key==="T")cycleTheme();          // 切配色
+  if(e.key==="w"||e.key==="W")wToggle();             // 标记/取消标记这个机会
 });
 
 /* ==========================================================
