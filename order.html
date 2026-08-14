@@ -624,13 +624,13 @@ function initTradingViewChart(){
       fontSize: 12
     },
     grid: {
-      vertLines: { color: grid },
-      horzLines: { color: grid }
+      vertLines: { visible: false },
+      horzLines: { visible: false }
     },
     crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { width: 1, color: isDark ? "rgba(221,215,203,0.25)" : "rgba(51,47,40,0.25)", style: 3, labelVisible: false },
-      horzLine: { width: 1, color: isDark ? "rgba(221,215,203,0.25)" : "rgba(51,47,40,0.25)", style: 3, labelVisible: false }
+      mode: LightweightCharts.CrosshairMode.Hidden, // 隐藏鼠标十字线
+      vertLine: { visible: false, labelVisible: false },
+      horzLine: { visible: false, labelVisible: false }
     },
     rightPriceScale: {
       visible: false, // 隐藏右侧价格轴
@@ -651,7 +651,9 @@ function initTradingViewChart(){
     borderUpColor: upColor,
     borderDownColor: downColor,
     wickUpColor: upColor,
-    wickDownColor: downColor
+    wickDownColor: downColor,
+    priceLineVisible: false, // 隐藏实时价格水平虚线
+    lastValueVisible: false
   });
 
   emaSeries = tvChart.addLineSeries({
@@ -680,26 +682,28 @@ function updateChartTheme(){
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const bg = isDark ? "#171614" : "#F4F1EA";
   const text = isDark ? "#DDD7CB" : "#332F28";
-  const grid = isDark ? "rgba(221,215,203,0.04)" : "rgba(51,47,40,0.04)";
   const upColor = isDark ? "#6CA88D" : "#3A755D";
   const downColor = isDark ? "#C27A68" : "#A85244";
   const emaColor = isDark ? "#BDB4A4" : "#423D33";
 
   tvChart.applyOptions({
     layout: { background: { color: bg }, textColor: text },
-    grid: { vertLines: { color: grid }, horzLines: { color: grid } },
+    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
     rightPriceScale: { visible: false },
     timeScale: { visible: false },
     crosshair: {
-      vertLine: { color: isDark ? "rgba(221,215,203,0.25)" : "rgba(51,47,40,0.25)", labelVisible: false },
-      horzLine: { color: isDark ? "rgba(221,215,203,0.25)" : "rgba(51,47,40,0.25)", labelVisible: false }
+      mode: LightweightCharts.CrosshairMode.Hidden,
+      vertLine: { visible: false, labelVisible: false },
+      horzLine: { visible: false, labelVisible: false }
     }
   });
 
   candleSeries.applyOptions({
     upColor: upColor, downColor: downColor,
     borderUpColor: upColor, borderDownColor: downColor,
-    wickUpColor: upColor, wickDownColor: downColor
+    wickUpColor: upColor, wickDownColor: downColor,
+    priceLineVisible: false,
+    lastValueVisible: false
   });
 
   emaSeries.applyOptions({
