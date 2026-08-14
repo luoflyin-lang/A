@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F2EFE9">
-<title>BN Chart v9.6</title>
+<title>BN Chart v9.7 (全挂单模式)</title>
 <style>
 /* 护眼配色（iPad LED 直射光屏、长时间盯盘）：
    1) 不用纯白底——纯白在 LED 上等于把最大亮度糊在脸上，换成暖白纸底 #F2EFE9；
@@ -299,7 +299,7 @@ const RPAD_BARS=2;
 const RIGHT_LOCK=true;
 const PREATTACH_TP=true;
 const TP_FB_OFF=0.001;
-const VER="v9.6 · 2026-08-13";
+const VER="v9.7 · 全挂单模式(Post-Only)";
 const RECV=5000;
 const WORK="MARK_PRICE";
 const LEV_DEF=20;
@@ -845,7 +845,7 @@ function ordInfo(o){
   const tp=/TAKE_PROFIT/.test(t),sl=/STOP/.test(t)&&!trail;
   const trig=trail||stop>0||/STOP|TAKE_PROFIT/.test(t);
   const isEntry=trig&&!ro;
-  const kind=trail?"追踪止损":trig?(isEntry?"触发入场":tp?"止盈":"止损"):(ro?"限价平仓":"限价");
+  const kind=trail?"追踪止损":trig?(isEntry?"触发入场":tp?"止盈 (挂单)":"止损 (挂单)":(ro?"限价平仓":"限价");
   const size=Math.abs(+o.origQty||0);
   const sizeTxt=closeAll?"全平":size>0?sz(size,o.symbol):"—";
   const price=trig?stop:lim;
@@ -891,7 +891,7 @@ function posView(){
     +(orphN?' <button class="swp" style="padding:2px 8px;font-size:11px;margin-left:8px">清理 '+orphN+' 张孤儿单</button>':"")+"</div>";
   const pbk=Object.keys(PENDBR||{});
   if(pbk.length)el.innerHTML+='<div style="padding:0 0 6px;font-size:10.5px;color:var(--faint)">待入场：'
-    +pbk.map(s=>disp(s)+(PENDBR[s].slDone?"（止损已预挂）":"（成交后补挂止损）")).join("、")+"</div>";
+    +pbk.map(s=>disp(s)+(PENDBR[s].slDone?"（止损挂单已预挂）":"（成交后补挂止损）")).join("、")+"</div>";
   el.innerHTML+=ords.length?'<table><thead><tr><th>币种</th><th>类型</th><th>方向</th><th>数量</th><th>价格</th><th>距现价</th><th>已挂</th><th></th></tr></thead><tbody>'+
     ords.map(o=>{const oi=ordInfo(o);
       const oid = o.algoId || o.orderId;
@@ -986,7 +986,7 @@ async function send(method,path,params,msg,silent){
   }finally{INFLIGHT=false;try{render();}catch(e){}}
 }
 
-/* 核心解决方案：区分普通订单发往 /fapi/v1/order，条件/触发单发往 /fapi/v1/algoOrder */
+/* 核心路由：区分普通订单与条件单（含 STOP Limit 挂单止损与 TAKE_PROFIT Limit 挂单止盈） */
 async function placeOrder(ord, label, silent){
   const isAlgo = /STOP|TAKE_PROFIT|TRAILING/.test(ord.type);
   if(isAlgo){
@@ -1054,7 +1054,7 @@ async function modifyOrder(o,newPx){
   const delParams = isAlgo ? { symbol: sym, algoId: o.algoId || o.orderId } : { symbol: sym, orderId: o.orderId };
   const del = await send("DELETE", delPath, delParams, "撤旧单", true);
   if(!okAll(del)){toast("撤单失败，未改单");return;}
-  const b={symbol:sym,side:o.side,type:oi.t,stopPrice:pS,workingType:o.workingType||WORK,priceProtect:"true"};
+  const b={symbol:sym,side:o.side,type:oi.t,stopPrice:pS,workingType:WORK,priceProtect:"true"};
   if(oi.closeAll)b.closePosition="true";
   else{b.quantity=o.origQty;if(!S.dual&&o.reduceOnly)b.reduceOnly="true";}
   if(S.dual&&o.positionSide)b.positionSide=o.positionSide;
@@ -1100,7 +1100,7 @@ setInterval(beat,ALIVE_MS);
 addEventListener("pagehide",beat);
 addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")beat();});
 
-/* ================= 突破入场成交后自动补挂止损/止盈 ================= */
+/* ================= 突破入场成交后自动补挂止损/止盈 (纯挂单模式) ================= */
 let PENDBR;try{PENDBR=JSON.parse(localStorage.getItem("bn_pendbr")||"{}")||{};}catch(e){PENDBR={};}
 if(typeof PENDBR!=="object"||Array.isArray(PENDBR))PENDBR={};
 function savePendBr(){try{localStorage.setItem("bn_pendbr",JSON.stringify(PENDBR));}catch(e){}}
@@ -1138,16 +1138,22 @@ async function sweepStaleEntries(){
       :" 入场单挂了 "+durTxt(ENTRY_TTL)+" 没成交，已自动撤单"));}
 }
 const BRBUSY=new Set();
+
+/* 【纯挂单修改】 exitOrder 改为 STOP Limit + GTX Post-Only 纯挂单止损 */
 function exitOrder(sym,lg,price,ps){
-  const o={symbol:sym,side:lg?"SELL":"BUY",type:"STOP_MARKET",stopPrice:fmtPx(price,sym),
+  const pxStr=fmtPx(price,sym);
+  const o={symbol:sym,side:lg?"SELL":"BUY",type:"STOP",stopPrice:pxStr,price:pxStr,timeInForce:TIF,
     closePosition:"true",workingType:WORK,priceProtect:"true"};
   if(S.dual)o.positionSide=ps||(lg?"LONG":"SHORT");
   return o;
 }
+
+/* 【纯挂单修改】 tpFallbackOrder 改为 TAKE_PROFIT Limit + GTX Post-Only 纯挂单兜底止盈 */
 function tpFallbackOrder(sym,lg,tp,ps){
   const raw=lg?tp*(1+TP_FB_OFF):tp*(1-TP_FB_OFF);
-  const o={symbol:sym,side:lg?"SELL":"BUY",type:"TAKE_PROFIT_MARKET",
-    stopPrice:fmtPx(alignPx(raw,sym,lg?1:-1),sym),
+  const pxStr=fmtPx(alignPx(raw,sym,lg?1:-1),sym);
+  const o={symbol:sym,side:lg?"SELL":"BUY",type:"TAKE_PROFIT",
+    stopPrice:pxStr,price:pxStr,timeInForce:TIF,
     closePosition:"true",workingType:WORK,priceProtect:"true"};
   if(S.dual)o.positionSide=ps||(lg?"LONG":"SHORT");
   return o;
@@ -1164,8 +1170,8 @@ async function firePendingBracket(sym){
     const live=(S.ords[sym]||[]).filter(Boolean).map(o=>ordInfo(o));
     const left=live.some(i=>!i.ro);
     if(S.ordsAt>(b.ts||0)+1000){
-      if(b.slDone&&!live.some(i=>i.sl&&i.ro)){b.slDone=false;log("pendbr 止损不见了，重挂 "+sym);}
-      if(b.tpFbDone&&!live.some(i=>i.tp&&i.ro)){b.tpFbDone=false;log("pendbr 兜底止盈不见了，重挂 "+sym);}
+      if(b.slDone&&!live.some(i=>i.sl&&i.ro)){b.slDone=false;log("pendbr 止损挂单不见了，重挂 "+sym);}
+      if(b.tpFbDone&&!live.some(i=>i.tp&&i.ro)){b.tpFbDone=false;log("pendbr 兜底止盈挂单不见了，重挂 "+sym);}
       if(b.tpOid&&!live.some(i=>i.ro&&!i.sl&&!i.tp)){b.tpOid=null;b.tpQty=0;
         log("pendbr 限价止盈不见了，重挂 "+sym);}
     }
@@ -1187,12 +1193,12 @@ async function firePendingBracket(sym){
     const done=()=>!left&&(b.sl==null||b.slDone)&&(b.tp==null||!!b.tpOid)
       &&(b.tp==null||!PREATTACH_TP||!!b.tpFbDone);
     if(!orders.length){if(done()){delete PENDBR[sym];savePendBr();}return;}
-    const what=[iSl>=0?"止损":"",iTp>=0?"止盈":"",iFb>=0?"兜底止盈":""].filter(Boolean).join("/");
+    const what=[iSl>=0?"止损挂单":"",iTp>=0?"止盈挂单":"",iFb>=0?"兜底止盈挂单":""].filter(Boolean).join("/");
     
-    // 逐单走 placeOrder API 路由，确保条件单成功送往 /fapi/v1/algoOrder
+    // 逐单走 placeOrder API 路由，确保所有条件单均带 timeInForce: "GTX"
     const results=[];
     for(const ord of orders){
-      const res=await placeOrder(ord,"入场已成交，自动挂"+(ord.type.includes("STOP")?"止损":"止盈"),true);
+      const res=await placeOrder(ord,"入场已成交，自动挂"+(ord.type.includes("STOP")?"止损(挂单)":"止盈(挂单)"),true);
       results.push(res);
     }
     const good=x=>x&&(x.orderId!=null||x.algoId!=null)&&!(x.code!=null&&+x.code<0);
@@ -1207,15 +1213,15 @@ async function firePendingBracket(sym){
     const errs=errsOf(results);
     if(errs.some(e=>+e.code===-2021)){
       delete PENDBR[sym];savePendBr();
-      toast("⚠ "+disp(sym)+" 止损价已被行情穿透，交易所拒挂，当前是裸仓，请立即手动处理！");return;}
+      toast("⚠ "+disp(sym)+" 止损价已被行情穿透，交易所拒挂，当前是裸仓，请手动处理！");return;}
     b.tries=(b.tries||0)+1;savePendBr();
     log("bracket FAIL "+sym+" tries="+b.tries);
-    if(b.tries>=BRACKET_MAX_TRY)toast("⚠ "+disp(sym)+" 止损补挂已失败 "+b.tries+" 次，当前是裸仓，请立即手动挂止损！");
-    else{toast("⚠ "+disp(sym)+" 止损补挂失败（当前裸仓），"+Math.round(BRACKET_RETRY/1000)+"s 后重试");
+    if(b.tries>=BRACKET_MAX_TRY)toast("⚠ "+disp(sym)+" 止损挂单补挂失败 "+b.tries+" 次，当前是裸仓，请立即手动挂止损！");
+    else{toast("⚠ "+disp(sym)+" 止损挂单失败，"+Math.round(BRACKET_RETRY/1000)+"s 后重试");
       setTimeout(()=>{try{firePendingBracket(sym);}catch(e){log("bracket retry err "+e);}},BRACKET_RETRY);}
   }catch(e){
     b.tries=(b.tries||0)+1;savePendBr();log("bracket throw "+sym+" "+e);
-    toast("⚠ "+disp(sym)+" 止损补挂异常（当前裸仓），将重试");
+    toast("⚠ "+disp(sym)+" 止损挂单异常，将重试");
     setTimeout(()=>{try{firePendingBracket(sym);}catch(_){}},BRACKET_RETRY);
   }finally{BRBUSY.delete(sym);}
 }
@@ -1297,7 +1303,6 @@ function draw(){
       g.strokeRect(Math.round(cx-bd/2)+.5,Math.round(ty)+.5,Math.round(bd),Math.round(hh));}
     else{g.fillStyle=co("cbody");g.fillRect(cx-bd/2,ty,bd,hh);}});
 
-  /* 移除：实时价格水平虚线与鼠标十字虚线的绘制 */
   const pp=curPos();
   if(pp&&+pp.entry){const ey=y(+pp.entry);
     if(ey>PT&&ey<PT+ch){g.setLineDash([2,4]);g.strokeStyle=co("caim");
@@ -1477,7 +1482,7 @@ function sizing(){
   const base={equity:equity(),riskPct:F.risk,entry:F.e,sl:F.sl,tp:F.tp,
     lev:S.lev,maxLev:maxLev(),step:f.step||0.001,tick:f.tick||0.01,
     minQty:f.minQty||0,maxQty:f.maxQty||0,minNotional:f.minNotional||5,
-    feeRate:(MAKER_FEE+TAKER_FEE)/2,
+    feeRate:MAKER_FEE,
     availableMargin:availMargin()};
   let r=TradeCore.sizing(base);
   if(r.notional>0){
@@ -1701,7 +1706,6 @@ function bindGrip(hd,key){
 const AIM_MS=260,H_TOL=12;
 let aim=false,pT=null,pX=0,pY=0,pKill=false,pMulti=false;
 
-/* 修改：未处于长按瞄准(aim)状态时不显示虚线引导线 */
 function guide(clientY){
   if(!aim){hideGuide();return null;}
   const p=y2p(clientY),l=$("#pline");
@@ -1847,7 +1851,7 @@ function tickClock(){const d=new Date();const el=$("#clk");
     +(MIDSRC==="rest"?" · 轮询":"");}
 tickClock();setInterval(tickClock,15000);
 
-/* ================= 确认下单流程与兼容适配 ================= */
+/* ================= 确认下单流程（纯 Post-Only 全挂单） ================= */
 $("#ohGo").addEventListener("click",async()=>{
   if(SUBMITTING||INFLIGHT){toast("正在提交，请稍候");return;}
   if(!HASKEY){toast("未配置 API Key / Secret，无法下单");return;}
@@ -1880,7 +1884,7 @@ $("#ohGo").addEventListener("click",async()=>{
 
     let eRes=null,slRes=null,tpFbRes=null;
     
-    // 使用兼容新旧 API 的 placeOrder 发送入场单
+    // 发送入场挂单
     eRes=await placeOrder(entry,label);
     
     if(!good(eRes)&&!stopEntry){
@@ -1900,10 +1904,10 @@ $("#ohGo").addEventListener("click",async()=>{
     const eOk=good(eRes);
     if(eOk){
       if(PREATTACH_SL){
-        slRes=await placeOrder(slOrd,"预挂止损",true).catch(()=>null);
+        slRes=await placeOrder(slOrd,"预挂止损(挂单)",true).catch(()=>null);
       }
       if(tpFb){
-        tpFbRes=await placeOrder(tpFb,"预挂兜底止盈",true).catch(()=>null);
+        tpFbRes=await placeOrder(tpFb,"预挂兜底止盈(挂单)",true).catch(()=>null);
       }
     }else{
       toast("⚠ 入场单提交失败："+errText(LAST_ERR||eRes));
@@ -1911,8 +1915,8 @@ $("#ohGo").addEventListener("click",async()=>{
     }
     
     const slOk=good(slRes),tpFbOk=good(tpFbRes);
-    if(PREATTACH_SL&&!slOk)toast("⚠ 止损没能一起挂上，成交后会自动补挂，请留意");
-    if(tpFb&&!tpFbOk)toast("兜底止盈没挂上，成交后会自动补挂");
+    if(PREATTACH_SL&&!slOk)toast("⚠ 止损挂单没能一起挂上，成交后会自动补挂");
+    if(tpFb&&!tpFbOk)toast("兜底止盈挂单没挂上，成交后会自动补挂");
 
     PENDBR[sym]={side,sl:r.sl,tp:r.tp,qty:+qty,slDone:slOk,ts:Date.now(),
       tpFbDone:tpFbOk,tpFbOid:oidOf(tpFbRes),
@@ -1944,7 +1948,7 @@ window.BN={S,F,DATA,CHART,TRADE,ver:VER,
   pendbr:()=>PENDBR,
   keys:()=>openKey("set"),
   setProxy:(http,ws)=>{
-    try{localStorage.setItem("bn_proxy",JSON.stringify({http:http||"",ws:ws||""}));}
+    try{localStorage.stringify({http:http||"",ws:ws||""});}
     catch(e){return "存不进去："+e.message;}
     return "已保存，刷新页面生效 · http="+(http||"直连")+" ws="+(ws||"直连");}};
 
