@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#F2EFE9">
 <title>BN Chart (TradingView 引擎版)</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库 -->
@@ -28,15 +28,27 @@ html[data-theme="dark"]{--bg:#171614;--surface:#1F1D1A;--raised:#2C2925;--text:#
   --tint:rgba(221,215,203,.07);--cgrid:rgba(221,215,203,.04);--caim:rgba(221,215,203,.70);
   --chair:rgba(221,215,203,.26);color-scheme:dark}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden;
-  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;-webkit-font-smoothing:antialiased}
-button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
-input{font:inherit;color:inherit;background:none;border:none;outline:none}
+
+/* iPad 专属防整页缩放与滚动穿透 */
+html, body {
+  background:var(--bg);color:var(--text);
+  width:100%;height:100%;height:100dvh;
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  overflow:hidden;
+  touch-action:none;
+  -webkit-touch-callout:none;
+  -webkit-user-select:none;user-select:none;
+  -webkit-text-size-adjust:100%;
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;-webkit-font-smoothing:antialiased;
+}
+
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;-webkit-user-select:none;user-select:none}
+input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-action:auto}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .up{color:var(--up)}.down{color:var(--down)}
 
 /* ---- 全屏 TradingView 图表容器 ---- */
-#tv_chart{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
+#tv_chart{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
 
 /* ---- 左右 20% 翻币区域视觉轻提示 ---- */
 .edge-zone{position:fixed;top:0;bottom:0;width:20vw;z-index:2;pointer-events:none;opacity:0;transition:opacity .2s ease;display:flex;align-items:center;justify-content:center}
@@ -80,7 +92,7 @@ body.locked #tv_chart{opacity:.42}
 #mask.on{opacity:1;pointer-events:auto}
 .sheet{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:92vw;background:var(--surface);
   border-left:1px solid var(--line);z-index:9;transform:translateX(102%);transition:transform .22s ease;
-  display:flex;flex-direction:column}
+  display:flex;flex-direction:column;touch-action:pan-y}
 .sheet.on{transform:none}
 .sh{flex:none;display:flex;align-items:center;gap:10px;padding:16px 18px 10px}
 .sh b{font-size:15px;font-weight:600}
@@ -92,7 +104,7 @@ body.locked #tv_chart{opacity:.42}
 .tab-content{display:none;flex:1;flex-direction:column;overflow:hidden}
 .tab-content.on{display:flex}
 
-.sbody{flex:1;overflow:auto;padding:0 12px 18px;scrollbar-width:thin;scrollbar-color:var(--raised) transparent}
+.sbody{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 12px 18px;scrollbar-width:thin;scrollbar-color:var(--raised) transparent;touch-action:pan-y}
 .sbody::-webkit-scrollbar{width:6px}.sbody::-webkit-scrollbar-thumb{background:var(--raised);border-radius:6px}
 .filt{display:flex;align-items:center;gap:8px;padding:0 18px 10px;font-size:11.5px;color:var(--faint)}
 .filt button{padding:3px 9px;border-radius:999px;border:none;font-size:11.5px;color:var(--faint)}
@@ -136,7 +148,7 @@ th:first-child,td:first-child{text-align:left}
 #av{cursor:pointer}
 #khud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;width:380px;max-width:92vw;
   display:none;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;
-  box-shadow:0 18px 60px rgba(0,0,0,.28)}
+  box-shadow:0 18px 60px rgba(0,0,0,.28);touch-action:auto}
 #khud.on{display:block}
 #khud .t{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--faint);margin-bottom:14px}
 #khud .t b{font-size:16px;color:var(--text);font-weight:600}
@@ -151,7 +163,7 @@ th:first-child,td:first-child{text-align:left}
 #khud .obar button.b{flex:2;background:var(--ink);color:var(--bg);font-weight:600}
 #ohud{position:fixed;left:16px;bottom:80px;z-index:7;width:380px;display:none;
   background:var(--pop);border:none;border-radius:16px;box-shadow:0 8px 32px rgba(46,43,38,.15);
-  padding:18px 20px;backdrop-filter:blur(10px)}
+  padding:18px 20px;backdrop-filter:blur(10px);touch-action:pan-y}
 #ohud.on{display:block}
 #ohud .t{display:flex;align-items:center;gap:14px;font-size:14px;color:var(--faint);margin-bottom:12px}
 #ohud .t b{font-size:18px;color:var(--text);font-weight:600}
@@ -204,9 +216,33 @@ th:first-child,td:first-child{text-align:left}
   #pbub,.dl .grip{left:220px}
 }
 </style>
-<script>try{var _m=localStorage.getItem("bn_theme")||"auto";
-var _d=_m==="dark"||(_m==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches);
-document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){}</script>
+<script>
+/* 针对 iOS / iPadOS 的手势缩放拦截，彻底杜绝整页被双指缩放变形 */
+(function(){
+  try{
+    var _m=localStorage.getItem("bn_theme")||"auto";
+    var _d=_m==="dark"||(_m==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute("data-theme",_d?"dark":"light");
+  }catch(e){}
+
+  // 阻止 iOS Safari 默认的整页手势缩放 (gesture)
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); }, { passive: false });
+  document.addEventListener('gesturechange', function(e){ e.preventDefault(); }, { passive: false });
+  document.addEventListener('gestureend', function(e){ e.preventDefault(); }, { passive: false });
+
+  // 阻止双击缩放 (Double-tap zoom)
+  var lastTouchEnd = 0;
+  document.addEventListener('touchend', function(e){
+    var now = Date.now();
+    if(now - lastTouchEnd <= 300){
+      if(e.target && !e.target.closest('input, textarea, button')) {
+        e.preventDefault();
+      }
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+})();
+</script>
 </head>
 <body>
 <!-- TradingView 图表挂载节点 -->
@@ -2124,7 +2160,7 @@ addEventListener("contextmenu",e=>{
   pickPrice(p);
 });
 
-// 触屏长按与左右 20% 切币
+// 触屏长按与左右 20% 切币（优化多指触控防整页缩放）
 addEventListener("touchstart",e=>{
   if(!onChart(e.target))return;
   pMulti=e.touches.length>1;pKill=pMulti;aim=false;aimPrice=null;
@@ -2138,6 +2174,8 @@ addEventListener("touchstart",e=>{
 addEventListener("touchmove",e=>{
   if(e.touches.length>1){
     pMulti=pKill=true;clearTimeout(pT);aim=false;hideGuide();
+    // 双指捏合缩放图表时，坚决阻止 Safari 整体页面缩放
+    if(e.cancelable) e.preventDefault();
     return;
   }
   if(!pT&&!aim)return;
@@ -2172,7 +2210,7 @@ addEventListener("touchend",e=>{
   }
 
   // 触屏点击左右 20% 区域切币
-  if(!F.on && onChart(e.target) && dt < 280 && dx < 12 && dy < 12){
+  if(!F.on && onChart(e.target) && dt < 280 && dx < 12 && dy < 12 && !pMulti){
     const w = window.innerWidth;
     if(cx < w * 0.20){
       if(e.cancelable) e.preventDefault();
