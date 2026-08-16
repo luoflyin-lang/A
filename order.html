@@ -193,15 +193,12 @@ th:first-child,td:first-child{text-align:left}
 #pline.aim #pbub{background:var(--ink);color:var(--onink);font-weight:650}
 
 #dlayer{position:fixed;inset:0;z-index:4;pointer-events:none}
-.dl{position:absolute;left:0;right:0;height:0;display:none}
-.dl.sl{border-top:1px dashed var(--down)}
-.dl.tp{border-top:1px dashed var(--up)}
-.dl.en{border-top:1px dashed var(--blue)}
-.dl.en .grip{background:var(--blue);color:var(--onink)}
+.dl{position:absolute;left:0;right:0;height:0;display:none;border:none !important}
 .dl .grip{position:absolute;left:460px;top:-13px;font-size:12px;font-family:var(--mono);font-weight:600;
   border-radius:7px;padding:3px 10px;cursor:ns-resize;pointer-events:auto;touch-action:none;white-space:nowrap;
   box-shadow:0 2px 8px rgba(0,0,0,.15);user-select:none;-webkit-user-select:none;transition:transform .08s}
 .dl .grip:active, .dl .grip.dragging{transform:scale(1.06);box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.dl.en .grip{background:var(--blue);color:var(--onink)}
 .dl.sl .grip{background:var(--down);color:var(--onink)}
 .dl.tp .grip{background:var(--up);color:var(--onink)}
 .dl.dyn .grip{left:auto;right:64px;background:var(--pop);color:var(--text);
@@ -735,6 +732,14 @@ function initTradingViewChart(){
     syncHandles();
     llPlace();
   });
+
+  // 启动高频平滑帧循环，在缩放、平移和自适应时 100% 毫秒级硬贴合
+  function handleFrameLoop(){
+    syncHandles();
+    llPlace();
+    requestAnimationFrame(handleFrameLoop);
+  }
+  requestAnimationFrame(handleFrameLoop);
 
   window.addEventListener("resize", () => {
     if(tvChart) tvChart.resize(window.innerWidth, window.innerHeight);
@@ -1866,8 +1871,12 @@ function llPlace(){
   LL_ITEMS.forEach(it=>{
     if(it.dragging) return;
     const y=p2y(it.v);
-    if(y==null||y<=0||y>=window.innerHeight){it.el.style.display="none";return;}
-    it.el.style.display="block";it.el.style.top=y+"px";
+    if(y==null || y < -30 || y > window.innerHeight + 30){
+      it.el.style.display="none";
+      return;
+    }
+    it.el.style.display="block";
+    it.el.style.top=y+"px";
   });
 }
 
@@ -2173,10 +2182,16 @@ function syncHandles(){
    ["sl","#hSl","止损", slPct > 0 ? " (-" + slPct.toFixed(2) + "%)" : ""],
    ["tp","#hTp","止盈", rr != null ? " · R:R 1:" + rr.toFixed(2) : ""]
   ].forEach(([k,hd,lb,extra])=>{
-    const el=$(hd),v=F.on?F[k]:null,y=p2y(v);
-    if(!el)return;
-    if(v==null||y==null||y<0||y>window.innerHeight){el.style.display="none";return;}
-    el.style.display="block";el.style.top=y+"px";
+    const el=$(hd);
+    if(!el) return;
+    const v=F.on?F[k]:null;
+    const y=p2y(v);
+    if(v==null || y==null || y < -30 || y > window.innerHeight + 30){
+      el.style.display="none";
+      return;
+    }
+    el.style.display="block";
+    el.style.top=y+"px";
     const grip=el.querySelector(".grip");
     if(grip && !grip.classList.contains("dragging"))grip.textContent=lb+" "+px(v,S.sym)+extra;
   });
