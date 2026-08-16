@@ -837,33 +837,48 @@ function updateChartCandles(rawBars, resetRange){
     map.set(timeSec, { time: timeSec, open: x.o, high: x.h, low: x.l, close: x.c });
   });
   const data = Array.from(map.values()).sort((a, b) => a.time - b.time);
+let lastEmaValue = null;
+
+function calcEmaArray(data, period = 20){
+  if(!data || !data.length) return [];
+  const k = 2 / (period + 1);
+  const emaData = [];
+  let ema = data[0].close;
+
+  if(data.length >= period){
+    let sum = 0;
+    for(let i = 0; i < period; i++) sum += data[i].close;
+    ema = sum / period;
+    for(let i = 0; i < period; i++){
+      emaData.push({ time: data[i].time, value: ema });
+    }
+    for(let i = period; i < data.length; i++){
+      ema = data[i].close * k + ema * (1 - k);
+      emaData.push({ time: data[i].time, value: ema });
+    }
+  } else {
+    data.forEach((b, idx) => {
+      if(idx === 0) ema = b.close;
+      else ema = b.close * k + ema * (1 - k);
+      emaData.push({ time: b.time, value: ema });
+    });
+  }
+  lastEmaValue = ema;
+  return emaData;
+}
+
+function updateChartCandles(rawBars, resetRange){
+  if(!candleSeries || !rawBars.length) return;
+  const map = new Map();
+  rawBars.forEach(x => {
+    const timeSec = Math.floor(x.t / 1000);
+    map.set(timeSec, { time: timeSec, open: x.o, high: x.h, low: x.l, close: x.c });
+  });
+  const data = Array.from(map.values()).sort((a, b) => a.time - b.time);
   candleSeries.setData(data);
 
   if(data.length > 0){
-    const emaData = [];
-    const period = 20;
-    const k = 2 / (period + 1);
-    let ema = data[0].close;
-    
-    // EMA 20
-    if(data.length >= period){
-      let sum = 0;
-      for(let i = 0; i < period; i++) sum += data[i].close;
-      ema = sum / period;
-      for(let i = 0; i < period; i++){
-        emaData.push({ time: data[i].time, value: ema });
-      }
-      for(let i = period; i < data.length; i++){
-        ema = data[i].close * k + ema * (1 - k);
-        emaData.push({ time: data[i].time, value: ema });
-      }
-    } else {
-      data.forEach((b, idx) => {
-        if(idx === 0) ema = b.close;
-        else ema = b.close * k + ema * (1 - k);
-        emaData.push({ time: b.time, value: ema });
-      });
-    }
+    const emaData = calcEmaArray(data, 20);
     emaSeries.setData(emaData);
 
     // K线默认显示数量 100 根
@@ -885,14 +900,22 @@ function useCandles(raw, resetRange){
 }
 
 async function kline(force){
-  const key=S.sym+"|"+S.tf,c=S.kc[key];
+  const reqSym = S.sym, reqTf = S.tf;
+  const key=reqSym+"|"+reqTf,c=S.kc[key];
   if(c&&c.k.length){useCandles(c.k, force);}
-  subCoin(S.sym,S.tf);
+  subCoin(reqSym,reqTf);
   if(!force&&c&&Date.now()-c.t<30000)return;
-  try{const r=await pub("/fapi/v1/klines",{symbol:S.sym,interval:S.tf,limit:1500});
+  try{
+    const r=await pub("/fapi/v1/klines",{symbol:reqSym,interval:reqTf,limit:1500});
     const raw=(r||[]).map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
-    if(raw.length){S.kc[key]={k:raw,t:Date.now()};useCandles(raw, true);}}
-  catch(e){log("klines err "+e.message);}
+    if(raw.length){
+      S.kc[key]={k:raw,t:Date.now()};
+      // 防切币竞态条件：确认当前仍是请求的币种和周期
+      if(S.sym === reqSym && S.tf === reqTf){
+        useCandles(raw, true);
+      }
+    }
+  }catch(e){log("klines err "+e.message);}
 }
 
 async function tick(){try{
@@ -946,10 +969,15 @@ function sock(){
       const key=S.sym+"|"+S.tf,c=S.kc[key];if(!c||!c.k.length)return;
       const b={t:+x.t,o:+x.o,h:+x.h,l:+x.l,c:+x.c},last=c.k[c.k.length-1];
       if(last&&last.t===b.t)c.k[c.k.length-1]=b;else if(!last||b.t>last.t)c.k.push(b);
-      c.t=Date.now();useCandles(c.k, false);
+      c.t=Date.now();
       if(candleSeries){
         const timeSec = Math.floor(b.t / 1000);
         candleSeries.update({ time: timeSec, open: b.o, high: b.h, low: b.l, close: b.c });
+        if(emaSeries && lastEmaValue != null){
+          const k = 2 / 21;
+          const liveEma = b.c * k + lastEmaValue * (1 - k);
+          emaSeries.update({ time: timeSec, value: liveEma });
+        }
       }
       schedule();return;}
     if(d.e==="24hrTicker"){
@@ -1219,6 +1247,21 @@ async function modifyOrderPrice(oldOrder, newPrice){
   const alignedPx = alignPx(newPrice, sym);
   if(!(alignedPx > 0) || Math.abs(alignedPx - oi.price) < 1e-8) return;
 
+  const curM = mid(sym);
+  // 止损单防穿透校验：避免误拖导致交易所拒单 -2021
+  if(oi.sl && curM > 0){
+    const isLong = oldOrder.side === "SELL"; // 多头平仓止损是 SELL
+    if(isLong && alignedPx >= curM){
+      toast("⚠ 多仓止损价必须低于当前市价 " + px(curM, sym));
+      liveLines(true);
+      return;
+    } else if(!isLong && alignedPx <= curM){
+      toast("⚠ 空仓止损价必须高于当前市价 " + px(curM, sym));
+      liveLines(true);
+      return;
+    }
+  }
+
   toast("正在修改 " + disp(sym) + " " + oi.kind + " 价格至 " + px(alignedPx, sym) + "…");
   
   // 1. 撤销旧单
@@ -1230,13 +1273,17 @@ async function modifyOrderPrice(oldOrder, newPrice){
   const newOrd = {
     symbol: sym,
     side: oldOrder.side,
-    type: oldOrder.type || "LIMIT",
-    quantity: oldOrder.origQty ? fmtSz(oldOrder.origQty, sym) : undefined
+    type: oldOrder.type || "LIMIT"
   };
 
+  if(oldOrder.closePosition || (isTrig && !oldOrder.origQty)){
+    newOrd.closePosition = "true";
+  } else if(oldOrder.origQty){
+    newOrd.quantity = fmtSz(oldOrder.origQty, sym);
+  }
+
   if(oldOrder.positionSide) newOrd.positionSide = oldOrder.positionSide;
-  if(oldOrder.reduceOnly) newOrd.reduceOnly = "true";
-  if(oldOrder.closePosition) newOrd.closePosition = "true";
+  if(oldOrder.reduceOnly && !newOrd.closePosition) newOrd.reduceOnly = "true";
 
   if(isTrig){
     newOrd.stopPrice = pxStr;
@@ -2363,6 +2410,7 @@ addEventListener("mouseup",e=>{
 
   // 点击屏幕左右 20% 区域快速切币（无明显拖拽且非长按）
   if(!F.on && onChart(e.target) && dt < 280 && dx < 10 && dy < 10){
+    if(document.querySelector(".sheet.on")) return;
     const w = window.innerWidth;
     if(e.clientX < w * 0.20){
       step(-1);
@@ -2429,6 +2477,7 @@ addEventListener("touchend",e=>{
 
   // 触屏点击左右 20% 区域切币
   if(!F.on && onChart(e.target) && dt < 280 && dx < 12 && dy < 12 && !pMulti){
+    if(document.querySelector(".sheet.on")) return;
     const w = window.innerWidth;
     if(cx < w * 0.20){
       if(e.cancelable) e.preventDefault();
