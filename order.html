@@ -362,11 +362,11 @@ const TFMS={"5m":3e5,"30m":18e5,"1h":36e5};
 const LOCK_CANCEL_ENTRY=false;          // 断线/锁定时不自动撤销挂单
 const LOCK_CANCEL_COLDSTART=false;
 const NUDGE_TICKS=2;
-const WS_SILENT=20000;
-const MID_POLL=5000;
-const MID_STALE=12000;
-const MID_BACK=4000;
-const TOAST_DEDUP=30000;
+const WS_SILENT=90000;
+const MID_POLL=8000;
+const MID_STALE=60000;
+const MID_BACK=8000;
+const TOAST_DEDUP=60000;
 const PREATTACH_TP=true;
 const TP_FB_OFF=0.001;
 const VER="v9.9 · TradingView Edition";
@@ -980,14 +980,12 @@ async function midPoll(){
     let n=0;r.forEach(x=>{const s=x&&(x.symbol||x.s),v=+(x&&(x.price!=null?x.price:x.p));
       if(s&&S.f[s]&&v>0){S.mid[s]=v;n++;}});
     if(!n){midFail++;log("midPoll 一个品种都没匹配上");
-      if(midFail===3)toast("⚠ 实时价轮询数据对不上，请看日志");
       return;}
     midFail=0;
     NET.mid=Date.now();
     if(MIDSRC!=="rest"&&Date.now()>MIDGRACE){MIDSRC="rest";log("mid 改走轮询");}
     schedule();
-  }catch(e){midFail++;log("midPoll err "+(e.message||e));
-    if(midFail===3)toast("⚠ 实时价轮询也失败了，请检查网络或节点");}
+  }catch(e){midFail++;log("midPoll err "+(e.message||e));}
 }
 setInterval(midPoll,MID_POLL);
 
@@ -2458,15 +2456,15 @@ function lockCheck(){
   const age=NET.mid?t-NET.mid:Infinity;
   let why="";
   if(!S.uni.length)why="行情未加载";
-  else if(t-T0>20000&&age>15000)
-    why=NET.mid?"实时价中断 "+Math.round(age/1000)+" 秒":"实时价未接通";
-  else if(NET.fail>=3)why="行情接口连续失败";
-  else if(NET.info&&t-NET.info>45000)why="行情接口 45 秒无响应";
+  else if(t-T0>30000&&age>120000)
+    why=NET.mid?"实时价中断超过 2 分钟":"实时价未接通";
+  else if(NET.fail>=8)why="行情接口连续失败";
+  else if(NET.info&&t-NET.info>120000)why="行情接口超过 2 分钟无响应";
   else if(!NET.info)why="行情尚未加载";
-  else if(S.k.length&&t-S.k[S.k.length-1].t>ivl*3)why="K 线停更";
+  else if(S.k.length&&t-S.k[S.k.length-1].t>ivl*4)why="K 线停更";
   setLock(why);
 }
-setInterval(lockCheck,2000);
+setInterval(lockCheck,5000);
 
 /* ================= TRADE 纯函数内核 ================= */
 const TradeCore={
