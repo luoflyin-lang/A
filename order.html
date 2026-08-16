@@ -191,29 +191,32 @@ th:first-child,td:first-child{text-align:left}
 #pbub{position:absolute;left:460px;top:-11px;font-family:var(--mono);font-size:12px;
   background:var(--raised);color:var(--text);border-radius:6px;padding:2px 8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.1)}
 #pline.aim #pbub{background:var(--ink);color:var(--onink);font-weight:650}
+
 #dlayer{position:fixed;inset:0;z-index:4;pointer-events:none}
 .dl{position:absolute;left:0;right:0;height:0;display:none}
 .dl.sl{border-top:1px dashed var(--down)}
 .dl.tp{border-top:1px dashed var(--up)}
 .dl.en{border-top:1px dashed var(--blue)}
 .dl.en .grip{background:var(--blue);color:var(--onink)}
-.dl .grip{position:absolute;left:460px;top:-11px;font-size:11.5px;font-family:var(--mono);font-weight:600;
-  border-radius:6px;padding:2px 8px;cursor:ns-resize;pointer-events:auto;touch-action:none;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.dl .grip{position:absolute;left:460px;top:-13px;font-size:12px;font-family:var(--mono);font-weight:600;
+  border-radius:7px;padding:3px 10px;cursor:ns-resize;pointer-events:auto;touch-action:none;white-space:nowrap;
+  box-shadow:0 2px 8px rgba(0,0,0,.15);user-select:none;-webkit-user-select:none;transition:transform .08s}
+.dl .grip:active, .dl .grip.dragging{transform:scale(1.06);box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .dl.sl .grip{background:var(--down);color:var(--onink)}
 .dl.tp .grip{background:var(--up);color:var(--onink)}
 .dl.dyn .grip{left:auto;right:64px;background:var(--pop);color:var(--text);
-  border:none;box-shadow:0 1px 6px rgba(46,43,38,.14)}
-.dl.dyn.sl .grip{color:var(--down)}.dl.dyn.tp .grip{color:var(--up)}.dl.dyn.pos .grip{color:var(--blue)}
-.dl .xbtn{position:absolute;right:22px;top:-11px;width:22px;height:22px;line-height:20px;text-align:center;
-  border-radius:6px;background:var(--pop);border:none;box-shadow:0 1px 6px rgba(46,43,38,.16);color:var(--text);
-  font-size:12px;cursor:pointer;pointer-events:auto}
+  border:1px solid var(--line);box-shadow:0 2px 8px rgba(46,43,38,.14)}
+.dl.dyn.sl .grip{color:var(--down);border-color:var(--down)}.dl.dyn.tp .grip{color:var(--up);border-color:var(--up)}.dl.dyn.pos .grip{color:var(--blue);border-color:var(--blue)}
+.dl .xbtn{position:absolute;right:22px;top:-13px;width:24px;height:24px;line-height:22px;text-align:center;
+  border-radius:7px;background:var(--pop);border:1px solid var(--line);box-shadow:0 1px 6px rgba(46,43,38,.16);color:var(--text);
+  font-size:13px;cursor:pointer;pointer-events:auto;user-select:none}
 
 @media(max-width:640px){
   #tl{top:14px;left:16px}
   #br{left:12px;bottom:14px}
   .fab{height:38px;font-size:13px;padding:0 12px}
   #ohud{left:12px;bottom:80px;width:calc(100vw - 24px);padding:14px 16px}
-  #pbub,.dl .grip{left:220px}
+  #pbub,.dl .grip{left:200px}
 }
 </style>
 <script>
@@ -858,7 +861,7 @@ function updateChartCandles(rawBars, resetRange){
     }
     emaSeries.setData(emaData);
 
-    // K线默认显示数量恢复为 100 根
+    // K线默认显示数量 100 根
     if(resetRange && tvChart){
       const total = data.length;
       const count = 100;
@@ -1203,6 +1206,51 @@ async function cancelOrder(sym,oid,isAlgo,algoId){
     if(S.ords[sym]) S.ords[sym] = S.ords[sym].filter(o => String(o.orderId || o.algoId) !== String(oid));
     posView(); syncTradeLines(); updateTvBtn();
   }
+}
+
+/* 拖拽直接修改已挂出的订单价格（撤旧挂新） */
+async function modifyOrderPrice(oldOrder, newPrice){
+  if(!oldOrder || !newPrice || !(newPrice > 0)) return;
+  const sym = oldOrder.symbol || S.sym;
+  const oi = ordInfo(oldOrder);
+  const alignedPx = alignPx(newPrice, sym);
+  if(!(alignedPx > 0) || Math.abs(alignedPx - oi.price) < 1e-8) return;
+
+  toast("正在修改 " + disp(sym) + " " + oi.kind + " 价格至 " + px(alignedPx, sym) + "…");
+  
+  // 1. 撤销旧单
+  await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo);
+  
+  // 2. 构造新单
+  const isTrig = oi.trig;
+  const pxStr = fmtPx(alignedPx, sym);
+  const newOrd = {
+    symbol: sym,
+    side: oldOrder.side,
+    type: oldOrder.type || "LIMIT",
+    quantity: oldOrder.origQty ? fmtSz(oldOrder.origQty, sym) : undefined
+  };
+
+  if(oldOrder.positionSide) newOrd.positionSide = oldOrder.positionSide;
+  if(oldOrder.reduceOnly) newOrd.reduceOnly = "true";
+  if(oldOrder.closePosition) newOrd.closePosition = "true";
+
+  if(isTrig){
+    newOrd.stopPrice = pxStr;
+    newOrd.triggerPrice = pxStr;
+    newOrd.workingType = WORK;
+    newOrd.priceProtect = "true";
+    if(/LIMIT|TAKE_PROFIT|STOP$/.test(oldOrder.type)) newOrd.price = pxStr;
+  } else {
+    newOrd.price = pxStr;
+    newOrd.timeInForce = oldOrder.timeInForce || TIF;
+  }
+
+  const res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym));
+  if(okAll(res)){
+    toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
+  }
+  load(true);
 }
 
 let ORPHAN_KEY="",ORPHAN_AT=0;
@@ -1818,6 +1866,7 @@ function llSig(){
 
 function llPlace(){
   LL_ITEMS.forEach(it=>{
+    if(it.dragging) return;
     const y=p2y(it.v);
     if(y==null||y<=0||y>=window.innerHeight){it.el.style.display="none";return;}
     it.el.style.display="block";it.el.style.top=y+"px";
@@ -1843,13 +1892,69 @@ function liveLines(force){
     });
   });
 
-  // 2. 挂单线
+  // 2. 挂单线（绑定拖拽改单逻辑）
   (S.ords[S.sym]||[]).forEach(o=>{
     const oi=ordInfo(o),v=oi.price||+(o.price||0);if(!v)return;
     const d=document.createElement("div");
     d.className="dl dyn "+(oi.isEntry?"en":oi.tp?"tp":oi.trig?"sl":"en");
     d.innerHTML='<span class="grip">'+oi.kind+" "+oi.sizeTxt+" @ "+px(v,o.symbol)+'</span><span class="xbtn" title="撤单">✕</span>';
-    lay.appendChild(d);LL_ITEMS.push({el:d,v});
+    lay.appendChild(d);
+    
+    const itObj = {el:d, v:v, dragging:false};
+    LL_ITEMS.push(itObj);
+
+    // 绑定挂单拖拽改价
+    const grip = d.querySelector(".grip");
+    if(grip){
+      let startY = 0, isDragging = false, currentPrice = v;
+      grip.addEventListener("pointerdown", ev => {
+        if(ev.button !== 0 && ev.pointerType === "mouse") return;
+        isDragging = true;
+        itObj.dragging = true;
+        startY = ev.clientY;
+        currentPrice = v;
+        grip.classList.add("dragging");
+        try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
+        ev.stopPropagation();
+        if(ev.cancelable) ev.preventDefault();
+      }, { passive: false });
+
+      grip.addEventListener("pointermove", ev => {
+        if(!isDragging) return;
+        const cy = ev.clientY;
+        const p = y2p(cy);
+        if(p == null || !isFinite(p) || p <= 0) return;
+        const aligned = alignPx(p, o.symbol);
+        if(aligned > 0){
+          currentPrice = aligned;
+          d.style.top = cy + "px";
+          grip.textContent = "改价 → " + oi.kind + " @" + px(aligned, o.symbol);
+        }
+        ev.stopPropagation();
+        if(ev.cancelable) ev.preventDefault();
+      }, { passive: false });
+
+      const onUp = ev => {
+        if(!isDragging) return;
+        isDragging = false;
+        itObj.dragging = false;
+        grip.classList.remove("dragging");
+        try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
+        ev.stopPropagation();
+        if(ev.cancelable) ev.preventDefault();
+
+        if(currentPrice > 0 && Math.abs(currentPrice - v) > 1e-8){
+          modifyOrderPrice(o, currentPrice);
+        } else {
+          liveLines(true);
+        }
+      };
+
+      grip.addEventListener("pointerup", onUp, { passive: false });
+      grip.addEventListener("pointercancel", onUp, { passive: false });
+      grip.addEventListener("touchstart", e => e.stopPropagation(), { passive: false });
+    }
+
     d.querySelector(".xbtn").addEventListener("click",ev=>{ev.stopPropagation();
       if(confirm("撤单 "+disp(o.symbol)+"（"+oi.kind+" "+oi.sizeTxt+" @ "+oi.priceTxt+"）？"))cancelOrder(o.symbol,o.orderId||o.algoId,o.isAlgo);
     });
@@ -1862,8 +1967,44 @@ function liveLines(force){
     if(pb.sl != null && !hasLiveSl){
       const d=document.createElement("div");
       d.className="dl dyn sl";
-      d.innerHTML='<span class="grip">止损 '+px(pb.sl,S.sym)+' (成交后生效)</span><span class="xbtn" title="取消待挂止损">✕</span>';
-      lay.appendChild(d);LL_ITEMS.push({el:d,v:+pb.sl});
+      d.innerHTML='<span class="grip">待挂止损 @ '+px(pb.sl,S.sym)+'</span><span class="xbtn" title="取消待挂止损">✕</span>';
+      lay.appendChild(d);
+      const itObj = {el:d, v:+pb.sl, dragging:false};
+      LL_ITEMS.push(itObj);
+
+      const grip = d.querySelector(".grip");
+      if(grip){
+        let isDragging = false, curP = +pb.sl;
+        grip.addEventListener("pointerdown", ev => {
+          isDragging = true; itObj.dragging = true; grip.classList.add("dragging");
+          try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
+          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+        }, { passive: false });
+        grip.addEventListener("pointermove", ev => {
+          if(!isDragging) return;
+          const p = y2p(ev.clientY);
+          if(p > 0){
+            curP = alignPx(p, S.sym);
+            d.style.top = ev.clientY + "px";
+            grip.textContent = "待挂止损 → " + px(curP, S.sym);
+          }
+          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+        }, { passive: false });
+        const onUp = ev => {
+          if(!isDragging) return;
+          isDragging = false; itObj.dragging = false; grip.classList.remove("dragging");
+          try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
+          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+          if(curP > 0){
+            pb.sl = curP; savePendBr(); syncTradeLines();
+            toast("已修改待挂止损价格至 " + px(curP, S.sym));
+          }
+        };
+        grip.addEventListener("pointerup", onUp, { passive: false });
+        grip.addEventListener("pointercancel", onUp, { passive: false });
+        grip.addEventListener("touchstart", e => e.stopPropagation(), { passive: false });
+      }
+
       d.querySelector(".xbtn").addEventListener("click",ev=>{ev.stopPropagation();
         pb.sl=null;savePendBr();syncTradeLines();toast("已取消待挂止损");
       });
@@ -1872,8 +2013,44 @@ function liveLines(force){
     if(pb.tp != null && !hasLiveTp){
       const d=document.createElement("div");
       d.className="dl dyn tp";
-      d.innerHTML='<span class="grip">止盈 '+px(pb.tp,S.sym)+' (成交后生效)</span><span class="xbtn" title="取消待挂止盈">✕</span>';
-      lay.appendChild(d);LL_ITEMS.push({el:d,v:+pb.tp});
+      d.innerHTML='<span class="grip">待挂止盈 @ '+px(pb.tp,S.sym)+'</span><span class="xbtn" title="取消待挂止盈">✕</span>';
+      lay.appendChild(d);
+      const itObj = {el:d, v:+pb.tp, dragging:false};
+      LL_ITEMS.push(itObj);
+
+      const grip = d.querySelector(".grip");
+      if(grip){
+        let isDragging = false, curP = +pb.tp;
+        grip.addEventListener("pointerdown", ev => {
+          isDragging = true; itObj.dragging = true; grip.classList.add("dragging");
+          try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
+          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+        }, { passive: false });
+        grip.addEventListener("pointermove", ev => {
+          if(!isDragging) return;
+          const p = y2p(ev.clientY);
+          if(p > 0){
+            curP = alignPx(p, S.sym);
+            d.style.top = ev.clientY + "px";
+            grip.textContent = "待挂止盈 → " + px(curP, S.sym);
+          }
+          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+        }, { passive: false });
+        const onUp = ev => {
+          if(!isDragging) return;
+          isDragging = false; itObj.dragging = false; grip.classList.remove("dragging");
+          try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
+          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+          if(curP > 0){
+            pb.tp = curP; savePendBr(); syncTradeLines();
+            toast("已修改待挂止盈价格至 " + px(curP, S.sym));
+          }
+        };
+        grip.addEventListener("pointerup", onUp, { passive: false });
+        grip.addEventListener("pointercancel", onUp, { passive: false });
+        grip.addEventListener("touchstart", e => e.stopPropagation(), { passive: false });
+      }
+
       d.querySelector(".xbtn").addEventListener("click",ev=>{ev.stopPropagation();
         pb.tp=null;savePendBr();syncTradeLines();toast("已取消待挂止盈");
       });
@@ -2003,7 +2180,7 @@ function syncHandles(){
     if(v==null||y==null||y<0||y>window.innerHeight){el.style.display="none";return;}
     el.style.display="block";el.style.top=y+"px";
     const grip=el.querySelector(".grip");
-    if(grip)grip.textContent=lb+" "+px(v,S.sym)+extra;
+    if(grip && !grip.classList.contains("dragging"))grip.textContent=lb+" "+px(v,S.sym)+extra;
   });
 }
 
@@ -2089,6 +2266,7 @@ function resetPress(){
 
 function onChart(t){
   if(!t||!t.closest)return false;
+  if(t.closest(".grip")||t.closest(".xbtn")||t.closest(".sheet")||t.closest("#ohud")||t.closest("#khud")||t.closest("#tl")||t.closest("#br"))return false;
   if(t.closest("#tv_chart")||t.closest(".edge-zone"))return true;
   return t===document.body||t===document.documentElement;
 }
@@ -2097,18 +2275,46 @@ const AIM_MS=240,H_TOL=12;
 
 function bindGrip(hd,key){
   const grip=$(hd)?.querySelector(".grip");if(!grip)return;
-  let on=false;
-  const mv=ev=>{if(!on)return;
-    const cy=ev.touches?.[0]?.clientY??ev.clientY,p=y2p(cy);
-    if(p==null||!isFinite(p)||p<=0)return;
-    F[key]=p;render();
-    if(ev.cancelable)ev.preventDefault();};
-  const up=()=>{on=false;removeEventListener("pointermove",mv);removeEventListener("pointerup",up);
-    removeEventListener("pointercancel",up);};
-  grip.addEventListener("pointerdown",ev=>{on=true;
-    addEventListener("pointermove",mv,{passive:false});addEventListener("pointerup",up);
-    addEventListener("pointercancel",up);
-    ev.stopPropagation();if(ev.cancelable)ev.preventDefault();});
+  let isDragging=false;
+
+  const onPointerDown = ev => {
+    if(ev.button !== 0 && ev.pointerType === "mouse") return;
+    isDragging = true;
+    grip.classList.add("dragging");
+    try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
+    ev.stopPropagation();
+    if(ev.cancelable) ev.preventDefault();
+  };
+
+  const onPointerMove = ev => {
+    if(!isDragging) return;
+    const cy = ev.clientY;
+    const p = y2p(cy);
+    if(p == null || !isFinite(p) || p <= 0) return;
+    const aligned = alignPx(p, S.sym);
+    if(aligned > 0 && F[key] !== aligned){
+      F[key] = aligned;
+      render();
+    }
+    ev.stopPropagation();
+    if(ev.cancelable) ev.preventDefault();
+  };
+
+  const onPointerUp = ev => {
+    if(!isDragging) return;
+    isDragging = false;
+    grip.classList.remove("dragging");
+    try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
+    ev.stopPropagation();
+    if(ev.cancelable) ev.preventDefault();
+    render();
+  };
+
+  grip.addEventListener("pointerdown", onPointerDown, { passive: false });
+  grip.addEventListener("pointermove", onPointerMove, { passive: false });
+  grip.addEventListener("pointerup", onPointerUp, { passive: false });
+  grip.addEventListener("pointercancel", onPointerUp, { passive: false });
+  grip.addEventListener("touchstart", e => e.stopPropagation(), { passive: false });
 }
 bindGrip("#hEn","e");bindGrip("#hSl","sl");bindGrip("#hTp","tp");
 
@@ -2174,7 +2380,6 @@ addEventListener("touchstart",e=>{
 addEventListener("touchmove",e=>{
   if(e.touches.length>1){
     pMulti=pKill=true;clearTimeout(pT);aim=false;hideGuide();
-    // 双指捏合缩放图表时，坚决阻止 Safari 整体页面缩放
     if(e.cancelable) e.preventDefault();
     return;
   }
@@ -2507,7 +2712,7 @@ addEventListener("keydown",e=>{
 /* ================= 架构抽象层 ================= */
 window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,load,reconcile,
   findOrphans,sweepOrphans,subCoin,startUserStream,applyAcct},
-  TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder},
+  TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice},
   ver:VER,LOG,log,dump:()=>LOG.join("\n"),
   debug:(v=true)=>{window.__BNDEBUG=!!v;return "debug="+!!v;},
   time:()=>({offsetMs:TOFF,serverNow:now()}),
