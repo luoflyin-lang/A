@@ -200,7 +200,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 
 <div id="tl">
   <div id="name"><span class="s" id="nS">BTC</span><span class="caret">▾</span></div>
-  <div class="tfs"><button data-tf="5m">5m</button><button class="on" data-tf="30m">30m</button></div>
+  <div class="tfs"><button data-tf="5m">5m</button><button class="on" data-tf="1h">1h</button></div>
   <button id="bStar" title="标记这个机会（W）：等这根 K 线收盘再下单">☆</button>
 </div>
 
@@ -313,7 +313,7 @@ const TICKER_MS=60000;
 const UNI_FULL_MS=6e5;
 let HASKEY=!!(API_KEY&&API_SECRET);
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const S={sym:"BTC"+QUOTE,tf:"30m",uni:[],f:{},ctx:{},mid:{},maxLev:{},brk:{},levSet:{},
+const S={sym:"BTC"+QUOTE,tf:"1h",uni:[],f:{},ctx:{},mid:{},maxLev:{},brk:{},levSet:{},
   k:[],kc:{},pos:{},ords:{},ordsAt:0,acct:null,side:"buy",lev:LEV_DEF,filter:true,dual:null};
 
 /* ---- 小工具 ---- */
@@ -1061,7 +1061,7 @@ function ordInfo(o){
   const tp=/TAKE_PROFIT/.test(t),sl=/STOP/.test(t)&&!trail;
   const trig=trail||stop>0||/STOP|TAKE_PROFIT/.test(t);
   const isEntry=trig&&!ro;
-  const kind=trail?"追踪止损":trig?(isEntry?"触发入场":tp?"止盈":"止损"):(ro?"限价平仓":"限价");
+  const kind=trail?"追踪止损":trig?(isEntry?"触发入场":tp?"止盈":(/MARKET/.test(t)?"市价止损":"止损")):(ro?"限价平仓":"限价");
   const size=Math.abs(+o.origQty||+o.quantity||+o.totalQty||0);
   const sizeTxt=closeAll?"全平":size>0?sz(size,o.symbol):"—";
   const price=trig?stop:lim;
@@ -1334,7 +1334,7 @@ function applyPrefUI(){
 function loadPref(){
   try{PREF=JSON.parse(localStorage.getItem(PKEY)||"{}")||{};}catch(e){PREF={};}
   if(PREF.tf==="5m"||PREF.tf==="30m"||PREF.tf==="1h")S.tf=PREF.tf;
-  else S.tf="30m";
+  else S.tf="1h";
   if(+PREF.lev>0){LEVWANT=Math.max(1,Math.round(+PREF.lev));S.lev=LEVWANT;}
   if(+PREF.risk>0)F.risk=+PREF.risk;
   if(typeof PREF.filter==="boolean")S.filter=PREF.filter;
@@ -1357,7 +1357,7 @@ setInterval(beat,ALIVE_MS);
 addEventListener("pagehide",beat);
 addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")beat();});
 
-/* ================= 突破入场成交后自动补挂止损/止盈（全挂单 Post-Only） ================= */
+/* ================= 突破入场成交后自动补挂止损/止盈 ================= */
 let PENDBR;try{PENDBR=JSON.parse(localStorage.getItem("bn_pendbr")||"{}")||{};}catch(e){PENDBR={};}
 if(typeof PENDBR!=="object"||Array.isArray(PENDBR))PENDBR={};
 function savePendBr(){try{localStorage.setItem("bn_pendbr",JSON.stringify(PENDBR));}catch(e){}}
@@ -1398,15 +1398,13 @@ const BRBUSY=new Set();
 
 function exitOrder(sym,lg,price,ps,qty){
   const pxStr=fmtPx(price,sym);
-  // 严格 Post-Only (GTX) 挂单止损（限价止损单）
+  // 市价止损（STOP_MARKET）触发后市价离场，确保必然平仓
   const o={
     symbol:sym,
     side:lg?"SELL":"BUY",
-    type:"STOP",
-    price:pxStr,
+    type:"STOP_MARKET",
     stopPrice:pxStr,
     triggerPrice:pxStr,
-    timeInForce:TIF, // "GTX" 严格只挂单 Maker
     workingType:WORK,
     priceProtect:"true"
   };
@@ -1493,7 +1491,7 @@ async function firePendingBracket(sym){
     }
     const done=()=>!left&&(b.sl==null||b.slDone)&&(b.tp==null||!!b.tpOid)&&(b.tp==null||!PREATTACH_TP||!!b.tpFbDone);
     if(!orders.length){if(done()){delete PENDBR[sym];savePendBr();}return;}
-    const what=[iSl>=0?"止损挂单":"",iTp>=0?"止盈挂单":"",iFb>=0?"兜底止盈挂单":""].filter(Boolean).join("/");
+    const what=[iSl>=0?"止损市价单":"",iTp>=0?"止盈挂单":"",iFb>=0?"兜底止盈挂单":""].filter(Boolean).join("/");
     
     const results=[];
     for(const ord of orders){
@@ -2107,7 +2105,7 @@ async function onLocked(){
 }
 
 function lockCheck(){
-  const t=Date.now(),ivl={"5m":3e5,"30m":18e5,"1h":36e5}[S.tf]||18e5;
+  const t=Date.now(),ivl={"5m":3e5,"30m":18e5,"1h":36e5}[S.tf]||36e5;
   const age=NET.mid?t-NET.mid:Infinity;
   let why="";
   if(!S.uni.length)why="行情未加载";
@@ -2315,7 +2313,7 @@ $("#ohGo").addEventListener("click",async()=>{
     const eOk=good(eRes);
     if(eOk){
       if(PREATTACH_SL){
-        slRes=await placeOrder(slOrd,"预挂止损(挂单)",true).catch(()=>null);
+        slRes=await placeOrder(slOrd,"预挂止损(市价)",true).catch(()=>null);
       }
       if(tpFb){
         tpFbRes=await placeOrder(tpFb,"预挂兜底止盈(挂单)",true).catch(()=>null);
@@ -2326,7 +2324,7 @@ $("#ohGo").addEventListener("click",async()=>{
     }
     
     const slOk=good(slRes),tpFbOk=good(tpFbRes);
-    if(PREATTACH_SL&&!slOk)toast("⚠ 止损挂单没能一起挂上，成交后会自动补挂，请留意");
+    if(PREATTACH_SL&&!slOk)toast("⚠ 止损单没能一起挂上，成交后会自动补挂，请留意");
     if(tpFb&&!tpFbOk)toast("兜底止盈挂单没挂上，成交后会自动补挂");
 
     PENDBR[sym]={side,sl:r.sl,tp:r.tp,qty:+qty,slDone:slOk,ts:Date.now(),
