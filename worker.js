@@ -3,15 +3,14 @@
  * 绑定域名: order.124568.xyz
  * 
  * 功能:
- * 1. 访问 https://order.124568.xyz/ 直接加载最新交易终端
- * 2. 访问 https://order.124568.xyz/fapi/* 自动代理到 https://fapi.binance.com/fapi/* (带 CORS)
- * 3. 访问 wss://order.124568.xyz/ws/* 自动代理到 wss://fstream.binance.com/ws/* (WebSocket 长连接)
+ * 1. 访问 https://order.124568.xyz/ 直接加载最新交易终端 (实时同步 GitHub)
+ * 2. 支持 WebSocket 长连接代理
+ * 3. 支持可配置的上游 API 网关转发
  */
 
 const BINANCE_HTTP = "https://fapi.binance.com";
 const BINANCE_WS = "wss://fstream.binance.com";
 
-// CORS 跨域响应头
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
@@ -28,30 +27,22 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // 2. 处理 WebSocket 请求 (如 /ws/ 或带有 Upgrade 头的请求)
+    // 2. 处理 WebSocket 长连接
     const upgradeHeader = request.headers.get("Upgrade");
     if (upgradeHeader && upgradeHeader.toLowerCase() === "websocket") {
-      let targetWsUrl;
-      if (url.pathname.startsWith("/ws")) {
-        targetWsUrl = BINANCE_WS + url.pathname + url.search;
-      } else {
-        targetWsUrl = BINANCE_WS + "/ws" + url.pathname + url.search;
-      }
+      let targetWsUrl = url.pathname.startsWith("/ws")
+        ? BINANCE_WS + url.pathname + url.search
+        : BINANCE_WS + "/ws" + url.pathname + url.search;
 
-      // Cloudflare 原生 WebSocket 转发
-      return fetch(targetWsUrl, {
-        headers: request.headers,
-      });
+      return fetch(targetWsUrl, { headers: request.headers });
     }
 
-    // 3. 处理 HTTP API 请求 (/fapi/*)
+    // 3. 处理 HTTP API 请求 (/fapi/*, /api/*)
     if (url.pathname.startsWith("/fapi") || url.pathname.startsWith("/api")) {
-      const targetHttpUrl = BINANCE_HTTP + url.pathname + url.search;
-      
+      const targetHttpUrl = (env.UPSTREAM_API || BINANCE_HTTP) + url.pathname + url.search;
       const newHeaders = new Headers(request.headers);
-      newHeaders.set("Host", "fapi.binance.com");
-      newHeaders.delete("cf-connecting-ip");
-      newHeaders.delete("x-forwarded-for");
+      newHeaders.set("Host", new URL(env.UPSTREAM_API || BINANCE_HTTP).host);
+      newHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
 
       try {
         const response = await fetch(targetHttpUrl, {
@@ -78,25 +69,19 @@ export default {
       }
     }
 
-    // 4. 根路径或其它路径：从 GitHub 实时获取最新的 order.html（或返回备用）
+    // 4. 访问主页直接加载最新终端（自动从 GitHub 保持最新）
     if (url.pathname === "/" || url.pathname === "/order.html" || url.pathname === "/index.html") {
       try {
-        // 从 GitHub 仓库获取最新代码，无需每次重新部署 Worker 即可自动热更新！
-        const rawGithubUrl = "https://raw.githubusercontent.com/luoflyin-lang/A/main/order.html";
-        const ghResp = await fetch(rawGithubUrl, { cf: { cacheTtl: 60 } });
+        const ghResp = await fetch("https://raw.githubusercontent.com/luoflyin-lang/A/main/order.html", { cf: { cacheTtl: 60 } });
         if (ghResp.ok) {
           const html = await ghResp.text();
           return new Response(html, {
-            headers: {
-              "Content-Type": "text/html; charset=utf-8",
-              "Cache-Control": "public, max-age=60",
-              ...corsHeaders,
-            },
+            headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=60", ...corsHeaders },
           });
         }
       } catch (e) {}
 
-      return new Response("Order Terminal Proxy is running. Please access via GitHub or check URL.", {
+      return new Response("Order Terminal Proxy Ready.", {
         status: 200,
         headers: { "Content-Type": "text/plain; charset=utf-8", ...corsHeaders },
       });

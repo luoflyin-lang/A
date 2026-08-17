@@ -1,0 +1,9 @@
+name = "binance-order"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+workers_dev = true
+
+# 绑定自定义域名
+routes = [
+  { pattern = "order.124568.xyz", custom_domain = true }
+]
