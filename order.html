@@ -331,11 +331,20 @@ th:first-child,td:first-child{text-align:left}
 "use strict";
 let API_KEY="";                 // 留空，在页面里填
 let API_SECRET="";              // 留空，在页面里填
-const PROXY="";                 // 例："http://127.0.0.1:8787"
-const PROXY_WS="";              // 例："ws://127.0.0.1:8788"
+const PROXY="https://order.124568.xyz";                 // 默认 Cloudflare 代理
+const PROXY_WS="wss://order.124568.xyz";              // 默认 Cloudflare WebSocket 代理
 
 let BASE=PROXY||"https://fapi.binance.com";
 let WSU=(PROXY_WS||"wss://fstream.binance.com")+"/ws";
+
+// 若直接在 Cloudflare 绑定的域名下访问，自动使用当前域名
+if(typeof window !== "undefined" && window.location && window.location.protocol.startsWith("http")){
+  if(window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"){
+    BASE = window.location.origin;
+    WSU = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws";
+  }
+}
+
 try{const _px=JSON.parse(localStorage.getItem("bn_proxy")||"null");
   if(_px&&_px.http)BASE=_px.http;
   if(_px&&_px.ws)WSU=_px.ws+"/ws";}catch(e){}
