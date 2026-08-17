@@ -2,6 +2,10 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/",
+      "destination": "/order.html"
+    },
+    {
       "source": "/fapi/(.*)",
       "destination": "/api"
     },
