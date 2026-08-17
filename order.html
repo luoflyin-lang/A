@@ -828,15 +828,6 @@ function levFor(sym,notional){
   for(let i=0;i<b.length;i++)if(notional<=b[i].cap)return b[i].lev;
   return b[b.length-1].lev;
 }
-
-function updateChartCandles(rawBars, resetRange){
-  if(!candleSeries || !rawBars.length) return;
-  const map = new Map();
-  rawBars.forEach(x => {
-    const timeSec = Math.floor(x.t / 1000);
-    map.set(timeSec, { time: timeSec, open: x.o, high: x.h, low: x.l, close: x.c });
-  });
-  const data = Array.from(map.values()).sort((a, b) => a.time - b.time);
 let lastEmaValue = null;
 
 function calcEmaArray(data, period = 20){
