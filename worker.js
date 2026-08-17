@@ -2,10 +2,7 @@
  * Cloudflare Worker 反向代理 + Web 终端一体化脚本
  * 绑定域名: order.124568.xyz
  * 
- * 功能:
- * 1. 访问 https://order.124568.xyz/ 直接加载最新交易终端 (实时同步 GitHub)
- * 2. 支持 WebSocket 长连接代理
- * 3. 支持可配置的上游 API 网关转发
+ * 访问 https://order.124568.xyz/ 即可直接打开交易终端
  */
 
 const BINANCE_HTTP = "https://fapi.binance.com";
@@ -37,7 +34,7 @@ export default {
       return fetch(targetWsUrl, { headers: request.headers });
     }
 
-    // 3. 处理 HTTP API 请求 (/fapi/*, /api/*)
+    // 3. 处理 HTTP 接口 (/fapi/*, /api/*)
     if (url.pathname.startsWith("/fapi") || url.pathname.startsWith("/api")) {
       const targetHttpUrl = (env.UPSTREAM_API || BINANCE_HTTP) + url.pathname + url.search;
       const newHeaders = new Headers(request.headers);
@@ -69,24 +66,25 @@ export default {
       }
     }
 
-    // 4. 访问主页直接加载最新终端（自动从 GitHub 保持最新）
-    if (url.pathname === "/" || url.pathname === "/order.html" || url.pathname === "/index.html") {
-      try {
-        const ghResp = await fetch("https://raw.githubusercontent.com/luoflyin-lang/A/main/order.html", { cf: { cacheTtl: 60 } });
-        if (ghResp.ok) {
-          const html = await ghResp.text();
-          return new Response(html, {
-            headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=60", ...corsHeaders },
-          });
-        }
-      } catch (e) {}
+    // 4. 访问主页或任何非 API 路径：直接返回完整的交易终端 order.html（自动从 GitHub 保持最新）
+    try {
+      const rawGithubUrl = "https://raw.githubusercontent.com/luoflyin-lang/A/main/order.html";
+      const ghResp = await fetch(rawGithubUrl, { cf: { cacheTtl: 60 } });
+      if (ghResp.ok) {
+        const html = await ghResp.text();
+        return new Response(html, {
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "public, max-age=60",
+            ...corsHeaders,
+          },
+        });
+      }
+    } catch (e) {}
 
-      return new Response("Order Terminal Proxy Ready.", {
-        status: 200,
-        headers: { "Content-Type": "text/plain; charset=utf-8", ...corsHeaders },
-      });
-    }
-
-    return new Response("Not Found", { status: 404, headers: corsHeaders });
+    return new Response("Order Terminal is loading...", {
+      status: 200,
+      headers: { "Content-Type": "text/plain; charset=utf-8", ...corsHeaders },
+    });
   },
 };
