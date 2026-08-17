@@ -188,23 +188,23 @@ th:first-child,td:first-child{text-align:left}
 #pline{position:fixed;left:0;right:0;height:0;display:none;z-index:10;pointer-events:none;
   border-top:1px dashed var(--cline)}
 #pline.aim{border-top:1.5px solid var(--amber)}
-#pbub{position:absolute;left:460px;top:-11px;font-family:var(--mono);font-size:12px;
+#pbub{position:absolute;left:130px;top:-11px;font-family:var(--mono);font-size:12px;
   background:var(--raised);color:var(--text);border-radius:6px;padding:2px 8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.1)}
 #pline.aim #pbub{background:var(--ink);color:var(--onink);font-weight:650}
 
 #dlayer{position:fixed;inset:0;z-index:4;pointer-events:none}
 .dl{position:absolute;left:0;right:0;height:0;display:none;border:none !important}
-.dl .grip{position:absolute;left:460px;top:-13px;font-size:12px;font-family:var(--mono);font-weight:600;
+.dl .grip{position:absolute;left:130px;top:-13px;font-size:12px;font-family:var(--mono);font-weight:600;
   border-radius:7px;padding:3px 10px;cursor:ns-resize;pointer-events:auto;touch-action:none;white-space:nowrap;
   box-shadow:0 2px 8px rgba(0,0,0,.15);user-select:none;-webkit-user-select:none;transition:transform .08s}
 .dl .grip:active, .dl .grip.dragging{transform:scale(1.06);box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .dl.en .grip{background:var(--blue);color:var(--onink)}
 .dl.sl .grip{background:var(--down);color:var(--onink)}
 .dl.tp .grip{background:var(--up);color:var(--onink)}
-.dl.dyn .grip{left:auto;right:64px;background:var(--pop);color:var(--text);
+.dl.dyn .grip{left:130px;right:auto;background:var(--pop);color:var(--text);
   border:1px solid var(--line);box-shadow:0 2px 8px rgba(46,43,38,.14)}
 .dl.dyn.sl .grip{color:var(--down);border-color:var(--down)}.dl.dyn.tp .grip{color:var(--up);border-color:var(--up)}.dl.dyn.pos .grip{color:var(--blue);border-color:var(--blue)}
-.dl .xbtn{position:absolute;right:22px;top:-13px;width:24px;height:24px;line-height:22px;text-align:center;
+.dl .xbtn{position:absolute;left:340px;right:auto;top:-13px;width:24px;height:24px;line-height:22px;text-align:center;
   border-radius:7px;background:var(--pop);border:1px solid var(--line);box-shadow:0 1px 6px rgba(46,43,38,.16);color:var(--text);
   font-size:13px;cursor:pointer;pointer-events:auto;user-select:none}
 
@@ -213,7 +213,9 @@ th:first-child,td:first-child{text-align:left}
   #br{left:12px;bottom:14px}
   .fab{height:38px;font-size:13px;padding:0 12px}
   #ohud{left:12px;bottom:80px;width:calc(100vw - 24px);padding:14px 16px}
-  #pbub,.dl .grip{left:200px}
+  #pbub,.dl .grip{left:80px}
+  .dl.dyn .grip{left:80px}
+  .dl .xbtn{left:250px}
 }
 </style>
 <script>
@@ -1583,9 +1585,8 @@ function exitOrder(sym,lg,price,ps,qty){
   return o;
 }
 
-function tpFallbackOrder(sym,lg,tp,ps,qty){
-  const raw=lg?tp*(1+TP_FB_OFF):tp*(1-TP_FB_OFF);
-  const pxStr=fmtPx(alignPx(raw,sym,lg?1:-1),sym);
+function tpPostOnlyOrder(sym,lg,tp,ps,qty){
+  const pxStr=fmtPx(alignPx(tp,sym,lg?1:-1),sym);
   const o={
     symbol:sym,
     side:lg?"SELL":"BUY",
@@ -1593,7 +1594,7 @@ function tpFallbackOrder(sym,lg,tp,ps,qty){
     price:pxStr,
     stopPrice:pxStr,
     triggerPrice:pxStr,
-    timeInForce:TIF,
+    timeInForce:TIF, // "GTX" 只挂单
     workingType:WORK,
     priceProtect:"true"
   };
@@ -2712,14 +2713,15 @@ $("#ohGo").addEventListener("click",async()=>{
   try{
     if(!await ensureLev(r.lev)){toast("杠杆设置未确认成功，已阻止下单");return;}
     const slOrd=exitOrder(sym,buy,alignPx(r.sl,sym,buy?1:-1),ps,qty);
-    const tpFb=(PREATTACH_TP&&r.tp!=null)?tpFallbackOrder(sym,buy,r.tp,ps,qty):null;
+    const tpOrd=(r.tp!=null)?tpPostOnlyOrder(sym,buy,r.tp,ps,qty):null;
     const label=(stopEntry?(buy?"突破挂多 ":"突破挂空 "):(buy?"挂单做多 ":"挂单做空 "))+qty+" "+disp(sym);
     
     const good=x=>x&&(x.orderId!=null||x.algoId!=null)&&!(x.code!=null&&+x.code<0);
     const oidOf=x=>x?(x.algoId!=null?x.algoId:x.orderId):null;
 
-    let eRes=null,slRes=null,tpFbRes=null;
+    let eRes=null,slRes=null,tpRes=null;
     
+    // 1. 提交入场只挂单（LIMIT GTX）
     eRes=await placeOrder(entry,label);
     
     if(!good(eRes)&&!stopEntry){
@@ -2738,23 +2740,27 @@ $("#ohGo").addEventListener("click",async()=>{
     
     const eOk=good(eRes);
     if(eOk){
-      if(PREATTACH_SL){
-        slRes=await placeOrder(slOrd,"预挂止损(市价)",true).catch(()=>null);
-      }
-      if(tpFb){
-        tpFbRes=await placeOrder(tpFb,"预挂兜底止盈(挂单)",true).catch(()=>null);
+      // 2. 瞬间在币安后台立刻挂上市价止损单
+      slRes=await placeOrder(slOrd,"预挂止损(市价)",true).catch(()=>null);
+      // 3. 瞬间在币安后台立刻挂上限价只挂单止盈单
+      if(tpOrd){
+        tpRes=await placeOrder(tpOrd,"预挂止盈(只挂单)",true).catch(()=>null);
       }
     }else{
       toast("⚠ 入场单提交失败："+errText(LAST_ERR||eRes));
       return;
     }
     
-    const slOk=good(slRes),tpFbOk=good(tpFbRes);
-    if(PREATTACH_SL&&!slOk)toast("⚠ 止损单没能一起挂上，成交后会自动补挂，请留意");
-    if(tpFb&&!tpFbOk)toast("兜底止盈挂单没挂上，成交后会自动补挂");
+    const slOk=good(slRes),tpOk=tpOrd?good(tpRes):true;
+    if(slOk && tpOk){
+      toast("【3单已全部挂入币安】入场(只挂单) + 止损(市价) " + (tpOrd ? "+ 止盈(只挂单)" : ""));
+    } else {
+      if(!slOk) toast("⚠ 止损单未能立刻挂入，成交后会自动补挂");
+      if(!tpOk) toast("⚠ 止盈单未能立刻挂入，成交后会自动补挂");
+    }
 
     PENDBR[sym]={side,sl:r.sl,tp:r.tp,qty:+qty,slDone:slOk,ts:Date.now(),
-      tpFbDone:tpFbOk,tpFbOid:oidOf(tpFbRes),
+      tpFbDone:tpOk,tpFbOid:oidOf(tpRes),
       oid:oidOf(eRes)};
     savePendBr();endFlow();
   }finally{SUBMITTING=false;try{render();}catch(e){}load(true);}
