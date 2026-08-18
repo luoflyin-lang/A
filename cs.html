@@ -159,30 +159,30 @@ th:first-child,td:first-child{text-align:left}
 }
 .dl .xbtn:hover{background:#C0392B;color:#fff;transform:scale(1.18)}
 
-/* ---- Al Brooks 价格行为学背景中英文语录 ---- */
+/* ---- Al Brooks 价格行为学背景中英文语录（100%清晰不透明，字体加大100%） ---- */
 #bgQuote{
-  position:fixed;top:28px;left:50%;transform:translateX(-50%);
-  max-width:85vw;width:860px;text-align:center;
+  position:fixed;top:24px;left:50%;transform:translateX(-50%);
+  max-width:88vw;width:960px;text-align:center;
   pointer-events:auto;cursor:pointer;z-index:2;user-select:none;
-  opacity:0.25;transition:opacity .25s ease, transform .2s ease;
+  opacity:1;transition:transform .2s ease;
 }
 #bgQuote:hover{
-  opacity:0.68;
+  transform:translateX(-50%) scale(1.01);
 }
 #bgQuote .en{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  font-size:15px;font-weight:600;letter-spacing:0.01em;color:var(--text);
-  margin-bottom:3px;line-height:1.35;
+  font-size:30px;font-weight:750;letter-spacing:0.01em;color:var(--text);
+  margin-bottom:6px;line-height:1.28;
 }
 #bgQuote .cn{
-  font-size:13px;font-weight:500;letter-spacing:0.03em;color:var(--dim);
-  line-height:1.4;
+  font-size:26px;font-weight:650;letter-spacing:0.02em;color:var(--text);
+  line-height:1.32;
 }
 
 @media(max-width:640px){
-  #bgQuote{top:16px;max-width:92vw}
-  #bgQuote .en{font-size:12.5px}
-  #bgQuote .cn{font-size:11.5px}
+  #bgQuote{top:14px;max-width:92vw}
+  #bgQuote .en{font-size:19px;margin-bottom:4px}
+  #bgQuote .cn{font-size:16.5px}
   #brr{left:12px;bottom:14px;right:auto;gap:6px}
   .fab{height:38px;font-size:12.5px;padding:0 12px}
   #ohud{left:10px;bottom:66px;width:calc(100vw - 20px);padding:14px 16px}
@@ -487,7 +487,7 @@ function initTradingViewChart(){
     upColor: isDark ? "#FFFFFF" : "#000000",
     downColor: isDark ? "#FFFFFF" : "#000000",
     openVisible: true,
-    thinBars: false,
+    thinBars: true,
     priceLineVisible: false,
     lastValueVisible: false
   });
@@ -532,7 +532,7 @@ function updateChartTheme(){
     upColor: barColor,
     downColor: barColor,
     openVisible: true,
-    thinBars: false
+    thinBars: true
   });
 
   emaSeries.applyOptions({ color: emaColor });
