@@ -436,11 +436,14 @@ function initTradingViewChart(){
     handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
   });
 
-  candleSeries = tvChart.addBarSeries({
-    upColor: isDark ? "#FFFFFF" : "#000000",
-    downColor: isDark ? "#FFFFFF" : "#000000",
-    openVisible: true,
-    thinBars: true,
+  candleSeries = tvChart.addCandlestickSeries({
+    upColor: upColor,
+    downColor: downColor,
+    borderVisible: true,
+    borderUpColor: borderColor,
+    borderDownColor: borderColor,
+    wickUpColor: wickColor,
+    wickDownColor: wickColor,
     priceLineVisible: false,
     lastValueVisible: false
   });
@@ -471,7 +474,10 @@ function updateChartTheme(){
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const bg = isDark ? "#121212" : "#FFFFFF";
   const text = isDark ? "#E0E0E0" : "#111111";
-  const barColor = isDark ? "#FFFFFF" : "#000000";
+  const upColor = "#FFFFFF";
+  const downColor = isDark ? "#FFFFFF" : "#000000";
+  const borderColor = isDark ? "#E0E0E0" : "#000000";
+  const wickColor = isDark ? "#E0E0E0" : "#000000";
   const emaColor = isDark ? "#888888" : "#222222";
 
   tvChart.applyOptions({
@@ -482,10 +488,13 @@ function updateChartTheme(){
   });
 
   candleSeries.applyOptions({
-    upColor: barColor,
-    downColor: barColor,
-    openVisible: true,
-    thinBars: true
+    upColor: upColor,
+    downColor: downColor,
+    borderVisible: true,
+    borderUpColor: borderColor,
+    borderDownColor: borderColor,
+    wickUpColor: wickColor,
+    wickDownColor: wickColor
   });
 
   emaSeries.applyOptions({ color: emaColor });
