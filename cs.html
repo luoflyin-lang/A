@@ -372,18 +372,24 @@ const toast = m => {
 };
 
 /* ================= Al Brooks 价格行为学语录逻辑 ================= */
-function pickRandomQuote(){
+let currentQuoteIndex = -1;
+function pickRandomQuote(stepSequential = false){
   const list = window.AL_BROOKS_QUOTES;
   if(!list || !list.length) return;
-  const q = list[Math.floor(Math.random() * list.length)];
+  if(stepSequential && currentQuoteIndex >= 0){
+    currentQuoteIndex = (currentQuoteIndex + 1) % list.length;
+  } else {
+    currentQuoteIndex = Math.floor(Math.random() * list.length);
+  }
+  const q = list[currentQuoteIndex];
   const enEl = $("#qEn"), cnEl = $("#qCn");
   if(enEl) enEl.textContent = q.en;
   if(cnEl) cnEl.textContent = q.cn;
 }
 if($("#bgQuote")){
   $("#bgQuote").addEventListener("click", () => {
-    pickRandomQuote();
-    toast("💡 已随机切换 Al Brooks 价格行为学语录");
+    pickRandomQuote(true);
+    toast("💡 已切换下一条 Al Brooks 价格行为学语录");
   });
 }
 
@@ -689,6 +695,9 @@ function stepNextBar(silent = false){
   const nextBar = S.fullK[S.visibleCount];
   S.visibleCount++;
   S.curK = S.fullK.slice(0, S.visibleCount);
+  
+  // 每次推进 1 根 K 线，同步切换下一句 Al Brooks 价格行为学中英语录
+  pickRandomQuote(true);
   
   matchBar(nextBar);
   
