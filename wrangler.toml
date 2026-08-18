@@ -5,7 +5,7 @@ workers_dev = true
 
 # 绑定自定义域名
 routes = [
-  { pattern = "order.124568.xyz", custom_domain = true },
   { pattern = "cs.124568.xyz", custom_domain = true }
 ]
+
 

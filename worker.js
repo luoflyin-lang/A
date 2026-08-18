@@ -1,11 +1,13 @@
 /**
  * Cloudflare Worker 反向代理 + Web 终端一体化脚本
- * 绑定域名: order.124568.xyz
- * 
- * 访问 https://order.124568.xyz/ 即可直接打开交易终端
+ * 绑定域名: cs.124568.xyz / order.124568.xyz
  */
 
-const BINANCE_HTTP = "https://fapi.binance.com";
+const BINANCE_HTTP_POOLS = [
+  "https://fapi.binance.com",
+  "https://fapi1.binance.com",
+  "https://fapi.binance.vision"
+];
 const BINANCE_WS = "wss://fstream.binance.com";
 
 const corsHeaders = {
@@ -34,44 +36,81 @@ export default {
       return fetch(targetWsUrl, { headers: request.headers });
     }
 
-    // 3. 处理 HTTP 接口 (/fapi/*, /api/*)
+    // 3. 处理 HTTP 接口 (/fapi/*, /api/*) - 极速国内直连反代与边缘缓存
     if (url.pathname.startsWith("/fapi") || url.pathname.startsWith("/api")) {
-      const targetHttpUrl = (env.UPSTREAM_API || BINANCE_HTTP) + url.pathname + url.search;
-      const newHeaders = new Headers(request.headers);
-      newHeaders.set("Host", new URL(env.UPSTREAM_API || BINANCE_HTTP).host);
-      newHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+      const isKlines = url.pathname.includes("/klines");
+      const baseHosts = env.UPSTREAM_API ? [env.UPSTREAM_API] : BINANCE_HTTP_POOLS;
 
-      try {
-        const response = await fetch(targetHttpUrl, {
-          method: request.method,
-          headers: newHeaders,
-          body: request.method !== "GET" && request.method !== "HEAD" ? await request.arrayBuffer() : undefined,
-          redirect: "follow",
-        });
+      let lastError = null;
+      for (const baseHost of baseHosts) {
+        const targetHttpUrl = baseHost + url.pathname + url.search;
+        const newHeaders = new Headers(request.headers);
+        newHeaders.set("Host", new URL(baseHost).host);
+        newHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
 
-        const respHeaders = new Headers(response.headers);
-        Object.keys(corsHeaders).forEach((k) => respHeaders.set(k, corsHeaders[k]));
-        respHeaders.delete("content-security-policy");
+        try {
+          const fetchOptions = {
+            method: request.method,
+            headers: newHeaders,
+            body: request.method !== "GET" && request.method !== "HEAD" ? await request.arrayBuffer() : undefined,
+            redirect: "follow",
+          };
 
-        return new Response(response.body, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: respHeaders,
-        });
-      } catch (err) {
-        return new Response(JSON.stringify({ code: -1, msg: "Proxy Error: " + err.message }), {
-          status: 502,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        });
+          // 针对历史 K 线请求启用 Cloudflare 边缘缓存，大幅降低后续请求延迟至毫秒级
+          if (isKlines && request.method === "GET") {
+            fetchOptions.cf = { cacheTtl: 300, cacheEverything: true };
+          }
+
+          const response = await fetch(targetHttpUrl, fetchOptions);
+
+          if (response.ok || response.status < 500) {
+            const respHeaders = new Headers(response.headers);
+            Object.keys(corsHeaders).forEach((k) => respHeaders.set(k, corsHeaders[k]));
+            respHeaders.delete("content-security-policy");
+            if (isKlines) {
+              respHeaders.set("Cache-Control", "public, max-age=300");
+            }
+
+            return new Response(response.body, {
+              status: response.status,
+              statusText: response.statusText,
+              headers: respHeaders,
+            });
+          }
+        } catch (err) {
+          lastError = err;
+        }
       }
+
+      return new Response(JSON.stringify({ code: -1, msg: "Proxy Error: " + (lastError ? lastError.message : "Upstream failed") }), {
+        status: 502,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    // 4. 访问主页或任何非 API 路径：根据域名/路径分发 cs.html 或 order.html（自动从 GitHub 保持最新）
+    // 4. 处理静态 JS 资源请求（如本地化图表库）
+    if (url.pathname.endsWith(".js")) {
+      const rawJsUrl = `https://raw.githubusercontent.com/luoflyin-lang/A/main${url.pathname}`;
+      try {
+        const jsResp = await fetch(rawJsUrl, { cf: { cacheTtl: 86400, cacheEverything: true } });
+        if (jsResp.ok) {
+          return new Response(jsResp.body, {
+            headers: {
+              "Content-Type": "application/javascript; charset=utf-8",
+              "Cache-Control": "public, max-age=86400",
+              ...corsHeaders,
+            },
+          });
+        }
+      } catch (e) {}
+    }
+
+    // 5. 访问主页或任何非 API 路径：根据域名/路径分发 cs.html 或 order.html（自动从 GitHub 保持最新）
     try {
       const isCs = url.hostname.startsWith("cs.") || url.pathname.startsWith("/cs");
       const targetFile = isCs ? "cs.html" : "order.html";
       const rawGithubUrl = `https://raw.githubusercontent.com/luoflyin-lang/A/main/${targetFile}`;
-      const ghResp = await fetch(rawGithubUrl, { cf: { cacheTtl: 60 } });
+      const ghResp = await fetch(rawGithubUrl, { cf: { cacheTtl: 60, cacheEverything: true } });
       if (ghResp.ok) {
         const html = await ghResp.text();
         return new Response(html, {

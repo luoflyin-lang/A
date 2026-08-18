@@ -5,8 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F2EFE9">
 <title>K-Line 模拟训练 · TradingView 极简版</title>
-<!-- 引入 TradingView 官方开源 Lightweight Charts 图表库 -->
-<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
+<script src="./lightweight-charts.standalone.production.js"></script>
+<script>
+if (typeof LightweightCharts === "undefined") {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/script>');
+}
+</script>
 <style>
 /* 极致护眼极简配色：
    1) 日间：温润暖羊皮纸底色 #F4F1EA；
@@ -543,20 +548,23 @@ function updateChartCandles(rawBars){
   }
 }
 
-/* ================= 健壮的随机行情拉取 (支持盲盒模式) ================= */
+/* ================= 健壮的随机行情拉取 (国内免翻墙极速直连 + 盲盒模式) ================= */
 async function loadRandomMarket(){
   const tfMs = 300000; // 5m
   const now = Date.now();
-  const maxHistoryMs = Math.floor(1.5 * 365 * 24 * 3600 * 1000);
+  // 限制在活跃交易区间 180 天内（避免冷门新币早期无数据导致重试）
+  const maxHistoryMs = Math.floor(180 * 24 * 3600 * 1000);
   const minTime = now - maxHistoryMs;
   const maxTime = now - (TOTAL_BARS * tfMs);
 
+  const origin = window.location.origin;
   const HOSTS = [
-    window.location.origin,
-    "https://fapi.binance.com",
-    "https://fapi1.binance.com",
-    "https://fapi.binance.vision"
+    origin,
+    "https://cs.124568.xyz",
+    "https://order.124568.xyz",
+    "https://fapi.binance.com"
   ];
+  const uniqueHosts = [...new Set(HOSTS.filter(Boolean))];
 
   let success = false;
   let attempts = 0;
@@ -570,13 +578,13 @@ async function loadRandomMarket(){
     const randomSym = SYMBOL_POOL[Math.floor(Math.random() * SYMBOL_POOL.length)];
     S.sym = randomSym;
     const randomEndTime = Math.floor(minTime + Math.random() * (maxTime - minTime));
-    const host = HOSTS[(attempts - 1) % HOSTS.length];
+    const host = uniqueHosts[(attempts - 1) % uniqueHosts.length];
     
     toast(`🎲 正在抽取盲盒切片 #${S.blindId}…`);
 
     try{
       const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 5000);
+      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 3000);
       
       const url = `${host}/fapi/v1/klines?symbol=${randomSym}&interval=${S.tf}&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
       const r = await fetch(url, { signal: ctl ? ctl.signal : undefined });

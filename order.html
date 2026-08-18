@@ -5,8 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#F2EFE9">
 <title>BN Chart (TradingView 引擎版)</title>
-<!-- 引入 TradingView 官方开源 Lightweight Charts 图表库 -->
-<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
+<script src="./lightweight-charts.standalone.production.js"></script>
+<script>
+if (typeof LightweightCharts === "undefined") {
+  document.write('<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/script>');
+}
+</script>
 <style>
 /* 极致护眼配色（iPad/高亮显示屏、长时间盯盘）：
    1) 日间：温润暖羊皮纸底色 #F4F1EA，消灭 255 纯白刺眼蓝光；
