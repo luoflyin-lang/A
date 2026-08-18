@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#F2EFE9">
-<title>K-Line 模拟训练 · TradingView 极简版</title>
+<meta name="theme-color" content="#FFFFFF">
+<title>K-Line 模拟训练 · 经典黑白极简版</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
 <script>
@@ -13,32 +13,30 @@ if (typeof LightweightCharts === "undefined") {
 }
 </script>
 <style>
-/* 极致护眼极简配色：
-   1) 日间：温润暖羊皮纸底色 #F4F1EA；
-   2) 夜间：深邃温润暖灰底色 #171614；
-   3) K 线与指标：选用低饱和松石绿与陶土暖红，柔和不刺眼；
-   4) 字体：中性炭黑与暖象牙白。 */
-:root{--bg:#F4F1EA;--surface:#FAF8F3;--raised:#EAE5DC;--text:#332F28;--dim:rgba(51,47,40,.68);
-  --faint:rgba(51,47,40,.45);--line:rgba(51,47,40,.12);
-  --up:#3A755D;--down:#A85244;--blue:#3C5A78;--amber:#8B6A2B;
-  --ink:#332F28;--onink:#FAF8F3;--cline:rgba(51,47,40,.50);--cbody:#332F28;
-  --pop:rgba(250,248,243,.96);--fabbg:rgba(250,248,243,.92);
-  --tint:rgba(51,47,40,.06);--cgrid:rgba(51,47,40,.04);--caim:rgba(51,47,40,.75);--chair:rgba(51,47,40,.28);
+/* 经典纯白背景 + 纯正黑白 K 线极简配色 */
+:root{
+  --bg:#FFFFFF;--surface:#FFFFFF;--raised:#F5F5F5;--text:#111111;--dim:rgba(0,0,0,.65);
+  --faint:rgba(0,0,0,.40);--line:rgba(0,0,0,.08);
+  --up:#FFFFFF;--down:#000000;--blue:#2B5C8F;--amber:#8A651E;
+  --ink:#111111;--onink:#FFFFFF;--cline:rgba(0,0,0,.40);--cbody:#111111;
+  --pop:rgba(255,255,255,.98);--fabbg:rgba(255,255,255,.94);
+  --tint:rgba(0,0,0,.06);--cgrid:transparent;--caim:rgba(0,0,0,.85);--chair:rgba(0,0,0,.25);
   color-scheme:light;--mono:"Menlo","Consolas",monospace}
-html[data-theme="dark"]{--bg:#171614;--surface:#1F1D1A;--raised:#2C2925;--text:#DDD7CB;
-  --dim:rgba(221,215,203,.68);--faint:rgba(221,215,203,.45);--line:rgba(221,215,203,.12);
-  --up:#6CA88D;--down:#C27A68;--blue:#8CAECF;--amber:#D8B368;
-  --ink:#DDD7CB;--onink:#171614;--cline:rgba(221,215,203,.48);--cbody:#B8B0A2;
-  --pop:rgba(31,29,26,.96);--fabbg:rgba(31,29,26,.92);
-  --tint:rgba(221,215,203,.07);--cgrid:rgba(221,215,203,.04);--caim:rgba(221,215,203,.70);
-  --chair:rgba(221,215,203,.26);color-scheme:dark}
+html[data-theme="dark"]{
+  --bg:#121212;--surface:#1A1A1A;--raised:#262626;--text:#E0E0E0;
+  --dim:rgba(224,224,224,.68);--faint:rgba(224,224,224,.45);--line:rgba(255,255,255,.10);
+  --up:#FFFFFF;--down:#121212;--blue:#8CAECF;--amber:#D8B368;
+  --ink:#E0E0E0;--onink:#121212;--cline:rgba(255,255,255,.45);--cbody:#CCCCCC;
+  --pop:rgba(26,26,26,.98);--fabbg:rgba(26,26,26,.94);
+  --tint:rgba(255,255,255,.08);--cgrid:transparent;--caim:rgba(255,255,255,.80);
+  --chair:rgba(255,255,255,.25);color-scheme:dark}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden;
   font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 input{font:inherit;color:inherit;background:none;border:none;outline:none}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.up{color:var(--up)}.down{color:var(--down)}
+.up{color:var(--text);font-weight:600}.down{color:var(--text);font-weight:600}
 
 /* ---- 全屏 TradingView 图表容器 ---- */
 #tv_chart{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
@@ -48,18 +46,6 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none}
   position:fixed;top:0;right:0;width:20vw;height:100vh;z-index:3;
   cursor:e-resize;user-select:none;pointer-events:none;
 }
-
-/* ---- 盲盒标的标签与揭晓按钮（极简悬浮） ---- */
-#blind_box_bar{
-  position:fixed;top:18px;left:20px;z-index:15;display:flex;align-items:center;gap:8px;
-  background:var(--fabbg);padding:4px 12px;border-radius:10px;box-shadow:0 2px 10px rgba(46,43,38,.07);
-  font-size:12.5px;color:var(--dim);backdrop-filter:blur(8px);user-select:none;
-}
-#blind_box_bar .tag{font-weight:600;font-family:var(--mono);color:var(--text)}
-#btnReveal{
-  font-size:11.5px;padding:2px 8px;border-radius:6px;background:var(--raised);color:var(--dim);cursor:pointer;transition:.15s;
-}
-#btnReveal:hover{background:var(--ink);color:var(--onink)}
 
 /* ---- 右下角两个悬浮按钮 ---- */
 #brr{position:fixed;right:20px;bottom:22px;z-index:15;display:flex;align-items:center;gap:10px}
@@ -173,7 +159,6 @@ th:first-child,td:first-child{text-align:left}
 .dl .xbtn:hover{background:var(--down);color:#fff;transform:scale(1.18)}
 
 @media(max-width:640px){
-  #blind_box_bar{top:12px;left:12px;font-size:11.5px;padding:3px 8px}
   #brr{right:12px;bottom:14px;gap:6px}
   .fab{height:38px;font-size:12.5px;padding:0 12px}
   #ohud{left:10px;bottom:68px;width:calc(100vw - 20px);padding:14px 16px}
@@ -190,12 +175,6 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 
 <!-- 右侧 20% 推进触控区域 -->
 <div id="step_tap_zone"></div>
-
-<!-- 盲盒标的与揭晓按钮 -->
-<div id="blind_box_bar">
-  <span class="tag" id="blindTag">盲盒标的 #839</span>
-  <button id="btnReveal" title="点击揭晓真实品种与历史日期（快捷键 V）">👁️ 揭晓</button>
-</div>
 
 <!-- 右下角仅保留两个核心按钮 -->
 <div id="brr">
@@ -362,31 +341,34 @@ const toast = m => {
   clearTimeout(tt); tt = setTimeout(() => e.classList.remove("on"), 2400);
 };
 
-/* ================= 盲盒模式与真容揭晓 ================= */
+/* ================= 标的真容与揭晓逻辑 ================= */
 function updateBlindBoxUI(){
   const tag = $("#blindTag");
   const btn = $("#btnReveal");
-  if(S.isRevealed){
-    tag.textContent = `${S.sym} (${S.realTimeStr})`;
-    tag.style.color = "var(--amber)";
-    btn.textContent = "🙈 隐藏";
-    $("#ohT").textContent = S.sym;
-  } else {
-    tag.textContent = `盲盒标的 #${S.blindId} · 5m`;
-    tag.style.color = "var(--text)";
-    btn.textContent = "👁️ 揭晓";
-    $("#ohT").textContent = `标的 #${S.blindId}`;
+  if(tag){
+    if(S.isRevealed){
+      tag.textContent = `${S.sym} (${S.realTimeStr})`;
+      tag.style.color = "var(--amber)";
+    } else {
+      tag.textContent = `标的 #${S.blindId} · 5m`;
+      tag.style.color = "var(--text)";
+    }
+  }
+  if(btn){
+    btn.textContent = S.isRevealed ? "🙈 隐藏" : "👁️ 揭晓";
+  }
+  const ohT = $("#ohT");
+  if(ohT){
+    ohT.textContent = S.isRevealed ? S.sym : `标的 #${S.blindId}`;
   }
 }
 
 function toggleReveal(){
   S.isRevealed = !S.isRevealed;
   updateBlindBoxUI();
-  if(S.isRevealed){
-    toast(`🔍 真实标的：${S.sym} · 日期：${S.realTimeStr}`);
-  }
+  toast(`🔍 真实标的：${S.sym} · 日期：${S.realTimeStr}`);
 }
-$("#btnReveal").addEventListener("click", toggleReveal);
+if($("#btnReveal")) $("#btnReveal").addEventListener("click", toggleReveal);
 
 /* ================= 本地数据持久化 ================= */
 function loadStats(){
@@ -415,11 +397,13 @@ function initTradingViewChart(){
   const container = document.getElementById("tv_chart");
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   
-  const bg = isDark ? "#171614" : "#F4F1EA";
-  const text = isDark ? "#DDD7CB" : "#332F28";
-  const upColor = isDark ? "#6CA88D" : "#3A755D";
-  const downColor = isDark ? "#C27A68" : "#A85244";
-  const emaColor = isDark ? "#BDB4A4" : "#423D33";
+  const bg = isDark ? "#121212" : "#FFFFFF";
+  const text = isDark ? "#E0E0E0" : "#111111";
+  const upColor = "#FFFFFF";       // 阳线白身（空心感）
+  const downColor = isDark ? "#FFFFFF" : "#000000";     // 阴线实心黑身
+  const borderColor = isDark ? "#E0E0E0" : "#000000";   // 蜡烛黑边框
+  const wickColor = isDark ? "#E0E0E0" : "#000000";     // 影线纯黑
+  const emaColor = isDark ? "#888888" : "#222222";      // 经典深灰/黑均线
 
   tvChart = LightweightCharts.createChart(container, {
     width: window.innerWidth,
@@ -457,10 +441,10 @@ function initTradingViewChart(){
     upColor: upColor,
     downColor: downColor,
     borderVisible: true,
-    borderUpColor: upColor,
-    borderDownColor: downColor,
-    wickUpColor: upColor,
-    wickDownColor: downColor,
+    borderUpColor: borderColor,
+    borderDownColor: borderColor,
+    wickUpColor: wickColor,
+    wickDownColor: wickColor,
     priceLineVisible: false,
     lastValueVisible: false
   });
@@ -489,11 +473,13 @@ function initTradingViewChart(){
 function updateChartTheme(){
   if(!tvChart) return;
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-  const bg = isDark ? "#171614" : "#F4F1EA";
-  const text = isDark ? "#DDD7CB" : "#332F28";
-  const upColor = isDark ? "#6CA88D" : "#3A755D";
-  const downColor = isDark ? "#C27A68" : "#A85244";
-  const emaColor = isDark ? "#BDB4A4" : "#423D33";
+  const bg = isDark ? "#121212" : "#FFFFFF";
+  const text = isDark ? "#E0E0E0" : "#111111";
+  const upColor = "#FFFFFF";
+  const downColor = isDark ? "#FFFFFF" : "#000000";
+  const borderColor = isDark ? "#E0E0E0" : "#000000";
+  const wickColor = isDark ? "#E0E0E0" : "#000000";
+  const emaColor = isDark ? "#888888" : "#222222";
 
   tvChart.applyOptions({
     layout: { background: { color: bg }, textColor: text },
@@ -504,8 +490,9 @@ function updateChartTheme(){
 
   candleSeries.applyOptions({
     upColor: upColor, downColor: downColor,
-    borderUpColor: upColor, borderDownColor: downColor,
-    wickUpColor: upColor, wickDownColor: downColor
+    borderVisible: true,
+    borderUpColor: borderColor, borderDownColor: borderColor,
+    wickUpColor: wickColor, wickDownColor: wickColor
   });
 
   emaSeries.applyOptions({ color: emaColor });
@@ -1476,13 +1463,13 @@ addEventListener("mouseup", e => {
   // 点击屏幕右侧 20% 位置推进 K 线
   if(isQuickClick && onChart(e.target) && !isGripDragging){
     const isRight20 = clickX >= window.innerWidth * 0.80;
-    if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn") && !e.target.closest("#blind_box_bar")){
+    if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn")){
       stepNextBar();
     }
   }
 });
 addEventListener("contextmenu", e => {
-  if(!onChart(e.target) || e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#blind_box_bar")) return;
+  if(!onChart(e.target) || e.target.closest(".grip") || e.target.closest(".xbtn")) return;
   const p = y2p(e.clientY);
   if(p == null || !isFinite(p) || p <= 0) return;
   e.preventDefault();
@@ -1492,7 +1479,7 @@ addEventListener("contextmenu", e => {
 // 触屏交互
 addEventListener("touchstart", e => {
   if(!onChart(e.target) || isGripDragging) return;
-  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet") || e.target.closest("#blind_box_bar")) return;
+  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet")) return;
   pMulti = e.touches.length > 1; pKill = pMulti; aim = false; aimPrice = null; pTime = Date.now();
   const t = e.touches[0]; if(!t) return;
   pX = t.clientX; pY = t.clientY;
@@ -1537,7 +1524,7 @@ addEventListener("touchend", e => {
   // 触屏右侧 20% 点击推进
   if(isQuickTap && onChart(e.target) && !isGripDragging){
     const isRight20 = clickX >= window.innerWidth * 0.80;
-    if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn") && !e.target.closest("#blind_box_bar")){
+    if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn")){
       stepNextBar();
     }
   }
