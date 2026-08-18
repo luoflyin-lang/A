@@ -903,7 +903,7 @@ async function kline(force){
   subCoin(reqSym,reqTf);
   if(!force&&c&&Date.now()-c.t<30000)return;
   try{
-    const r=await pub("/fapi/v1/klines",{symbol:reqSym,interval:reqTf,limit:1500});
+    const r=await pub("/fapi/v1/klines",{symbol:reqSym,interval:reqTf,limit:500});
     const raw=(r||[]).map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
     if(raw.length){
       S.kc[key]={k:raw,t:Date.now()};
