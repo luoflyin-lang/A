@@ -12,6 +12,8 @@ if (typeof LightweightCharts === "undefined") {
   document.write('<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/script>');
 }
 </script>
+<!-- 引入 Al Brooks 价格行为学中英文语录库 -->
+<script src="./quotes.js"></script>
 <style>
 /* 经典纯白背景 + 纯正黑白 K 线极简配色 */
 :root{
@@ -157,7 +159,30 @@ th:first-child,td:first-child{text-align:left}
 }
 .dl .xbtn:hover{background:#C0392B;color:#fff;transform:scale(1.18)}
 
+/* ---- Al Brooks 价格行为学背景中英文语录 ---- */
+#bgQuote{
+  position:fixed;top:28px;left:50%;transform:translateX(-50%);
+  max-width:85vw;width:860px;text-align:center;
+  pointer-events:auto;cursor:pointer;z-index:2;user-select:none;
+  opacity:0.25;transition:opacity .25s ease, transform .2s ease;
+}
+#bgQuote:hover{
+  opacity:0.68;
+}
+#bgQuote .en{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:15px;font-weight:600;letter-spacing:0.01em;color:var(--text);
+  margin-bottom:3px;line-height:1.35;
+}
+#bgQuote .cn{
+  font-size:13px;font-weight:500;letter-spacing:0.03em;color:var(--dim);
+  line-height:1.4;
+}
+
 @media(max-width:640px){
+  #bgQuote{top:16px;max-width:92vw}
+  #bgQuote .en{font-size:12.5px}
+  #bgQuote .cn{font-size:11.5px}
   #brr{left:12px;bottom:14px;right:auto;gap:6px}
   .fab{height:38px;font-size:12.5px;padding:0 12px}
   #ohud{left:10px;bottom:66px;width:calc(100vw - 20px);padding:14px 16px}
@@ -171,6 +196,12 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <body>
 <!-- TradingView 图表挂载节点 -->
 <div id="tv_chart"></div>
+
+<!-- Al Brooks 价格行为学经典中英文语录背景水印 -->
+<div id="bgQuote">
+  <div class="en" id="qEn">Most Important Rule: Price Is Truth.</div>
+  <div class="cn" id="qCn">最重要的规则：价格即是真相。</div>
+</div>
 
 <!-- 右侧 20% 推进触控区域 -->
 <div id="step_tap_zone"></div>
@@ -339,6 +370,22 @@ const toast = m => {
   const e = $("#toast"); e.textContent = m; e.classList.add("on");
   clearTimeout(tt); tt = setTimeout(() => e.classList.remove("on"), 2400);
 };
+
+/* ================= Al Brooks 价格行为学语录逻辑 ================= */
+function pickRandomQuote(){
+  const list = window.AL_BROOKS_QUOTES;
+  if(!list || !list.length) return;
+  const q = list[Math.floor(Math.random() * list.length)];
+  const enEl = $("#qEn"), cnEl = $("#qCn");
+  if(enEl) enEl.textContent = q.en;
+  if(cnEl) cnEl.textContent = q.cn;
+}
+if($("#bgQuote")){
+  $("#bgQuote").addEventListener("click", () => {
+    pickRandomQuote();
+    toast("💡 已随机切换 Al Brooks 价格行为学语录");
+  });
+}
 
 /* ================= 标的真容与揭晓逻辑 ================= */
 function updateBlindBoxUI(){
@@ -598,6 +645,7 @@ async function loadRandomMarket(){
         if(F.on) endFlow();
 
         updateBlindBoxUI();
+        pickRandomQuote();
         updateChartCandles(S.curK);
         
         // 默认显示最新 100 根 K 线（舒适视距，清晰不拥挤），左侧历史数据完整保留，可随时向左拖动查看
