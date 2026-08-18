@@ -209,6 +209,10 @@ th:first-child,td:first-child{text-align:left}
 .dl.dyn .grip{left:130px;right:auto;background:var(--pop);color:var(--text);
   border:1px solid var(--line);box-shadow:0 2px 8px rgba(46,43,38,.14)}
 .dl.dyn.sl .grip{color:var(--down);border-color:var(--down)}.dl.dyn.tp .grip{color:var(--up);border-color:var(--up)}.dl.dyn.pos .grip{color:var(--blue);border-color:var(--blue)}
+.dl.dragging{border-top:1.5px dashed var(--amber) !important;display:block !important;z-index:15}
+.dl.dragging.sl{border-top:1.5px dashed var(--down) !important}
+.dl.dragging.tp{border-top:1.5px dashed var(--up) !important}
+.dl.dragging.en{border-top:1.5px dashed var(--blue) !important}
 .dl .xbtn{position:absolute;left:340px;right:auto;top:-13px;width:24px;height:24px;line-height:22px;text-align:center;
   border-radius:7px;background:var(--pop);border:1px solid var(--line);box-shadow:0 1px 6px rgba(46,43,38,.16);color:var(--text);
   font-size:13px;cursor:pointer;pointer-events:auto;user-select:none}
@@ -678,7 +682,31 @@ function errsOf(res){
 
 /* ================= TRADINGVIEW 图表核心引擎 ================= */
 let tvChart=null, candleSeries=null, emaSeries=null;
-let tradeLines = { entry: null, sl: null, tp: null, pos: [], ords: [] };
+let tradeLines = { entry: null, sl: null, tp: null, pos: [], ords: [], drag: null };
+
+function startDragPreview(p, color, title){
+  if(!candleSeries || !p || !(p > 0)) return;
+  if(tradeLines.drag){ try{ candleSeries.removePriceLine(tradeLines.drag); }catch(e){} tradeLines.drag = null; }
+  tradeLines.drag = candleSeries.createPriceLine({
+    price: p,
+    color: color,
+    lineWidth: 1.5,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
+    axisLabelVisible: false,
+    title: title
+  });
+}
+function updateDragPreview(p, title){
+  if(tradeLines.drag && p > 0){
+    try{ tradeLines.drag.applyOptions({ price: p, title: title }); }catch(e){}
+  }
+}
+function endDragPreview(){
+  if(candleSeries && tradeLines.drag){
+    try{ candleSeries.removePriceLine(tradeLines.drag); }catch(e){}
+    tradeLines.drag = null;
+  }
+}
 
 function initTradingViewChart(){
   const container = document.getElementById("tv_chart");
@@ -1111,21 +1139,26 @@ async function load(silent){
     if(dual&&dual.dualSidePosition!=null)S.dual=!!dual.dualSidePosition;
     
     const algoArr = Array.isArray(algoRes) ? algoRes : (algoRes && Array.isArray(algoRes.openAlgoOrders) ? algoRes.openAlgoOrders : []);
-    const normalizedAlgo = algoArr.map(o => ({
-      symbol: o.symbol,
-      orderId: o.algoId || o.orderId,
-      algoId: o.algoId || o.orderId,
-      isAlgo: true,
-      side: o.side,
-      positionSide: o.positionSide || "BOTH",
-      type: o.algoType || o.orderType || o.type,
-      stopPrice: o.stopPrice || o.triggerPrice || 0,
-      price: o.price || 0,
-      origQty: o.totalQty || o.quantity || o.origQty || 0,
-      closePosition: o.closePosition === true || o.closePosition === "true",
-      reduceOnly: o.reduceOnly === true || o.reduceOnly === "true",
-      time: o.bookTime || o.time || o.createTime || Date.now()
-    }));
+    const normalizedAlgo = algoArr.map(o => {
+      const oType = o.orderType || o.type || o.algoType || "STOP_MARKET";
+      return {
+        symbol: o.symbol,
+        orderId: o.algoId || o.orderId,
+        algoId: o.algoId || o.orderId,
+        isAlgo: true,
+        side: o.side,
+        positionSide: o.positionSide || "BOTH",
+        type: oType,
+        orderType: oType,
+        algoType: o.algoType || "CONDITIONAL",
+        stopPrice: o.stopPrice || o.triggerPrice || 0,
+        price: o.price || 0,
+        origQty: o.totalQty || o.quantity || o.origQty || 0,
+        closePosition: o.closePosition === true || o.closePosition === "true",
+        reduceOnly: o.reduceOnly === true || o.reduceOnly === "true",
+        time: o.bookTime || o.time || o.createTime || Date.now()
+      };
+    });
 
     const od = [...(Array.isArray(stdOd)?stdOd:[]), ...normalizedAlgo];
     applyAcct(acc,pos,od);
@@ -1255,57 +1288,95 @@ async function modifyOrderPrice(oldOrder, newPrice){
   if(!(alignedPx > 0) || Math.abs(alignedPx - oi.price) < 1e-8) return;
 
   const curM = mid(sym);
-  // 止损单防穿透校验：避免误拖导致交易所拒单 -2021
-  if(oi.sl && curM > 0){
-    const isLong = oldOrder.side === "SELL"; // 多头平仓止损是 SELL
-    if(isLong && alignedPx >= curM){
-      toast("⚠ 多仓止损价必须低于当前市价 " + px(curM, sym));
-      liveLines(true);
-      return;
-    } else if(!isLong && alignedPx <= curM){
-      toast("⚠ 空仓止损价必须高于当前市价 " + px(curM, sym));
-      liveLines(true);
-      return;
+  // 1. 价格合法性校验（防穿透 / 防误拖 / 交易所拒单保护）
+  if(curM > 0){
+    if(oi.sl){
+      const isLong = oldOrder.side === "SELL"; // 多仓平仓止损是 SELL
+      if(isLong && alignedPx >= curM){
+        toast("⚠ 多仓止损价必须低于当前市价 " + px(curM, sym));
+        liveLines(true);
+        return;
+      } else if(!isLong && alignedPx <= curM){
+        toast("⚠ 空仓止损价必须高于当前市价 " + px(curM, sym));
+        liveLines(true);
+        return;
+      }
+    } else if(oi.tp){
+      const isLong = oldOrder.side === "SELL"; // 多仓平仓止盈是 SELL
+      if(isLong && alignedPx <= curM){
+        toast("⚠ 多仓止盈价必须高于当前市价 " + px(curM, sym));
+        liveLines(true);
+        return;
+      } else if(!isLong && alignedPx >= curM){
+        toast("⚠ 空仓止盈价必须低于当前市价 " + px(curM, sym));
+        liveLines(true);
+        return;
+      }
     }
   }
 
-  toast("正在修改 " + disp(sym) + " " + oi.kind + " 价格至 " + px(alignedPx, sym) + "…");
-  
-  // 1. 撤销旧单
-  await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo);
-  
-  // 2. 构造新单
-  const isTrig = oi.trig;
+  // 2. 数量计算
+  let qty = +oldOrder.origQty || 0;
+  if(!(qty > 0)){
+    const p = posOf(sym).find(x => (x.amt > 0) === (oldOrder.side === "SELL"));
+    if(p) qty = Math.abs(p.amt);
+  }
+  const qtyStr = qty > 0 ? fmtSz(alignSz(qty, sym), sym) : undefined;
+
+  // 3. 构造新单载荷
   const pxStr = fmtPx(alignedPx, sym);
+  const isTrig = oi.trig;
+  const orderType = oldOrder.orderType || oldOrder.type || (isTrig ? "STOP_MARKET" : "LIMIT");
+  
   const newOrd = {
     symbol: sym,
     side: oldOrder.side,
-    type: oldOrder.type || "LIMIT"
+    type: orderType
   };
 
-  if(oldOrder.closePosition || (isTrig && !oldOrder.origQty)){
-    newOrd.closePosition = "true";
-  } else if(oldOrder.origQty){
-    newOrd.quantity = fmtSz(oldOrder.origQty, sym);
-  }
-
   if(oldOrder.positionSide) newOrd.positionSide = oldOrder.positionSide;
-  if(oldOrder.reduceOnly && !newOrd.closePosition) newOrd.reduceOnly = "true";
+  else if(S.dual) newOrd.positionSide = oldOrder.side === "SELL" ? "LONG" : "SHORT";
+
+  if(oldOrder.closePosition === true || oldOrder.closePosition === "true"){
+    newOrd.closePosition = "true";
+  } else {
+    if(qtyStr) newOrd.quantity = qtyStr;
+    if(!S.dual && (oi.ro || oi.sl || oi.tp)) newOrd.reduceOnly = "true";
+  }
 
   if(isTrig){
     newOrd.stopPrice = pxStr;
     newOrd.triggerPrice = pxStr;
     newOrd.workingType = WORK;
     newOrd.priceProtect = "true";
-    if(/LIMIT|TAKE_PROFIT|STOP$/.test(oldOrder.type)) newOrd.price = pxStr;
+    if(/LIMIT|TAKE_PROFIT$|STOP$/.test(orderType)) newOrd.price = pxStr;
   } else {
     newOrd.price = pxStr;
     newOrd.timeInForce = oldOrder.timeInForce || TIF;
   }
 
+  toast("正在修改 " + disp(sym) + " " + oi.kind + " 价格至 " + px(alignedPx, sym) + "…");
+  
+  // 4. 撤销旧单
+  const oldOid = oldOrder.algoId || oldOrder.orderId;
+  await cancelOrder(sym, oldOid, oldOrder.isAlgo);
+  
+  // 5. 提交新单
   const res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym));
   if(okAll(res)){
-    toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
+    toast("✔ 已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
+    if(PENDBR[sym] && oi.sl) PENDBR[sym].sl = alignedPx;
+    if(PENDBR[sym] && oi.tp) PENDBR[sym].tp = alignedPx;
+    savePendBr();
+  } else {
+    toast("⚠ 改单挂入被拒：" + errText(LAST_ERR || res) + "，请在持仓面板核对！");
+    if(oi.sl){
+      // 触发兜底补挂止损机制
+      if(!PENDBR[sym]) PENDBR[sym] = { side: oldOrder.side === "SELL" ? "BUY" : "SELL", sl: alignedPx, qty: qty, ts: Date.now() };
+      else { PENDBR[sym].sl = alignedPx; PENDBR[sym].slDone = false; }
+      savePendBr();
+      setTimeout(() => firePendingBracket(sym), 800);
+    }
   }
   load(true);
 }
@@ -1414,14 +1485,14 @@ async function send(method,path,params,msg,silent){
 }
 
 async function placeOrder(ord, label, silent){
-  const isAlgo = /STOP|TAKE_PROFIT|TRAILING/.test(ord.type);
+  const isAlgo = /STOP|TAKE_PROFIT|TRAILING/.test(ord.type) || ord.algoType === "CONDITIONAL" || ord.isAlgo;
   if(isAlgo){
     const trig = ord.triggerPrice || ord.stopPrice;
     const p = Object.assign({}, ord, { 
       algoType: "CONDITIONAL", 
       triggerPrice: trig,
       stopPrice: trig,
-      orderType: ord.type
+      orderType: ord.orderType || ord.type
     });
     let res = await send("POST", "/fapi/v1/algoOrder", p, label, silent);
     if(res && (res.code === -4120 || res.code === -1102)){
@@ -1967,13 +2038,18 @@ function liveLines(force){
     const grip = d.querySelector(".grip");
     if(grip){
       let startY = 0, isDragging = false, currentPrice = v;
+      const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+      const dragColor = oi.isEntry ? (isDark ? "#8CAECF" : "#3C5A78") : (oi.tp ? (isDark ? "#6CA88D" : "#3A755D") : (isDark ? "#C27A68" : "#A85244"));
+
       grip.addEventListener("pointerdown", ev => {
         if(ev.button !== 0 && ev.pointerType === "mouse") return;
         isDragging = true;
         itObj.dragging = true;
         startY = ev.clientY;
         currentPrice = v;
+        d.classList.add("dragging");
         grip.classList.add("dragging");
+        startDragPreview(v, dragColor, "调整 → " + oi.kind + " @" + px(v, o.symbol));
         try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
         ev.stopPropagation();
         if(ev.cancelable) ev.preventDefault();
@@ -1988,7 +2064,12 @@ function liveLines(force){
         if(aligned > 0){
           currentPrice = aligned;
           d.style.top = cy + "px";
-          grip.textContent = "改价 → " + oi.kind + " @" + px(aligned, o.symbol);
+          const curM = mid(o.symbol);
+          const diffPct = (curM > 0) ? ((aligned - curM) / curM * 100) : 0;
+          const pctTxt = curM > 0 ? " (" + (diffPct > 0 ? "+" : "") + diffPct.toFixed(2) + "%)" : "";
+          const dragTxt = "改价 → " + oi.kind + " @" + px(aligned, o.symbol) + pctTxt;
+          grip.textContent = dragTxt;
+          updateDragPreview(aligned, dragTxt);
         }
         ev.stopPropagation();
         if(ev.cancelable) ev.preventDefault();
@@ -1998,7 +2079,9 @@ function liveLines(force){
         if(!isDragging) return;
         isDragging = false;
         itObj.dragging = false;
+        d.classList.remove("dragging");
         grip.classList.remove("dragging");
+        endDragPreview();
         try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
         ev.stopPropagation();
         if(ev.cancelable) ev.preventDefault();
@@ -2023,6 +2106,10 @@ function liveLines(force){
   // 3. 待成交挂单 (PENDBR)
   const pb = PENDBR[S.sym];
   if(pb){
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    const downColor = isDark ? "#C27A68" : "#A85244";
+    const upColor = isDark ? "#6CA88D" : "#3A755D";
+
     const hasLiveSl = (S.ords[S.sym]||[]).some(o=>ordInfo(o).sl);
     if(pb.sl != null && !hasLiveSl){
       const d=document.createElement("div");
@@ -2036,7 +2123,9 @@ function liveLines(force){
       if(grip){
         let isDragging = false, curP = +pb.sl;
         grip.addEventListener("pointerdown", ev => {
-          isDragging = true; itObj.dragging = true; grip.classList.add("dragging");
+          isDragging = true; itObj.dragging = true; 
+          d.classList.add("dragging"); grip.classList.add("dragging");
+          startDragPreview(curP, downColor, "待挂止损 @" + px(curP, S.sym));
           try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
           ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
         }, { passive: false });
@@ -2046,13 +2135,17 @@ function liveLines(force){
           if(p > 0){
             curP = alignPx(p, S.sym);
             d.style.top = ev.clientY + "px";
-            grip.textContent = "待挂止损 → " + px(curP, S.sym);
+            const dragTxt = "待挂止损 → " + px(curP, S.sym);
+            grip.textContent = dragTxt;
+            updateDragPreview(curP, dragTxt);
           }
           ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
         }, { passive: false });
         const onUp = ev => {
           if(!isDragging) return;
-          isDragging = false; itObj.dragging = false; grip.classList.remove("dragging");
+          isDragging = false; itObj.dragging = false; 
+          d.classList.remove("dragging"); grip.classList.remove("dragging");
+          endDragPreview();
           try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
           ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
           if(curP > 0){
@@ -2082,7 +2175,9 @@ function liveLines(force){
       if(grip){
         let isDragging = false, curP = +pb.tp;
         grip.addEventListener("pointerdown", ev => {
-          isDragging = true; itObj.dragging = true; grip.classList.add("dragging");
+          isDragging = true; itObj.dragging = true; 
+          d.classList.add("dragging"); grip.classList.add("dragging");
+          startDragPreview(curP, upColor, "待挂止盈 @" + px(curP, S.sym));
           try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
           ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
         }, { passive: false });
@@ -2092,13 +2187,17 @@ function liveLines(force){
           if(p > 0){
             curP = alignPx(p, S.sym);
             d.style.top = ev.clientY + "px";
-            grip.textContent = "待挂止盈 → " + px(curP, S.sym);
+            const dragTxt = "待挂止盈 → " + px(curP, S.sym);
+            grip.textContent = dragTxt;
+            updateDragPreview(curP, dragTxt);
           }
           ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
         }, { passive: false });
         const onUp = ev => {
           if(!isDragging) return;
-          isDragging = false; itObj.dragging = false; grip.classList.remove("dragging");
+          isDragging = false; itObj.dragging = false; 
+          d.classList.remove("dragging"); grip.classList.remove("dragging");
+          endDragPreview();
           try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
           ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
           if(curP > 0){
@@ -2127,6 +2226,7 @@ function syncTradeLines(){
   const upColor = isDark ? "#6CA88D" : "#3A755D";
   const downColor = isDark ? "#C27A68" : "#A85244";
 
+  if(tradeLines.drag){ try{ candleSeries.removePriceLine(tradeLines.drag); }catch(e){} tradeLines.drag = null; }
   if(tradeLines.entry){ candleSeries.removePriceLine(tradeLines.entry); tradeLines.entry = null; }
   if(tradeLines.sl){ candleSeries.removePriceLine(tradeLines.sl); tradeLines.sl = null; }
   if(tradeLines.tp){ candleSeries.removePriceLine(tradeLines.tp); tradeLines.tp = null; }
