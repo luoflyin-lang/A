@@ -66,9 +66,11 @@ export default {
       }
     }
 
-    // 4. 访问主页或任何非 API 路径：直接返回完整的交易终端 order.html（自动从 GitHub 保持最新）
+    // 4. 访问主页或任何非 API 路径：根据域名/路径分发 cs.html 或 order.html（自动从 GitHub 保持最新）
     try {
-      const rawGithubUrl = "https://raw.githubusercontent.com/luoflyin-lang/A/main/order.html";
+      const isCs = url.hostname.startsWith("cs.") || url.pathname.startsWith("/cs");
+      const targetFile = isCs ? "cs.html" : "order.html";
+      const rawGithubUrl = `https://raw.githubusercontent.com/luoflyin-lang/A/main/${targetFile}`;
       const ghResp = await fetch(rawGithubUrl, { cf: { cacheTtl: 60 } });
       if (ghResp.ok) {
         const html = await ghResp.text();
@@ -82,7 +84,7 @@ export default {
       }
     } catch (e) {}
 
-    return new Response("Order Terminal is loading...", {
+    return new Response("Terminal is loading...", {
       status: 200,
       headers: { "Content-Type": "text/plain; charset=utf-8", ...corsHeaders },
     });

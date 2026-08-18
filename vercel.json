@@ -3,7 +3,21 @@
   "rewrites": [
     {
       "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "cs.124568.xyz"
+        }
+      ],
+      "destination": "/cs.html"
+    },
+    {
+      "source": "/",
       "destination": "/order.html"
+    },
+    {
+      "source": "/cs",
+      "destination": "/cs.html"
     },
     {
       "source": "/fapi/(.*)",
