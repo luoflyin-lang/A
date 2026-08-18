@@ -651,7 +651,6 @@ async function loadRandomMarket(){
         if(F.on) endFlow();
 
         updateBlindBoxUI();
-        pickRandomQuote();
         updateChartCandles(S.curK);
         
         // 默认显示最新 100 根 K 线（舒适视距，清晰不拥挤），左侧历史数据完整保留，可随时向左拖动查看
@@ -695,9 +694,6 @@ function stepNextBar(silent = false){
   const nextBar = S.fullK[S.visibleCount];
   S.visibleCount++;
   S.curK = S.fullK.slice(0, S.visibleCount);
-  
-  // 每次推进 1 根 K 线，同步切换下一句 Al Brooks 价格行为学中英语录
-  pickRandomQuote(true);
   
   matchBar(nextBar);
   
