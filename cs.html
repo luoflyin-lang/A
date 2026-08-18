@@ -47,10 +47,10 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none}
   cursor:e-resize;user-select:none;pointer-events:none;
 }
 
-/* ---- 右下角两个悬浮按钮 ---- */
-#brr{position:fixed;right:20px;bottom:22px;z-index:15;display:flex;align-items:center;gap:10px}
+/* ---- 左下角两个悬浮按钮 ---- */
+#brr{position:fixed;left:20px;bottom:22px;z-index:15;display:flex;align-items:center;gap:10px}
 .fab{height:42px;min-width:42px;padding:0 16px;border-radius:12px;background:var(--fabbg);
-  border:none;box-shadow:0 3px 14px rgba(46,43,38,.10);font-size:13.5px;color:var(--text);backdrop-filter:blur(8px);
+  border:1px solid var(--line);box-shadow:0 3px 14px rgba(0,0,0,.08);font-size:13.5px;color:var(--text);backdrop-filter:blur(8px);
   display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;font-weight:550;transition:.15s}
 .fab:hover{background:var(--raised);transform:translateY(-1px)}
 .fab:active{transform:translateY(1px)}
@@ -58,7 +58,7 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none}
 .fab.primary:hover{opacity:.9}
 
 /* ---- 抽屉面板 ---- */
-#mask{position:fixed;inset:0;background:rgba(46,43,38,.22);opacity:0;pointer-events:none;transition:.18s;z-index:20}
+#mask{position:fixed;inset:0;background:rgba(0,0,0,.22);opacity:0;pointer-events:none;transition:.18s;z-index:20}
 #mask.on{opacity:1;pointer-events:auto}
 .sheet{position:fixed;top:0;right:0;bottom:0;width:500px;max-width:92vw;background:var(--surface);
   border-left:1px solid var(--line);z-index:25;transform:translateX(102%);transition:transform .22s ease;
@@ -97,9 +97,9 @@ th:first-child,td:first-child{text-align:left}
   max-width:82vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.18)}
 #toast.on{opacity:1;transform:translateX(-50%)}
 
-/* ---- 下单 HUD 面板 ---- */
-#ohud{position:fixed;left:20px;bottom:22px;z-index:18;width:380px;display:none;
-  background:var(--pop);border:none;border-radius:16px;box-shadow:0 8px 32px rgba(46,43,38,.15);
+/* ---- 下单 HUD 面板（停靠在左下角上方） ---- */
+#ohud{position:fixed;left:20px;bottom:76px;z-index:18;width:380px;display:none;
+  background:var(--pop);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.12);
   padding:18px 20px;backdrop-filter:blur(10px)}
 #ohud.on{display:block}
 #ohud .t{display:flex;align-items:center;gap:14px;font-size:14px;color:var(--faint);margin-bottom:12px}
@@ -109,7 +109,7 @@ th:first-child,td:first-child{text-align:left}
 .ol .v{margin-left:auto;font-family:var(--mono);color:var(--text);font-weight:550}
 .ol.cur{color:var(--text);font-weight:600}
 .ol i{width:7px;height:7px;border-radius:50%;display:block;flex:none}
-.ol i.e{background:var(--blue)}.ol i.s{background:var(--down)}.ol i.t{background:var(--up)}
+.ol i.e{background:#2B5C8F}.ol i.s{background:#C0392B}.ol i.t{background:#27AE60}
 .ol.cur i{box-shadow:0 0 0 3px var(--tint)}
 #ohC{font-size:12px;color:var(--faint);line-height:1.6;margin:10px 0 4px}
 #ohC b{color:var(--text);font-weight:600}
@@ -119,24 +119,23 @@ th:first-child,td:first-child{text-align:left}
 .obar button:hover{color:var(--text)}
 #ohR{background:var(--tint);color:var(--text);border:1px solid var(--line)}
 #ohGo{height:36px;width:100%;margin-top:10px;border-radius:9px;font-size:13.5px;font-weight:650}
-#ohGo.b{background:var(--up);color:var(--onink)}#ohGo.s{background:var(--down);color:var(--onink)}
+#ohGo.b{background:#111111;color:#FFFFFF}#ohGo.s{background:#111111;color:#FFFFFF}
 #ohGo:disabled{opacity:.35;cursor:not-allowed}
 #ohH{font-size:11.5px;color:var(--amber);margin-top:6px;min-height:16px;line-height:1.4}
 
 /* ---- 图表辅助线与把手 ---- */
 #pline{position:fixed;left:0;right:0;height:0;display:none;z-index:10;pointer-events:none;
-  border-top:1px dashed var(--cline)}
-#pline.aim{border-top:1.5px solid var(--amber)}
+  border-top:1.5px dashed #2B5C8F}
+#pline.aim{border-top:1.5px solid #2B5C8F}
 #pbub{position:absolute;left:440px;top:-11px;font-family:var(--mono);font-size:12px;
-  background:var(--raised);color:var(--text);border-radius:6px;padding:2px 7px;white-space:nowrap}
-#pline.aim #pbub{background:var(--ink);color:var(--onink);font-weight:650}
+  background:#111111;color:#FFFFFF;border-radius:6px;padding:2px 7px;white-space:nowrap}
 
 #dlayer{position:fixed;inset:0;z-index:4;pointer-events:none}
 .dl{position:absolute;left:0;right:0;height:0;display:none}
-.dl.sl{border-top:1.5px dashed var(--down)}
-.dl.tp{border-top:1.5px dashed var(--up)}
-.dl.en{border-top:1.5px dashed var(--blue)}
-.dl.pos{border-top:2px solid var(--blue)}
+.dl.sl{border-top:1.5px dashed #C0392B}
+.dl.tp{border-top:1.5px dashed #27AE60}
+.dl.en{border-top:1.5px dashed #2B5C8F}
+.dl.pos{border-top:2px solid #2B5C8F}
 
 /* 选点与持仓/挂单的可移动把手 */
 .dl .grip{
@@ -144,24 +143,24 @@ th:first-child,td:first-child{text-align:left}
   border-radius:7px;padding:3px 9px;cursor:ns-resize;pointer-events:auto;touch-action:none;white-space:nowrap;
   box-shadow:0 2px 8px rgba(0,0,0,.15);display:inline-flex;align-items:center;gap:6px;user-select:none;transition:transform .1s ease, background .15s ease;
 }
-.dl.en .grip{background:var(--blue);color:var(--onink)}
-.dl.sl .grip{background:var(--down);color:var(--onink)}
-.dl.tp .grip{background:var(--up);color:var(--onink)}
+.dl.en .grip{background:#2B5C8F;color:#FFFFFF}
+.dl.sl .grip{background:#C0392B;color:#FFFFFF}
+.dl.tp .grip{background:#27AE60;color:#FFFFFF}
 
 .dl .grip:hover{transform:scale(1.03);z-index:12}
 
 /* 入场线上的市价平仓/撤单叉叉按钮 */
 .dl .xbtn{
   margin-left:6px;width:18px;height:18px;line-height:17px;text-align:center;
-  border-radius:50%;background:rgba(255,255,255,.28);color:var(--onink);
+  border-radius:50%;background:rgba(255,255,255,.28);color:#fff;
   font-size:11px;font-weight:bold;cursor:pointer;pointer-events:auto;transition:.15s;display:inline-block;
 }
-.dl .xbtn:hover{background:var(--down);color:#fff;transform:scale(1.18)}
+.dl .xbtn:hover{background:#C0392B;color:#fff;transform:scale(1.18)}
 
 @media(max-width:640px){
-  #brr{right:12px;bottom:14px;gap:6px}
+  #brr{left:12px;bottom:14px;right:auto;gap:6px}
   .fab{height:38px;font-size:12.5px;padding:0 12px}
-  #ohud{left:10px;bottom:68px;width:calc(100vw - 20px);padding:14px 16px}
+  #ohud{left:10px;bottom:66px;width:calc(100vw - 20px);padding:14px 16px}
   #pbub,.dl .grip{left:140px}
 }
 </style>
@@ -437,14 +436,11 @@ function initTradingViewChart(){
     handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
   });
 
-  candleSeries = tvChart.addCandlestickSeries({
-    upColor: upColor,
-    downColor: downColor,
-    borderVisible: true,
-    borderUpColor: borderColor,
-    borderDownColor: borderColor,
-    wickUpColor: wickColor,
-    wickDownColor: wickColor,
+  candleSeries = tvChart.addBarSeries({
+    upColor: isDark ? "#FFFFFF" : "#000000",
+    downColor: isDark ? "#FFFFFF" : "#000000",
+    openVisible: true,
+    thinBars: false,
     priceLineVisible: false,
     lastValueVisible: false
   });
@@ -475,10 +471,7 @@ function updateChartTheme(){
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const bg = isDark ? "#121212" : "#FFFFFF";
   const text = isDark ? "#E0E0E0" : "#111111";
-  const upColor = "#FFFFFF";
-  const downColor = isDark ? "#FFFFFF" : "#000000";
-  const borderColor = isDark ? "#E0E0E0" : "#000000";
-  const wickColor = isDark ? "#E0E0E0" : "#000000";
+  const barColor = isDark ? "#FFFFFF" : "#000000";
   const emaColor = isDark ? "#888888" : "#222222";
 
   tvChart.applyOptions({
@@ -489,10 +482,10 @@ function updateChartTheme(){
   });
 
   candleSeries.applyOptions({
-    upColor: upColor, downColor: downColor,
-    borderVisible: true,
-    borderUpColor: borderColor, borderDownColor: borderColor,
-    wickUpColor: wickColor, wickDownColor: wickColor
+    upColor: barColor,
+    downColor: barColor,
+    openVisible: true,
+    thinBars: false
   });
 
   emaSeries.applyOptions({ color: emaColor });
@@ -900,10 +893,16 @@ function resetAllStats(){
 
 /* ================= 下单与以 R 计量的仓位计算 ================= */
 function startFlow(){
-  F.on = true; F.step = 1; F.e = F.sl = F.tp = null;
+  const curP = curPrice() || 50000;
+  const defaultDist = Math.max(curP * 0.008, S.tickSize * 25);
+  F.on = true; F.step = 4;
+  F.e = curP;
+  F.sl = curP - defaultDist;
+  F.tp = curP + defaultDist * 2;
   $("#ohud").classList.add("on");
   renderFlow();
-  toast("长按拖拽或右键选择【入场价】");
+  repositionHandles();
+  toast("长按或拖拽图表上的【入场】与【止损】把手调整下单");
 }
 
 function endFlow(){
@@ -937,11 +936,11 @@ function renderFlow(){
   const isBuy = F.sl != null && F.e != null ? F.sl < F.e : true;
   const displaySym = S.isRevealed ? S.sym : `盲盒标的 #${S.blindId}`;
   $("#ohT").textContent = displaySym + " · 模拟下单";
-  $("#ohS").textContent = F.step === 1 ? "选入场价" : F.step === 2 ? "选止损价" : F.step === 3 ? "选止盈价" : "确认下单";
+  $("#ohS").textContent = "双线就绪";
 
   [["#lE", "e"], ["#lS", "sl"], ["#lT", "tp"]].forEach(([id, k], i) => {
     const el = $(id);
-    el.classList.toggle("cur", F.step === i + 1);
+    el.classList.toggle("cur", true);
     el.querySelector(".v").textContent = F[k] == null ? "—" : px(F[k]);
   });
 
@@ -961,39 +960,33 @@ function renderFlow(){
   }
 
   $("#ohR").textContent = `仓位 ${F.risk}% (${F.risk.toFixed(2)} R)`;
-  $("#ohSkip").textContent = F.step === 3 ? "跳过止盈" : "重新选";
+  $("#ohSkip").textContent = F.tp != null ? "关闭止盈" : "开启止盈";
 
   const go = $("#ohGo");
   go.className = isBuy ? "b" : "s";
   go.textContent = isBuy ? "确认模拟 · 做多" : "确认模拟 · 做空";
   go.disabled = !r.ok;
 
-  $("#ohH").textContent = r.err ? `⚠ ${r.err}` : (F.e == null ? "点击图表选入场价" : F.sl == null ? "再点一次选止损价" : "");
+  $("#ohH").textContent = r.err ? `⚠ ${r.err}` : "可直接拖动图表把手微调价格";
   syncTradeLines();
 }
 
 function pickPrice(p){
   if(!p || !isFinite(p) || p <= 0) return;
-  if(!F.on){
-    F.on = true; F.step = 1; F.e = F.sl = F.tp = null;
-    $("#ohud").classList.add("on");
-  }
-
-  if(F.step <= 1){
-    F.e = p; F.step = 2;
-    toast("【入场已定】" + px(p) + " · 请长按拖动选【止损价】");
-  }else if(F.step === 2){
-    F.sl = p; F.step = 3;
-    toast("【止损已定】" + px(p) + " · 选【止盈】或点【跳过止盈】");
-  }else if(F.step === 3){
-    F.tp = p; F.step = 4;
-    toast("【止盈已定】" + px(p) + " · 请点击【确认模拟下单】");
-  }else{
-    const d = [["e", F.e], ["sl", F.sl], ["tp", F.tp]].filter(x => x[1] != null)
-      .sort((a, b) => Math.abs(a[1] - p) - Math.abs(b[1] - p))[0];
-    if(d) F[d[0]] = p;
-  }
+  const curP = curPrice() || p;
+  const defaultDist = Math.max(p * 0.008, S.tickSize * 25);
+  const isBuy = p >= curP;
+  
+  F.on = true;
+  F.step = 4;
+  F.e = p;
+  F.sl = isBuy ? p - defaultDist : p + defaultDist;
+  F.tp = isBuy ? p + defaultDist * 2 : p - defaultDist * 2;
+  
+  $("#ohud").classList.add("on");
   renderFlow();
+  repositionHandles();
+  toast(`🎯 已生成双线挂单：入场 ${px(F.e)} · 止损 ${px(F.sl)}`);
 }
 
 /* ================= 绘制持仓、挂单辅助线与把手 ================= */
@@ -1378,15 +1371,43 @@ function guide(clientY){
   const p = y2p(clientY), l = $("#pline");
   if(p == null || !isFinite(p) || p <= 0){ l.style.display="none"; aimPrice=null; return null; }
   aimPrice = p;
-  const lb = !F.on || F.step <= 1 ? "入场" : F.step === 2 ? "止损" : F.step === 3 ? "止盈" : "调整";
+  
+  // 长按中移动：实时平移入场与止损双线
+  if(F.on && F.e != null){
+    const delta = p - F.e;
+    F.e = p;
+    if(F.sl != null) F.sl += delta;
+    if(F.tp != null) F.tp += delta;
+    renderFlow();
+    repositionHandles();
+  }
+  
   l.style.display="block"; l.style.top=clientY+"px";
-  $("#pbub").textContent = lb + " " + px(p);
+  $("#pbub").textContent = "入场 " + px(p);
   return p;
 }
 function hideGuide(){ $("#pline").style.display="none"; aimPrice=null; }
 function enterAim(){
   if(pKill || pMulti || isGripDragging) return;
   aim = true;
+  const p = y2p(pY);
+  if(p == null || !isFinite(p) || p <= 0) return;
+  
+  // 长按尚未松手时，立即同时触发并展示入场与止损双线
+  const curP = curPrice() || p;
+  const defaultDist = Math.max(p * 0.008, S.tickSize * 25);
+  const isBuy = p >= curP;
+  
+  F.on = true;
+  F.step = 4;
+  F.e = p;
+  F.sl = isBuy ? p - defaultDist : p + defaultDist;
+  F.tp = isBuy ? p + defaultDist * 2 : p - defaultDist * 2;
+  
+  $("#ohud").classList.add("on");
+  renderFlow();
+  repositionHandles();
+  
   $("#pline").classList.add("aim");
   guide(pY);
   navigator.vibrate?.(15);
@@ -1433,7 +1454,7 @@ bindFlowGrip("#hEn","e"); bindFlowGrip("#hSl","sl"); bindFlowGrip("#hTp","tp");
 // 鼠标交互
 addEventListener("mousedown", e => {
   if(e.button !== 0 || !onChart(e.target) || isGripDragging) return;
-  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet") || e.target.closest("#blind_box_bar")) return;
+  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet")) return;
   aim = false; aimPrice = null; pKill = false; pMulti = false; pX = e.clientX; pY = e.clientY; pTime = Date.now();
   clearTimeout(pT);
   pT = setTimeout(enterAim, AIM_MS);
@@ -1448,15 +1469,16 @@ addEventListener("mousemove", e => {
 });
 addEventListener("mouseup", e => {
   const wasAim = aim && !pKill && onChart(e.target);
-  const p = aimPrice || y2p(e.clientY);
   const clickX = e.clientX, clickY = e.clientY;
   const elapsed = Date.now() - pTime;
   const isQuickClick = !aim && !pKill && Math.abs(clickX - pX) <= H_TOL && Math.abs(clickY - pY) <= H_TOL && elapsed < 350;
   
   resetPress();
 
-  if(wasAim && p != null && isFinite(p) && p > 0){
-    pickPrice(p);
+  if(wasAim && F.on && F.e != null){
+    renderFlow();
+    repositionHandles();
+    toast(`🎯 双线已定位：入场 ${px(F.e)} · 止损 ${px(F.sl)} (可拖动把手微调)`);
     return;
   }
 
@@ -1508,16 +1530,17 @@ addEventListener("touchmove", e => {
 addEventListener("touchend", e => {
   clearTimeout(pT);
   const wasAim = aim && !pKill && !pMulti;
-  const p = aimPrice;
   const clickX = pX;
   const elapsed = Date.now() - pTime;
   const isQuickTap = !aim && !pKill && !pMulti && elapsed < 350;
 
   resetPress();
 
-  if(wasAim && p != null && isFinite(p) && p > 0){
+  if(wasAim && F.on && F.e != null){
     if(e.cancelable) e.preventDefault();
-    pickPrice(p);
+    renderFlow();
+    repositionHandles();
+    toast(`🎯 双线已定位：入场 ${px(F.e)} · 止损 ${px(F.sl)} (可拖动把手微调)`);
     return;
   }
 
