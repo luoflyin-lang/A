@@ -768,27 +768,22 @@ function initTradingViewChart(){
     lastValueVisible: false
   });
 
-  tvChart.timeScale().subscribeVisibleTimeRangeChange(() => {
-    syncHandles();
-    llPlace();
-  });
-  tvChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-    syncHandles();
-    llPlace();
-  });
+  let _syncRaf = 0;
+  window.requestChartSync = function(){
+    if(_syncRaf) return;
+    _syncRaf = requestAnimationFrame(() => {
+      _syncRaf = 0;
+      syncHandles();
+      llPlace();
+    });
+  };
 
-  // 启动高频平滑帧循环，在缩放、平移和自适应时 100% 毫秒级硬贴合
-  function handleFrameLoop(){
-    syncHandles();
-    llPlace();
-    requestAnimationFrame(handleFrameLoop);
-  }
-  requestAnimationFrame(handleFrameLoop);
+  tvChart.timeScale().subscribeVisibleTimeRangeChange(requestChartSync);
+  tvChart.timeScale().subscribeVisibleLogicalRangeChange(requestChartSync);
 
   window.addEventListener("resize", () => {
     if(tvChart) tvChart.resize(window.innerWidth, window.innerHeight);
-    syncHandles();
-    llPlace();
+    requestChartSync();
   });
 }
 
@@ -941,7 +936,7 @@ async function kline(force){
   subCoin(reqSym,reqTf);
   if(!force&&c&&Date.now()-c.t<30000)return;
   try{
-    const r=await pub("/fapi/v1/klines",{symbol:reqSym,interval:reqTf,limit:1500});
+    const r=await pub("/fapi/v1/klines",{symbol:reqSym,interval:reqTf,limit:500});
     const raw=(r||[]).map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
     if(raw.length){
       S.kc[key]={k:raw,t:Date.now()};
@@ -1992,10 +1987,11 @@ function llSig(){
 }
 
 function llPlace(){
+  const h = window.innerHeight;
   LL_ITEMS.forEach(it=>{
     if(it.dragging) return;
     const y=p2y(it.v);
-    if(y==null || y < -30 || y > window.innerHeight + 30){
+    if(y==null || y < -30 || y > h + 30){
       it.el.style.display="none";
       return;
     }
@@ -2327,6 +2323,7 @@ function syncTradeLines(){
 }
 
 function syncHandles(){
+  const h = window.innerHeight;
   let dist = (F.e != null && F.sl != null) ? Math.abs(F.e - F.sl) : 0;
   let slPct = (F.e != null && F.sl != null && F.e > 0) ? (dist / F.e * 100) : 0;
   let rr = (dist > 0 && F.tp != null && F.e != null) ? (Math.abs(F.tp - F.e) / dist) : null;
@@ -2339,7 +2336,7 @@ function syncHandles(){
     if(!el) return;
     const v=F.on?F[k]:null;
     const y=p2y(v);
-    if(v==null || y==null || y < -30 || y > window.innerHeight + 30){
+    if(v==null || y==null || y < -30 || y > h + 30){
       el.style.display="none";
       return;
     }
@@ -2690,8 +2687,13 @@ function alignPx(p,sym,dir){return TradeCore.alignPx(p,fOf(sym).tick||0.01,dir);
 let _raf=0;
 function schedule(){
   if(_raf)return;
-  _raf=requestAnimationFrame(()=>{_raf=0;head();
-    if($("#shList").classList.contains("on"))list(true);});}
+  _raf=requestAnimationFrame(()=>{
+    _raf=0;
+    head();
+    if($("#shList").classList.contains("on"))list(true);
+    if(typeof requestChartSync === "function") requestChartSync();
+  });
+}
 
 function head(){
   const p=mid(S.sym);
