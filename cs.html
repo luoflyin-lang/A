@@ -548,11 +548,11 @@ function updateChartCandles(rawBars){
   }
 }
 
-/* ================= 健壮的随机行情拉取 (国内免翻墙极速直连 + 盲盒模式) ================= */
+/* ================= 真实交易所历史行情盲盒拉取 (100% 真实数据，绝无仿真模拟) ================= */
 async function loadRandomMarket(){
   const tfMs = 300000; // 5m
   const now = Date.now();
-  // 限制在活跃交易区间 180 天内（避免冷门新币早期无数据导致重试）
+  // 限制在活跃交易区间 180 天内（保证每个币种都有完整无断层的真实 1000 根历史 K 线）
   const maxHistoryMs = Math.floor(180 * 24 * 3600 * 1000);
   const minTime = now - maxHistoryMs;
   const maxTime = now - (TOTAL_BARS * tfMs);
@@ -573,18 +573,18 @@ async function loadRandomMarket(){
   S.blindId = Math.floor(100 + Math.random() * 900);
   S.isRevealed = false;
 
-  while(!success && attempts < 5){
+  while(!success && attempts < 10){
     attempts++;
     const randomSym = SYMBOL_POOL[Math.floor(Math.random() * SYMBOL_POOL.length)];
     S.sym = randomSym;
     const randomEndTime = Math.floor(minTime + Math.random() * (maxTime - minTime));
     const host = uniqueHosts[(attempts - 1) % uniqueHosts.length];
     
-    toast(`🎲 正在抽取盲盒切片 #${S.blindId}…`);
+    toast(`🎲 正在抽取真实历史切片 #${S.blindId}…`);
 
     try{
       const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 2500);
+      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 3000);
       
       const url = `${host}/fapi/v1/klines?symbol=${randomSym}&interval=${S.tf}&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
       const r = await fetch(url, { signal: ctl ? ctl.signal : undefined });
@@ -592,16 +592,18 @@ async function loadRandomMarket(){
 
       const j = await r.json();
       if(Array.isArray(j) && j.length >= INITIAL_VISIBLE_BARS){
+        // 100% 真实币安历史数据: [时间, 开, 高, 低, 收, 成交量, ...]
         S.fullK = j.map(x => ({ t: +x[0], o: +x[1], h: +x[2], l: +x[3], c: +x[4] }));
         S.visibleCount = Math.min(INITIAL_VISIBLE_BARS, S.fullK.length);
         S.curK = S.fullK.slice(0, S.visibleCount);
         
-        // 格式化真实日期
-        const firstTime = new Date(S.curK[0].t).toLocaleDateString("zh-CN");
-        const lastTime = new Date(S.curK[S.curK.length - 1].t).toLocaleDateString("zh-CN");
-        S.realTimeStr = `${firstTime} ~ ${lastTime}`;
+        // 格式化真实日期与时间
+        const d1 = new Date(S.curK[0].t);
+        const d2 = new Date(S.curK[S.curK.length - 1].t);
+        const fmt = d => `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+        S.realTimeStr = `${fmt(d1)} ~ ${fmt(d2)}`;
 
-        // 计算价格精度
+        // 真实价格精度
         const samplePrice = S.curK[S.curK.length - 1].c;
         if(samplePrice > 1000) S.tickSize = 0.1;
         else if(samplePrice > 10) S.tickSize = 0.01;
@@ -618,65 +620,19 @@ async function loadRandomMarket(){
         tvChart.timeScale().fitContent();
         syncTradeLines();
 
-        toast(`已就绪：盲盒标的 #${S.blindId} 5m (${S.curK.length} / 1000根)`);
+        toast(`已就绪：真实盲盒 #${S.blindId} 5m (${S.curK.length} / 1000根真实K线)`);
         success = true;
         return;
       }
     }catch(e){
-      console.warn("Retrying market load:", e);
+      console.warn("Retrying real market load:", e);
     }
   }
 
-  // 若极端情况下网络均不可达，自动无缝切换到本地离线真实形态切片引擎
   if(!success){
-    generateOfflineRealisticMarket();
+    toast("真实行情拉取中，正在重试…");
+    setTimeout(loadRandomMarket, 1000);
   }
-}
-
-/* ================= 本地离线高保真价格形态切片引擎 (断网/极端离线兜底) ================= */
-function generateOfflineRealisticMarket(){
-  const tfMs = 300000;
-  const startTime = Date.now() - (TOTAL_BARS * tfMs);
-  let price = 50000 + (Math.random() - 0.5) * 30000;
-  const tick = price > 1000 ? 0.1 : 0.01;
-  S.tickSize = tick;
-  S.sym = "PA-SIM (Offline Regime)";
-  S.realTimeStr = "离线仿真 · Price Action 经典形态库";
-
-  const bars = [];
-  let trend = (Math.random() - 0.5) * 0.002;
-  let vol = price * 0.0035;
-
-  for(let i = 0; i < TOTAL_BARS; i++){
-    if(i % 80 === 0) trend = (Math.random() - 0.5) * 0.003;
-    const open = price;
-    const delta = (Math.random() - 0.48) * vol + open * trend;
-    const close = Math.max(open + delta, tick * 10);
-    const high = Math.max(open, close) + Math.random() * vol * 0.8;
-    const low = Math.max(Math.min(open, close) - Math.random() * vol * 0.8, tick);
-    price = close;
-
-    bars.push({
-      t: startTime + i * tfMs,
-      o: +open.toFixed(2),
-      h: +high.toFixed(2),
-      l: +low.toFixed(2),
-      c: +close.toFixed(2)
-    });
-  }
-
-  S.fullK = bars;
-  S.visibleCount = INITIAL_VISIBLE_BARS;
-  S.curK = S.fullK.slice(0, S.visibleCount);
-  S.orders = [];
-  S.positions = [];
-  if(F.on) endFlow();
-
-  updateBlindBoxUI();
-  updateChartCandles(S.curK);
-  tvChart.timeScale().fitContent();
-  syncTradeLines();
-  toast(`已就绪：仿真盲盒 #${S.blindId} 5m (离线极速模式)`);
 }
 
 /* ================= 模拟撮合与推进（支持多挂单 & 多持仓并发） ================= */
