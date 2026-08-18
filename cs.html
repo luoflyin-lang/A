@@ -445,7 +445,9 @@ function initTradingViewChart(){
     },
     timeScale: {
       visible: false,
-      rightOffset: 6
+      rightOffset: 6,
+      barSpacing: 10,
+      minBarSpacing: 1
     },
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
     handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
@@ -617,7 +619,15 @@ async function loadRandomMarket(){
 
         updateBlindBoxUI();
         updateChartCandles(S.curK);
-        tvChart.timeScale().fitContent();
+        
+        // 默认显示最新 100 根 K 线（舒适视距，清晰不拥挤），左侧历史数据完整保留，可随时向左拖动查看
+        const totalBars = S.curK.length;
+        const defaultBars = 100;
+        tvChart.timeScale().setVisibleLogicalRange({
+          from: Math.max(0, totalBars - defaultBars),
+          to: totalBars + 4
+        });
+        
         syncTradeLines();
 
         toast(`已就绪：真实盲盒 #${S.blindId} 5m (${S.curK.length} / 1000根真实K线)`);
