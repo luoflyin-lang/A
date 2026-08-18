@@ -24,34 +24,25 @@ export default async function handler(request) {
 
   const isKlines = url.pathname.includes("/klines");
   let lastError = null;
+  const reqBody = request.method !== "GET" && request.method !== "HEAD" ? await request.arrayBuffer() : undefined;
 
   for (const baseHost of BINANCE_HTTP_POOLS) {
     const targetUrl = baseHost + url.pathname + url.search;
-    const reqHeaders = new Headers();
+    const reqHeaders = new Headers(request.headers);
     reqHeaders.set("Host", new URL(baseHost).host);
     reqHeaders.set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-    reqHeaders.set("Accept", "application/json, text/plain, */*");
-    if (request.headers.get("X-MBX-APIKEY")) {
-      reqHeaders.set("X-MBX-APIKEY", request.headers.get("X-MBX-APIKEY"));
-    }
-    if (request.headers.get("Content-Type")) {
-      reqHeaders.set("Content-Type", request.headers.get("Content-Type"));
-    }
 
     try {
       const response = await fetch(targetUrl, {
         method: request.method,
         headers: reqHeaders,
-        body: request.method !== "GET" && request.method !== "HEAD" ? await request.arrayBuffer() : undefined,
+        body: reqBody,
       });
 
       if (response.ok || response.status < 500) {
         const respHeaders = new Headers(response.headers);
         Object.keys(corsHeaders).forEach((k) => respHeaders.set(k, corsHeaders[k]));
         respHeaders.delete("content-security-policy");
-        if (isKlines && request.method === "GET") {
-          respHeaders.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
-        }
 
         return new Response(response.body, {
           status: response.status,

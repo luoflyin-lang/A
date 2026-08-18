@@ -519,7 +519,7 @@ let backoffUntil=0;
 async function syncTime(){
   const ctl=typeof AbortController!=="undefined"?new AbortController():null;
   const tm=setTimeout(()=>{try{ctl&&ctl.abort();}catch(e){}},8000);
-  try{const r=await fetch(BASE+"/fapi/v1/time",{signal:ctl?ctl.signal:undefined});const j=await r.json();
+  try{const r=await fetch(BASE+"/fapi/v1/time",{signal:ctl?ctl.signal:undefined});const j=await r.json().catch(()=>null);
     if(j&&j.serverTime){TOFF=+j.serverTime-Date.now();log("time offset "+TOFF+"ms");}}
   catch(e){log("syncTime err "+e);}
   finally{clearTimeout(tm);}
@@ -855,25 +855,11 @@ function calcEmaArray(data, period = 20){
   const k = 2 / (period + 1);
   const emaData = [];
   let ema = data[0].close;
-
-  if(data.length >= period){
-    let sum = 0;
-    for(let i = 0; i < period; i++) sum += data[i].close;
-    ema = sum / period;
-    for(let i = 0; i < period; i++){
-      emaData.push({ time: data[i].time, value: ema });
-    }
-    for(let i = period; i < data.length; i++){
-      ema = data[i].close * k + ema * (1 - k);
-      emaData.push({ time: data[i].time, value: ema });
-    }
-  } else {
-    data.forEach((b, idx) => {
-      if(idx === 0) ema = b.close;
-      else ema = b.close * k + ema * (1 - k);
-      emaData.push({ time: b.time, value: ema });
-    });
-  }
+  data.forEach((b, idx) => {
+    if(idx === 0) ema = b.close;
+    else ema = b.close * k + ema * (1 - k);
+    emaData.push({ time: b.time, value: ema });
+  });
   lastEmaValue = ema;
   return emaData;
 }

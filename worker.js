@@ -36,10 +36,10 @@ export default {
       return fetch(targetWsUrl, { headers: request.headers });
     }
 
-    // 3. 处理 HTTP 接口 (/fapi/*, /api/*) - 极速国内直连反代与边缘缓存
+    // 3. 处理 HTTP 接口 (/fapi/*, /api/*) - 极速国内直连反代
     if (url.pathname.startsWith("/fapi") || url.pathname.startsWith("/api")) {
-      const isKlines = url.pathname.includes("/klines");
       const baseHosts = env.UPSTREAM_API ? [env.UPSTREAM_API] : BINANCE_HTTP_POOLS;
+      const reqBody = request.method !== "GET" && request.method !== "HEAD" ? await request.arrayBuffer() : undefined;
 
       let lastError = null;
       for (const baseHost of baseHosts) {
@@ -52,14 +52,9 @@ export default {
           const fetchOptions = {
             method: request.method,
             headers: newHeaders,
-            body: request.method !== "GET" && request.method !== "HEAD" ? await request.arrayBuffer() : undefined,
+            body: reqBody,
             redirect: "follow",
           };
-
-          // 针对历史 K 线请求启用 Cloudflare 边缘缓存，大幅降低后续请求延迟至毫秒级
-          if (isKlines && request.method === "GET") {
-            fetchOptions.cf = { cacheTtl: 300, cacheEverything: true };
-          }
 
           const response = await fetch(targetHttpUrl, fetchOptions);
 
@@ -67,9 +62,6 @@ export default {
             const respHeaders = new Headers(response.headers);
             Object.keys(corsHeaders).forEach((k) => respHeaders.set(k, corsHeaders[k]));
             respHeaders.delete("content-security-policy");
-            if (isKlines) {
-              respHeaders.set("Cache-Control", "public, max-age=300");
-            }
 
             return new Response(response.body, {
               status: response.status,
@@ -109,14 +101,14 @@ export default {
     try {
       const isCs = url.hostname.startsWith("cs.") || url.pathname.startsWith("/cs");
       const targetFile = isCs ? "cs.html" : "order.html";
-      const rawGithubUrl = `https://raw.githubusercontent.com/luoflyin-lang/A/main/${targetFile}`;
-      const ghResp = await fetch(rawGithubUrl, { cf: { cacheTtl: 60, cacheEverything: true } });
+      const rawGithubUrl = `https://raw.githubusercontent.com/luoflyin-lang/A/main/${targetFile}?_t=${Date.now()}`;
+      const ghResp = await fetch(rawGithubUrl, { cache: "no-store", cf: { cacheTtl: 0, cacheEverything: false } });
       if (ghResp.ok) {
         const html = await ghResp.text();
         return new Response(html, {
           headers: {
             "Content-Type": "text/html; charset=utf-8",
-            "Cache-Control": "public, max-age=60",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
             ...corsHeaders,
           },
         });
