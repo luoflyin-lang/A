@@ -110,6 +110,25 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none}
 .stat-row .item .t{font-size:11px;color:var(--faint);margin-bottom:2px}
 .stat-row .item .v{font-weight:600;font-family:var(--mono);font-size:13.5px}
 
+/* ---- 深度战力与行为诊断面板 ---- */
+.diag-block{margin-top:14px;margin-bottom:14px;padding-top:14px;border-top:1px solid var(--line)}
+.diag-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.diag-hdr b{font-size:13px;color:var(--text);font-weight:650}
+.diag-hdr span{font-size:11px;color:var(--faint)}
+
+.diag-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.diag-card{background:var(--raised);padding:10px 12px;border-radius:9px}
+.diag-card .t{font-size:10.5px;color:var(--faint);margin-bottom:3px}
+.diag-card .v{font-size:14.5px;font-weight:650;font-family:var(--mono)}
+.diag-card .sub{font-size:10px;color:var(--faint);margin-top:3px;line-height:1.35}
+
+.bench-card{background:var(--raised);padding:12px 14px;border-radius:10px;margin-bottom:14px}
+.bench-title{font-size:11px;color:var(--faint);margin-bottom:8px;display:flex;justify-content:space-between}
+.bench-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:3px 0}
+.bench-row .t{color:var(--dim)}
+.bench-row .v{font-family:var(--mono);font-weight:600}
+.bench-diff{font-size:11px;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);display:flex;justify-content:space-between}
+
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{text-align:right;font-weight:500;font-size:10.5px;letter-spacing:.03em;
   color:var(--faint);padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -301,6 +320,76 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
       </div>
     </div>
 
+    <!-- 全自动深度战力与行为诊断面板 -->
+    <div class="diag-block" id="diagDashboard">
+      <div class="diag-hdr">
+        <b>📊 战力与行为深度诊断</b>
+        <span>全自动静默分析</span>
+      </div>
+
+      <!-- 1. MFE / MAE 空间质量 -->
+      <div class="diag-grid">
+        <div class="diag-card">
+          <div class="t">MFE 利润留存率</div>
+          <div class="v" id="dgMfeCap">—</div>
+          <div class="sub" id="dgMfeSub">平仓收益 / 潜在顶峰</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">入场平均逆行度</div>
+          <div class="v" id="dgMae">—</div>
+          <div class="sub" id="dgMaeSub">持仓期最大回撤/止损</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">精准扫损反转</div>
+          <div class="v" id="dgSweep">0 笔</div>
+          <div class="sub">损后走向原止盈</div>
+        </div>
+      </div>
+
+      <!-- 2. 行为与心理纪律 -->
+      <div class="diag-grid">
+        <div class="diag-card">
+          <div class="t">盈亏持仓周期比</div>
+          <div class="v" id="dgHoldRatio">—</div>
+          <div class="sub" id="dgHoldSub">盈利根数 vs 亏损根数</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">急躁/报复开仓</div>
+          <div class="v" id="dgRevenge">0 笔</div>
+          <div class="sub" id="dgRevengeSub">连损后≤2根急躁开仓</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">计划严格执行率</div>
+          <div class="v" id="dgPlanAdhere">100%</div>
+          <div class="sub">按原TP/SL结案比例</div>
+        </div>
+      </div>
+
+      <!-- 3. 主观 vs 机械基准对照 -->
+      <div class="bench-card">
+        <div class="bench-title">
+          <span>⚖️ 主观判断 vs 机械基准对照</span>
+          <span id="dgAlphaTag" style="font-weight:600">Alpha 诊断中</span>
+        </div>
+        <div class="bench-row">
+          <span class="t">您的实际最终收益</span>
+          <span class="v" id="dgActualReturn">+0.00 R</span>
+        </div>
+        <div class="bench-row">
+          <span class="t">原计划完全不干预 (初始TP/SL)</span>
+          <span class="v" id="dgPlanReturn">+0.00 R</span>
+        </div>
+        <div class="bench-row">
+          <span class="t">固定 2:1 盈亏比机械基准</span>
+          <span class="v" id="dgFixedReturn">+0.00 R</span>
+        </div>
+        <div class="bench-diff">
+          <span id="dgInterveneDiff">中途干预损益: +0.00 R</span>
+          <span id="dgAlphaDiff">主观选点溢价: +0.00 R</span>
+        </div>
+      </div>
+    </div>
+
     <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px;gap:8px;flex-wrap:wrap">
       <b style="font-size:13.5px">历史训练明细</b>
       <div style="display:flex;align-items:center;gap:6px">
@@ -369,7 +458,8 @@ const S = {
   positions: [],  // 多笔模拟持仓
   tickSize: 0.01,
   balanceR: INITIAL_BALANCE_R,
-  trades: []      // 历史记录
+  trades: [],      // 历史记录
+  lastLossIndex: null // 最近一笔止损时的 K 线 index
 };
 
 const F = {
@@ -757,11 +847,17 @@ function matchBar(bar){
         entry: o.entry,
         sl: o.sl,
         tp: o.tp,
+        initialSl: o.initialSl || o.sl,
+        initialTp: o.initialTp || o.tp,
         riskPct: o.riskPct,
         riskR: o.riskR,
         rr: o.rr,
         openIndex: S.visibleCount - 1,
         openTime: bar.t,
+        holdingBars: 0,
+        maxFavR: 0,
+        maxAdvR: 0,
+        barsSinceLastLoss: o.barsSinceLastLoss != null ? o.barsSinceLastLoss : 999,
         justOpened: true
       };
       justFilledPositions.push(newPos);
@@ -776,6 +872,24 @@ function matchBar(bar){
   // 2. 检查所有已真实成交持仓（历史持仓 + 本根新入场持仓）是否命中止损 / 止盈
   const allActivePositions = [...S.positions, ...justFilledPositions];
   const remainingPositions = [];
+
+  // 更新所有持仓在当前 K 线内的浮盈浮亏极值和持仓根数
+  for(const p of allActivePositions){
+    p.holdingBars = (p.holdingBars || 0) + 1;
+    const dist = Math.max(Math.abs(p.entry - p.sl), p.entry * 0.0005);
+    const isLong = p.side === "buy";
+    if(isLong){
+      const barMaxR = ((bar.h - p.entry) / dist) * p.riskR;
+      const barMinR = ((bar.l - p.entry) / dist) * p.riskR;
+      p.maxFavR = Math.max(p.maxFavR ?? 0, barMaxR);
+      p.maxAdvR = Math.min(p.maxAdvR ?? 0, barMinR);
+    }else{
+      const barMaxR = ((p.entry - bar.l) / dist) * p.riskR;
+      const barMinR = ((p.entry - bar.h) / dist) * p.riskR;
+      p.maxFavR = Math.max(p.maxFavR ?? 0, barMaxR);
+      p.maxAdvR = Math.min(p.maxAdvR ?? 0, barMinR);
+    }
+  }
 
   for(const p of allActivePositions){
     const isLong = p.side === "buy";
@@ -811,11 +925,12 @@ function matchBar(bar){
 // 内部平仓结算核心函数
 function finalizeClosePosition(p, reason, exitPx, pnlR){
   const dist = Math.max(Math.abs(p.entry - p.sl), p.entry * 0.0005);
+  const isLong = p.side === "buy";
   
   if(pnlR == null){
     const cp = curPrice();
     exitPx = cp;
-    if(p.side === "buy"){
+    if(isLong){
       pnlR = ((cp - p.entry) / dist) * p.riskR;
     }else{
       pnlR = ((p.entry - cp) / dist) * p.riskR;
@@ -823,7 +938,71 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
   }
 
   S.balanceR += pnlR;
-  
+
+  // 1. 计算未来 30 根 K 线的最大延展 MFE 与精准扫损反转判断
+  const curIdx = S.visibleCount;
+  const futureBars = S.fullK.slice(curIdx, curIdx + 30);
+  let futureMfeR = pnlR;
+  let sweepLoss = false;
+
+  for(const fb of futureBars){
+    if(isLong){
+      const rVal = ((fb.h - p.entry) / dist) * p.riskR;
+      if(rVal > futureMfeR) futureMfeR = rVal;
+      if(pnlR < 0 && p.initialTp != null && fb.h >= p.initialTp){
+        sweepLoss = true;
+      }
+    }else{
+      const rVal = ((p.entry - fb.l) / dist) * p.riskR;
+      if(rVal > futureMfeR) futureMfeR = rVal;
+      if(pnlR < 0 && p.initialTp != null && fb.l <= p.initialTp){
+        sweepLoss = true;
+      }
+    }
+  }
+
+  // 2. 计算平行机械基准结果 (Benchmark A: 原计划严格持有; Benchmark B: 固定 2:1 机械基准)
+  const openIdx = p.openIndex != null ? p.openIndex : Math.max(0, curIdx - (p.holdingBars || 1));
+  const simBars = S.fullK.slice(openIdx);
+  let planBenchR = pnlR;
+  let fixed21BenchR = pnlR;
+
+  // 模拟 Benchmark A: 原计划严格持有 (直到触及 initialTp 或 initialSl)
+  const initTp = p.initialTp || p.tp;
+  const initSl = p.initialSl || p.sl;
+  for(const sb of simBars){
+    let hSL = isLong ? (sb.l <= initSl) : (sb.h >= initSl);
+    let hTP = initTp != null ? (isLong ? (sb.h >= initTp) : (sb.l <= initTp)) : false;
+    if(hSL && hTP){
+      const dSL = Math.abs(sb.o - initSl);
+      const dTP = Math.abs(sb.o - initTp);
+      if(dSL < dTP) hTP = false; else hSL = false;
+    }
+    if(hSL){ planBenchR = -p.riskR; break; }
+    if(hTP){ planBenchR = p.riskR * (p.rr || 1.0); break; }
+  }
+
+  // 模拟 Benchmark B: 固定 2:1 机械基准 (1R 止损, 2R 止盈)
+  const fixedTpPx = isLong ? (p.entry + 2.0 * dist) : (p.entry - 2.0 * dist);
+  const fixedSlPx = isLong ? (p.entry - 1.0 * dist) : (p.entry + 1.0 * dist);
+  for(const sb of simBars){
+    let hSL = isLong ? (sb.l <= fixedSlPx) : (sb.h >= fixedSlPx);
+    let hTP = isLong ? (sb.h >= fixedTpPx) : (sb.l <= fixedTpPx);
+    if(hSL && hTP){
+      const dSL = Math.abs(sb.o - fixedSlPx);
+      const dTP = Math.abs(sb.o - fixedTpPx);
+      if(dSL < dTP) hTP = false; else hSL = false;
+    }
+    if(hSL){ fixed21BenchR = -p.riskR; break; }
+    if(hTP){ fixed21BenchR = p.riskR * 2.0; break; }
+  }
+
+  // 3. 急躁/报复性开仓判定
+  const isRevengeTrade = (p.barsSinceLastLoss != null && p.barsSinceLastLoss <= 2);
+  if(pnlR < 0){
+    S.lastLossIndex = S.visibleCount - 1;
+  }
+
   const now = new Date();
   const timeStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
 
@@ -842,6 +1021,15 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
     riskR: p.riskR,
     pnlR: pnlR,
     reason: reason,
+    holdingBars: p.holdingBars || 1,
+    maxFavR: Math.max(p.maxFavR ?? 0, pnlR),
+    maxAdvR: Math.min(p.maxAdvR ?? 0, pnlR),
+    futureMfeR: futureMfeR,
+    sweepLoss: sweepLoss,
+    planBenchR: planBenchR,
+    fixed21BenchR: fixed21BenchR,
+    isRevengeTrade: isRevengeTrade,
+    isManualClose: (reason === "市价平仓"),
     time: Date.now(),
     timeStr: timeStr,
     marketTime: S.realTimeStr,
@@ -964,6 +1152,117 @@ function renderStatsView(){
   $("#st4PctStats").className = "v " + (sum4R >= 0 ? "up" : "down");
   $("#stAvgRR").textContent = avgRR;
 
+  // 3. 计算战力与行为诊断指标 (全自动后台计算)
+  let totalMfeCapture = 0;
+  let winTradesCount = 0;
+  let sumMaeRatio = 0;
+  let sweepLossCount = 0;
+
+  let totalWinBars = 0;
+  let totalLossBars = 0;
+  let revengeTradesCount = 0;
+  let manualInterveneCount = 0;
+
+  let sumPlanBenchR = 0;
+  let sumFixed21BenchR = 0;
+
+  S.trades.forEach(t => {
+    // MFE Capture Ratio
+    const peakPotential = Math.max(t.maxFavR || 0, t.futureMfeR || 0, t.pnlR);
+    if(t.pnlR > 0){
+      winTradesCount++;
+      const cap = peakPotential > 0 ? Math.min(100, (t.pnlR / peakPotential) * 100) : 100;
+      totalMfeCapture += cap;
+    }
+    // MAE Ratio
+    const maeRatio = Math.min(1.5, Math.abs(t.maxAdvR || 0) / (t.riskR || 1.0));
+    sumMaeRatio += maeRatio;
+
+    // Sweep Loss
+    if(t.sweepLoss) sweepLossCount++;
+
+    // Holding Bars
+    if(t.pnlR > 0) totalWinBars += (t.holdingBars || 1);
+    else if(t.pnlR < 0) totalLossBars += (t.holdingBars || 1);
+
+    // Psychology
+    if(t.isRevengeTrade) revengeTradesCount++;
+    if(t.isManualClose) manualInterveneCount++;
+
+    // Benchmarks
+    sumPlanBenchR += (t.planBenchR != null ? t.planBenchR : t.pnlR);
+    sumFixed21BenchR += (t.fixed21BenchR != null ? t.fixed21BenchR : t.pnlR);
+  });
+
+  const avgMfeCap = winTradesCount > 0 ? (totalMfeCapture / winTradesCount).toFixed(1) : "—";
+  const avgMae = total > 0 ? (sumMaeRatio / total * 100).toFixed(0) : "0";
+  const avgWinBars = winTradesCount > 0 ? (totalWinBars / winTradesCount).toFixed(1) : "0";
+  const avgLossBars = losses > 0 ? (totalLossBars / losses).toFixed(1) : "0";
+  const planAdhereRate = total > 0 ? (((total - manualInterveneCount) / total) * 100).toFixed(0) : "100";
+
+  // 渲染诊断看板组件
+  if($("#dgMfeCap")){
+    $("#dgMfeCap").textContent = avgMfeCap === "—" ? "—" : avgMfeCap + "%";
+    $("#dgMfeCap").className = "v " + (avgMfeCap !== "—" && +avgMfeCap >= 70 ? "up" : (avgMfeCap !== "—" && +avgMfeCap < 45 ? "down" : ""));
+    $("#dgMfeSub").textContent = avgMfeCap !== "—" && +avgMfeCap < 50 ? "⚠️ 存在过早止盈/卖飞" : "平仓收益 / 潜在顶峰";
+
+    $("#dgMae").textContent = total > 0 ? `-${avgMae}%` : "—";
+    $("#dgMae").className = "v " + (+avgMae > 75 ? "down" : (+avgMae < 35 ? "up" : ""));
+    $("#dgMaeSub").textContent = +avgMae > 75 ? "⚠️ 入场偏急/回撤深" : "持仓期最大浮亏/止损";
+
+    $("#dgSweep").textContent = `${sweepLossCount} 笔`;
+    $("#dgSweep").className = "v " + (sweepLossCount > 0 ? "down" : "");
+
+    const holdRatio = +avgWinBars > 0 ? (+avgLossBars / +avgWinBars).toFixed(1) : "1.0";
+    $("#dgHoldRatio").textContent = total > 0 ? `${avgWinBars} vs ${avgLossBars} 根` : "—";
+    $("#dgHoldRatio").className = "v " + (+holdRatio >= 2.2 ? "down" : "");
+    $("#dgHoldSub").textContent = +holdRatio >= 2.2 ? `⚠️ 死扛亏损倾向 (${holdRatio}x)` : "盈利持仓 vs 亏损持仓";
+
+    $("#dgRevenge").textContent = `${revengeTradesCount} 笔`;
+    $("#dgRevenge").className = "v " + (revengeTradesCount > 0 ? "down" : "up");
+    $("#dgRevengeSub").textContent = revengeTradesCount > 0 ? "⚠️ 连损后急躁开仓" : "自律度 100%";
+
+    $("#dgPlanAdhere").textContent = total > 0 ? `${planAdhereRate}%` : "100%";
+    $("#dgPlanAdhere").className = "v " + (+planAdhereRate < 65 ? "down" : "up");
+
+    // 机械基准对比
+    const actualR = net;
+    const planR = sumPlanBenchR;
+    const fixedR = sumFixed21BenchR;
+    const interveneDiff = actualR - planR;
+    const alphaDiff = actualR - fixedR;
+
+    $("#dgActualReturn").textContent = (actualR >= 0 ? "+" : "") + actualR.toFixed(2) + " R";
+    $("#dgActualReturn").className = "v " + (actualR >= 0 ? "up" : "down");
+
+    $("#dgPlanReturn").textContent = (planR >= 0 ? "+" : "") + planR.toFixed(2) + " R";
+    $("#dgPlanReturn").className = "v " + (planR >= 0 ? "up" : "down");
+
+    $("#dgFixedReturn").textContent = (fixedR >= 0 ? "+" : "") + fixedR.toFixed(2) + " R";
+    $("#dgFixedReturn").className = "v " + (fixedR >= 0 ? "up" : "down");
+
+    $("#dgInterveneDiff").textContent = "中途干预损益: " + (interveneDiff >= 0 ? "+" : "") + interveneDiff.toFixed(2) + " R";
+    $("#dgInterveneDiff").className = interveneDiff >= 0 ? "up" : "down";
+
+    $("#dgAlphaDiff").textContent = "主观选点溢价: " + (alphaDiff >= 0 ? "+" : "") + alphaDiff.toFixed(2) + " R";
+    $("#dgAlphaDiff").className = alphaDiff >= 0 ? "up" : "down";
+
+    let alphaTagTxt = "Alpha 诊断中";
+    if(total >= 3){
+      if(alphaDiff > 1.0 && interveneDiff >= 0){
+        alphaTagTxt = "🔥 主观交易正收益 (Alpha 突出)";
+      }else if(interveneDiff < -1.5){
+        alphaTagTxt = "⚠️ 手动频繁干预造成明显磨损";
+      }else if(alphaDiff < -1.0){
+        alphaTagTxt = "📉 主观跑输机械 2:1 基准";
+      }else{
+        alphaTagTxt = "⚖️ 与机械基准基本持平";
+      }
+    }
+    $("#dgAlphaTag").textContent = alphaTagTxt;
+    $("#dgAlphaTag").className = (alphaDiff > 0 && interveneDiff >= 0) ? "up" : (interveneDiff < -1.0 || alphaDiff < -1.0 ? "down" : "");
+  }
+
   const list = $("#tradeListContainer");
   if(!total){
     list.innerHTML = '<div class="none">暂无训练交易记录。<br>在图表上长按或右键选点下单，开启 ETH 5m 真实回测训练，点击右侧 20% 区域推进 K 线吧！</div>';
@@ -1053,6 +1352,7 @@ function resetAllStats(){
   if(!confirm("确定重置全部训练统计数据并将余额恢复为 100.00 R 吗？")) return;
   S.balanceR = INITIAL_BALANCE_R;
   S.trades = [];
+  S.lastLossIndex = null;
   saveStats();
   toast("训练统计数据已重置为 100.00 R");
 }
@@ -1730,16 +2030,20 @@ $("#ohGo").addEventListener("click", () => {
   if(!r.ok){ toast(r.err || "入场或止损未选定"); return; }
   
   const isBuy = r.sl < r.e;
+  const barsSinceLoss = S.lastLossIndex != null ? (S.visibleCount - 1 - S.lastLossIndex) : 999;
   const newOrd = {
     id: genId("ord"),
     side: isBuy ? "buy" : "sell",
     entry: r.e,
     sl: r.sl,
     tp: r.tp,
+    initialSl: r.sl,
+    initialTp: r.tp,
     riskPct: r.riskPct,
     riskR: r.riskR,
     rr: r.rr,
-    createTime: Date.now()
+    createTime: Date.now(),
+    barsSinceLastLoss: barsSinceLoss
   };
   S.orders.push(newOrd);
   toast(`已提交模拟挂单：${isBuy ? "做多" : "做空"} (风险 ${r.riskR}R) @ ${px(r.e)} (待入场挂单数: ${S.orders.length})`);
