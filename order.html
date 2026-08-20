@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#F2EFE9">
-<title>BN Chart (TradingView 引擎版)</title>
-<!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
+<title>BN Chart</title>
+<!-- 引入 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
 <script>
 if (typeof LightweightCharts === "undefined") {
@@ -13,6 +13,16 @@ if (typeof LightweightCharts === "undefined") {
 }
 </script>
 <style>
+/* 彻底隐藏任何 TV / TradingView 插件标志与水印链接 */
+#tv_chart a, #tv_chart svg, #tv_chart [class*="tv-"], #tv_chart [id*="tv-"],
+#tv_chart [class*="tradingview"], #tv_chart [id*="tradingview"],
+.tv-logo, .tv-attribution, #tv-attr-logo, a[href*="tradingview"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 /* 极致护眼配色（iPad/高亮显示屏、长时间盯盘）：
    1) 日间：温润暖羊皮纸底色 #F4F1EA，消灭 255 纯白刺眼蓝光；
    2) 夜间：深邃温润暖灰底色 #171614，消灭纯黑与高亮文字的刺眼眩光；
@@ -378,7 +388,7 @@ const MID_BACK=8000;
 const TOAST_DEDUP=60000;
 const PREATTACH_TP=true;
 const TP_FB_OFF=0.001;
-const VER="v9.9 · TradingView Edition";
+const VER="v9.9";
 const RECV=5000;
 const WORK="MARK_PRICE";
 const LEV_DEF=20;
@@ -693,7 +703,11 @@ function initTradingViewChart(){
       background: { type: 'solid', color: bg },
       textColor: text,
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      fontSize: 12
+      fontSize: 12,
+      attributionLogo: false
+    },
+    watermark: {
+      visible: false
     },
     grid: {
       vertLines: { visible: false },
