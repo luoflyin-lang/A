@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
-<title>K-Line 模拟训练 · 经典黑白极简版</title>
+<title>ETH 5m 模拟回测训练 · 经典黑白极简版</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
 <script>
@@ -47,7 +47,7 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none}
   cursor:e-resize;user-select:none;pointer-events:none;
 }
 
-/* ---- 左下角两个悬浮按钮 ---- */
+/* ---- 左下角悬浮按钮 ---- */
 #brr{position:fixed;left:20px;bottom:22px;z-index:15;display:flex;align-items:center;gap:10px}
 .fab{height:42px;min-width:42px;padding:0 16px;border-radius:12px;background:var(--fabbg);
   border:1px solid var(--line);box-shadow:0 3px 14px rgba(0,0,0,.08);font-size:13.5px;color:var(--text);backdrop-filter:blur(8px);
@@ -56,6 +56,32 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none}
 .fab:active{transform:translateY(1px)}
 .fab.primary{background:var(--ink);color:var(--onink)}
 .fab.primary:hover{opacity:.9}
+
+/* ---- 抽屉内嵌按钮与表格组件 ---- */
+.btn-rand{
+  height:32px;padding:0 12px;border-radius:8px;background:var(--ink);color:var(--onink);
+  font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:5px;
+  border:1px solid var(--line);transition:.15s;cursor:pointer;
+}
+.btn-rand:hover{opacity:.9;transform:translateY(-1px)}
+.btn-rand:active{transform:translateY(1px)}
+
+.btn-sub{
+  font-size:11.5px;color:var(--text);padding:4px 9px;border-radius:6px;background:var(--raised);
+  border:1px solid var(--line);font-weight:550;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:.15s;
+}
+.btn-sub:hover{background:var(--tint);border-color:var(--dim)}
+.btn-sub.danger{color:var(--down)}
+.btn-sub.danger:hover{background:rgba(192,57,43,.1);border-color:#C0392B}
+
+.trade-note-input{
+  width:100%;min-width:110px;background:var(--raised);border:1px solid transparent;
+  border-radius:5px;padding:3px 6px;font-size:11px;color:var(--text);outline:none;
+  transition:border-color .15s, background .15s;font-family:inherit;
+}
+.trade-note-input:hover{border-color:var(--line);background:var(--surface)}
+.trade-note-input:focus{border-color:var(--ink);background:var(--surface)}
+.trade-note-input::placeholder{color:var(--faint);font-size:10.5px}
 
 /* ---- 抽屉面板 ---- */
 #mask{position:fixed;inset:0;background:rgba(0,0,0,.22);opacity:0;pointer-events:none;transition:.18s;z-index:20}
@@ -175,10 +201,9 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <!-- 右侧 20% 推进触控区域 -->
 <div id="step_tap_zone"></div>
 
-<!-- 右下角仅保留两个核心按钮 -->
+<!-- 悬浮入口按钮 -->
 <div id="brr">
   <button class="fab primary" id="bStats" title="查看训练数据与历史战绩">📊 训练数据</button>
-  <button class="fab" id="bRand" title="随机抽取新行情切片 (快捷键 R / N)">🎲 换行情</button>
 </div>
 
 <div id="mask"></div>
@@ -186,8 +211,11 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <!-- 训练数据抽屉面板 -->
 <aside class="sheet" id="shStats">
   <div class="sh">
-    <b>训练统计数据</b>
-    <button class="x" data-close>✕</button>
+    <b>训练统计数据 (ETH · 5m)</b>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <button class="btn-rand" id="bRand" title="随机抽取新的 ETH 5m 真实历史切片 (快捷键 R / N)">🎲 换行情</button>
+      <button class="x" data-close>✕</button>
+    </div>
   </div>
   <div class="sbody">
     <div class="stats-grid">
@@ -229,9 +257,12 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
       </div>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px;gap:8px;flex-wrap:wrap">
       <b style="font-size:13.5px">历史训练明细</b>
-      <button id="btnResetStats" style="font-size:11.5px;color:var(--down);padding:3px 8px;border-radius:6px;background:var(--raised)">重置全部数据</button>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button id="btnExportCSV" class="btn-sub" title="导出完整训练交易数据为 CSV 表格">📥 导出表格</button>
+        <button id="btnResetStats" class="btn-sub danger" title="清空全部历史战绩并重置余额">重置全部数据</button>
+      </div>
     </div>
 
     <div id="tradeListContainer">
@@ -273,13 +304,8 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <script>
 "use strict";
 
-/* ================= 训练活跃品种池 ================= */
-const SYMBOL_POOL = [
-  "BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT", "XRPUSDT", "BNBUSDT", "ADAUSDT",
-  "AVAXUSDT", "LINKUSDT", "NEARUSDT", "SUIUSDT", "APTUSDT", "ARBUSDT", "OPUSDT",
-  "PEPEUSDT", "WIFUSDT", "TIAUSDT", "INJUSDT", "LTCUSDT", "FTMUSDT", "AAVEUSDT",
-  "UNIUSDT", "ORDIUSDT", "RENDERUSDT", "FETUSDT", "SEIUSDT", "STXUSDT", "GALAUSDT"
-];
+/* ================= 训练活跃品种池 (限定 ETH 5m) ================= */
+const SYMBOL_POOL = ["ETHUSDT"];
 
 const INITIAL_BALANCE_R = 100.0;
 const INITIAL_VISIBLE_BARS = 500;
@@ -287,8 +313,8 @@ const TOTAL_BARS = 1000;
 
 /* ================= 状态数据 ================= */
 const S = {
-  sym: "BTCUSDT",
-  tf: "5m", // 默认 5 分钟
+  sym: "ETHUSDT",
+  tf: "5m", // 限定 5 分钟
   blindId: 101,   // 盲盒伪随机编号
   isRevealed: false, // 是否已揭晓真实品种
   realTimeStr: "",
@@ -346,10 +372,10 @@ function updateBlindBoxUI(){
   const btn = $("#btnReveal");
   if(tag){
     if(S.isRevealed){
-      tag.textContent = `${S.sym} (${S.realTimeStr})`;
+      tag.textContent = `ETHUSDT (${S.realTimeStr})`;
       tag.style.color = "var(--amber)";
     } else {
-      tag.textContent = `标的 #${S.blindId} · 5m`;
+      tag.textContent = `ETH #${S.blindId} · 5m`;
       tag.style.color = "var(--text)";
     }
   }
@@ -358,14 +384,14 @@ function updateBlindBoxUI(){
   }
   const ohT = $("#ohT");
   if(ohT){
-    ohT.textContent = S.isRevealed ? S.sym : `标的 #${S.blindId}`;
+    ohT.textContent = S.isRevealed ? "ETHUSDT · 5m" : `ETH #${S.blindId} · 5m`;
   }
 }
 
 function toggleReveal(){
   S.isRevealed = !S.isRevealed;
   updateBlindBoxUI();
-  toast(`🔍 真实标的：${S.sym} · 日期：${S.realTimeStr}`);
+  toast(`🔍 真实标的：ETHUSDT · 时间：${S.realTimeStr}`);
 }
 if($("#btnReveal")) $("#btnReveal").addEventListener("click", toggleReveal);
 
@@ -539,13 +565,12 @@ function updateChartCandles(rawBars){
   }
 }
 
-/* ================= 真实交易所历史行情盲盒拉取 (100% 真实数据，绝无仿真模拟) ================= */
+/* ================= ETH 5m 真实交易所历史行情抽取 (100% 真实数据，绝无仿真模拟) ================= */
 async function loadRandomMarket(){
-  const tfMs = 300000; // 5m
+  const tfMs = 300000; // 5m = 300,000 ms
   const now = Date.now();
-  // 限制在活跃交易区间 180 天内（保证每个币种都有完整无断层的真实 1000 根历史 K 线）
-  const maxHistoryMs = Math.floor(180 * 24 * 3600 * 1000);
-  const minTime = now - maxHistoryMs;
+  // 币安 ETHUSDT 永续合约从 2020 年初至今，拥有海量 5m 真实历史切片
+  const minTime = new Date("2020-03-01T00:00:00Z").getTime();
   const maxTime = now - (TOTAL_BARS * tfMs);
 
   const origin = window.location.origin;
@@ -560,24 +585,28 @@ async function loadRandomMarket(){
   let success = false;
   let attempts = 0;
 
-  // 生成新的盲盒编号
+  S.sym = "ETHUSDT";
+  S.tf = "5m";
   S.blindId = Math.floor(100 + Math.random() * 900);
   S.isRevealed = false;
 
+  // 点击换行情时自动关闭抽屉并切回主图
+  const sh = $("#shStats"), mk = $("#mask");
+  if(sh) sh.classList.remove("on");
+  if(mk) mk.classList.remove("on");
+
   while(!success && attempts < 10){
     attempts++;
-    const randomSym = SYMBOL_POOL[Math.floor(Math.random() * SYMBOL_POOL.length)];
-    S.sym = randomSym;
     const randomEndTime = Math.floor(minTime + Math.random() * (maxTime - minTime));
     const host = uniqueHosts[(attempts - 1) % uniqueHosts.length];
     
-    toast(`🎲 正在抽取真实历史切片 #${S.blindId}…`);
+    toast(`🎲 正在抽取 ETH 5m 真实历史切片 #${S.blindId}…`);
 
     try{
       const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 3000);
+      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 3500);
       
-      const url = `${host}/fapi/v1/klines?symbol=${randomSym}&interval=${S.tf}&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
+      const url = `${host}/fapi/v1/klines?symbol=ETHUSDT&interval=5m&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
       const r = await fetch(url, { signal: ctl ? ctl.signal : undefined });
       clearTimeout(tm);
 
@@ -594,12 +623,8 @@ async function loadRandomMarket(){
         const fmt = d => `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
         S.realTimeStr = `${fmt(d1)} ~ ${fmt(d2)}`;
 
-        // 真实价格精度
-        const samplePrice = S.curK[S.curK.length - 1].c;
-        if(samplePrice > 1000) S.tickSize = 0.1;
-        else if(samplePrice > 10) S.tickSize = 0.01;
-        else if(samplePrice > 0.1) S.tickSize = 0.0001;
-        else S.tickSize = 0.000001;
+        // ETH 价格精度统一为 0.01 (2位小数)
+        S.tickSize = 0.01;
 
         // 清空所有旧的挂单和持仓
         S.orders = [];
@@ -619,17 +644,17 @@ async function loadRandomMarket(){
         
         syncTradeLines();
 
-        toast(`已就绪：真实盲盒 #${S.blindId} 5m (${S.curK.length} / 1000根真实K线)`);
+        toast(`已就绪：ETH 5m 真实切片 #${S.blindId} (${S.curK.length} / 1000根真实K线)`);
         success = true;
         return;
       }
     }catch(e){
-      console.warn("Retrying real market load:", e);
+      console.warn("Retrying real ETH 5m market load:", e);
     }
   }
 
   if(!success){
-    toast("真实行情拉取中，正在重试…");
+    toast("ETH 5m 行情拉取中，正在重试…");
     setTimeout(loadRandomMarket, 1000);
   }
 }
@@ -737,21 +762,28 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
 
   S.balanceR += pnlR;
   
+  const now = new Date();
+  const timeStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+
   const record = {
     id: Date.now(),
-    sym: S.sym,
+    sym: "ETHUSDT",
+    tf: "5m",
     blindId: S.blindId,
     side: p.side,
     entry: p.entry,
     exit: exitPx,
     sl: p.sl,
     tp: p.tp,
-    rr: p.rr || (Math.abs(exitPx - p.entry) / dist),
+    rr: p.rr || (dist > 0 ? (Math.abs(exitPx - p.entry) / dist) : 1.0),
     riskPct: p.riskPct,
     riskR: p.riskR,
     pnlR: pnlR,
     reason: reason,
-    time: Date.now()
+    time: Date.now(),
+    timeStr: timeStr,
+    marketTime: S.realTimeStr,
+    note: ""
   };
 
   S.trades.unshift(record);
@@ -872,24 +904,125 @@ function renderStatsView(){
 
   const list = $("#tradeListContainer");
   if(!total){
-    list.innerHTML = '<div class="none">暂无训练交易记录。<br>在图表上长按或右键选点下单，支持盲盒训练，点击右侧 20% 区域推进 K 线吧！</div>';
+    list.innerHTML = '<div class="none">暂无训练交易记录。<br>在图表上长按或右键选点下单，开启 ETH 5m 真实回测训练，点击右侧 20% 区域推进 K 线吧！</div>';
     return;
   }
 
-  list.innerHTML = '<table><thead><tr><th>标的/方向</th><th>入场价</th><th>出场价</th><th>盈亏(R)</th><th>盈亏比</th><th>说明</th></tr></thead><tbody>' +
+  list.innerHTML = `<table>
+    <thead>
+      <tr>
+        <th style="min-width:65px">标的/方向</th>
+        <th style="min-width:65px">时间</th>
+        <th>入场价</th>
+        <th>出场价</th>
+        <th>盈亏(R)</th>
+        <th>盈亏比</th>
+        <th style="min-width:110px;text-align:left">笔记/记录</th>
+      </tr>
+    </thead>
+    <tbody>` +
     S.trades.map(t => {
       const isLong = t.side === "buy";
       const isWin = t.pnlR >= 0;
-      const symLabel = t.blindId ? `#${t.blindId} (${t.sym})` : t.sym;
+      const symLabel = t.blindId ? `#${t.blindId}` : (t.sym || "ETH");
+      const timeDisplay = t.timeStr ? t.timeStr.slice(5) : (new Date(t.time || t.id).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+      const safeNote = (t.note || "").replace(/"/g, '&quot;');
       return `<tr>
         <td><b>${symLabel}</b> <span class="${isLong ? "up" : "down"}">${isLong ? "多" : "空"}</span> <span style="font-size:10px;color:var(--faint)">${t.riskPct}%</span></td>
+        <td style="font-size:11px;color:var(--faint)" title="${t.timeStr || ''}">${timeDisplay}</td>
         <td>${px(t.entry)}</td>
         <td>${px(t.exit)}</td>
         <td class="${isWin ? "up" : "down"}"><b>${rFmt(t.pnlR)}</b></td>
-        <td>${t.rr ? t.rr.toFixed(2) : "—"}</td>
-        <td><span style="font-size:10.5px;color:var(--faint)">${t.reason}</span></td>
+        <td>${t.rr ? Number(t.rr).toFixed(2) : "—"}</td>
+        <td style="text-align:left">
+          <input type="text" class="trade-note-input" data-id="${t.id}" value="${safeNote}" placeholder="${t.reason || '添加笔记...'}" title="点击可编辑此笔交易复盘笔记/说明" />
+        </td>
       </tr>`;
-    }).join("") + '</tbody></table>';
+    }).join("") + `</tbody></table>`;
+
+  list.querySelectorAll(".trade-note-input").forEach(inp => {
+    inp.addEventListener("change", e => {
+      const id = +e.target.getAttribute("data-id");
+      const val = e.target.value.trim();
+      const tr = S.trades.find(x => x.id === id);
+      if(tr){
+        tr.note = val;
+        try{ localStorage.setItem("sim_trades_history", JSON.stringify(S.trades)); }catch(err){}
+      }
+    });
+    inp.addEventListener("keydown", e => {
+      if(e.key === "Enter") e.target.blur();
+    });
+  });
+}
+
+/* ================= 导出历史训练交易数据表格 (CSV 格式，支持 Excel/WPS) ================= */
+function exportTradesToCSV(){
+  if(!S.trades || !S.trades.length){
+    toast("⚠️ 暂无历史训练交易数据可导出");
+    return;
+  }
+
+  const headers = [
+    "标的",
+    "周期",
+    "切片编号",
+    "交易时间",
+    "行情历史时间",
+    "交易方向",
+    "仓位风险",
+    "入场价",
+    "止损价",
+    "止盈价",
+    "出场价",
+    "盈亏(R)",
+    "盈亏比(R:R)",
+    "平仓原因",
+    "交易心得与笔记"
+  ];
+
+  const rows = S.trades.map(t => {
+    const isLong = t.side === "buy";
+    const tradeTime = t.timeStr || new Date(t.time || t.id).toLocaleString();
+    const marketTime = t.marketTime || "";
+    const pnl = (t.pnlR >= 0 ? "+" : "") + Number(t.pnlR || 0).toFixed(2);
+    const rr = t.rr != null ? Number(t.rr).toFixed(2) : "—";
+    const note = (t.note || "").replace(/"/g, '""');
+    const reason = (t.reason || "").replace(/"/g, '""');
+
+    return [
+      t.sym || "ETHUSDT",
+      t.tf || "5m",
+      t.blindId ? `#${t.blindId}` : "ETH",
+      `"${tradeTime}"`,
+      `"${marketTime}"`,
+      isLong ? "做多 (Long)" : "做空 (Short)",
+      `${t.riskPct || 1}% (${t.riskR || 1}R)`,
+      Number(t.entry || 0).toFixed(2),
+      Number(t.sl || 0).toFixed(2),
+      t.tp != null ? Number(t.tp).toFixed(2) : "—",
+      Number(t.exit || 0).toFixed(2),
+      `${pnl} R`,
+      rr,
+      `"${reason}"`,
+      `"${note}"`
+    ].join(",");
+  });
+
+  const csvString = "\uFEFF" + headers.join(",") + "\n" + rows.join("\n");
+  const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  a.href = url;
+  a.download = `ETH_5m_训练回测记录_${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  toast(`📥 成功导出 ${S.trades.length} 笔 ETH 5m 训练交易数据表格！`);
 }
 
 function resetAllStats(){
@@ -937,7 +1070,7 @@ function sizing(){
 function renderFlow(){
   if(!F.on){ syncTradeLines(); return; }
   const isBuy = F.sl != null && F.e != null ? F.sl < F.e : true;
-  const displaySym = S.isRevealed ? S.sym : `盲盒标的 #${S.blindId}`;
+  const displaySym = S.isRevealed ? "ETHUSDT · 5m" : `ETH #${S.blindId} · 5m`;
   $("#ohT").textContent = displaySym + " · 模拟下单";
   $("#ohS").textContent = F.step === 1 ? "选入场价" : F.step === 2 ? "选止损价" : F.step === 3 ? "选止盈价" : "确认下单";
 
@@ -1611,8 +1744,9 @@ $("#ohGo").addEventListener("click", () => {
   syncTradeLines();
 });
 
-// 右下角按钮
-$("#bRand").addEventListener("click", loadRandomMarket);
+// 交互事件监听
+if($("#bRand")) $("#bRand").addEventListener("click", loadRandomMarket);
+if($("#btnExportCSV")) $("#btnExportCSV").addEventListener("click", exportTradesToCSV);
 $("#bStats").addEventListener("click", () => {
   renderStatsView();
   $("#shStats").classList.add("on");
