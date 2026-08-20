@@ -732,11 +732,25 @@ function stepNextBar(silent = false){
 
 // 撮合一根 K 线
 function matchBar(bar){
+  const prevBar = S.curK.length >= 2 ? S.curK[S.curK.length - 2] : null;
+  const prevClose = prevBar ? prevBar.c : bar.o;
+
   // 1. 检查所有待入场的挂单
   const remainingOrders = [];
+  const justFilledPositions = [];
+
   for(const o of S.orders){
-    const triggered = (bar.l <= o.entry && bar.h >= o.entry);
-    if(triggered){
+    const isLong = o.side === "buy";
+    
+    // 判断该 K 线是否触及入场价（区间覆盖或跨 Bar 跳空穿越）
+    let reachedEntry = (bar.l <= o.entry && bar.h >= o.entry);
+    if(!reachedEntry){
+      if(prevClose > o.entry && bar.l <= o.entry) reachedEntry = true;
+      if(prevClose < o.entry && bar.h >= o.entry) reachedEntry = true;
+    }
+
+    if(reachedEntry){
+      // 触及入场价，入场成交！
       const newPos = {
         id: genId("pos"),
         side: o.side,
@@ -747,19 +761,23 @@ function matchBar(bar){
         riskR: o.riskR,
         rr: o.rr,
         openIndex: S.visibleCount - 1,
-        openTime: bar.t
+        openTime: bar.t,
+        justOpened: true
       };
-      S.positions.push(newPos);
-      toast(`🎯 挂单成交入场！${newPos.side === "buy" ? "做多" : "做空"} (${newPos.riskR}R) @ ${px(newPos.entry)}`);
+      justFilledPositions.push(newPos);
+      toast(`🎯 挂单成交入场！${isLong ? "做多" : "做空"} (${newPos.riskR}R) @ ${px(newPos.entry)}`);
     } else {
+      // 未触及入场价：绝不入场，绝不计算任何亏损！
       remainingOrders.push(o);
     }
   }
   S.orders = remainingOrders;
 
-  // 2. 检查所有已成交持仓是否命中止损 / 止盈
+  // 2. 检查所有已真实成交持仓（历史持仓 + 本根新入场持仓）是否命中止损 / 止盈
+  const allActivePositions = [...S.positions, ...justFilledPositions];
   const remainingPositions = [];
-  for(const p of S.positions){
+
+  for(const p of allActivePositions){
     const isLong = p.side === "buy";
     
     let hitSL = false, hitTP = false;
@@ -1712,39 +1730,19 @@ $("#ohGo").addEventListener("click", () => {
   if(!r.ok){ toast(r.err || "入场或止损未选定"); return; }
   
   const isBuy = r.sl < r.e;
-  const cp = curPrice();
-  const isDirectFill = Math.abs(cp - r.e) / r.e < 0.0015;
-
-  if(isDirectFill){
-    const newPos = {
-      id: genId("pos"),
-      side: isBuy ? "buy" : "sell",
-      entry: r.e,
-      sl: r.sl,
-      tp: r.tp,
-      riskPct: r.riskPct,
-      riskR: r.riskR,
-      rr: r.rr,
-      openIndex: S.visibleCount - 1,
-      openTime: S.curK[S.curK.length - 1].t
-    };
-    S.positions.push(newPos);
-    toast(`已模拟开仓：${isBuy ? "做多" : "做空"} (风险 ${r.riskR}R) @ ${px(r.e)} (持仓数: ${S.positions.length})`);
-  }else{
-    const newOrd = {
-      id: genId("ord"),
-      side: isBuy ? "buy" : "sell",
-      entry: r.e,
-      sl: r.sl,
-      tp: r.tp,
-      riskPct: r.riskPct,
-      riskR: r.riskR,
-      rr: r.rr,
-      createTime: Date.now()
-    };
-    S.orders.push(newOrd);
-    toast(`已提交模拟挂单：${isBuy ? "做多" : "做空"} (风险 ${r.riskR}R) @ ${px(r.e)} (挂单数: ${S.orders.length})`);
-  }
+  const newOrd = {
+    id: genId("ord"),
+    side: isBuy ? "buy" : "sell",
+    entry: r.e,
+    sl: r.sl,
+    tp: r.tp,
+    riskPct: r.riskPct,
+    riskR: r.riskR,
+    rr: r.rr,
+    createTime: Date.now()
+  };
+  S.orders.push(newOrd);
+  toast(`已提交模拟挂单：${isBuy ? "做多" : "做空"} (风险 ${r.riskR}R) @ ${px(r.e)} (待入场挂单数: ${S.orders.length})`);
 
   endFlow();
   syncTradeLines();
