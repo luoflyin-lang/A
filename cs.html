@@ -149,6 +149,55 @@ th:first-child,td:first-child{text-align:left}
 #ohGo:disabled{opacity:.35;cursor:not-allowed}
 #ohH{font-size:11.5px;color:var(--amber);margin-top:6px;min-height:16px;line-height:1.4}
 
+/* 隐藏 TV 原生水印/广告链接 */
+#tv_chart a, .tv-lightweight-charts a {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+/* 左下角白色训练数据按钮，精准覆盖在 TV 插件区域 */
+.tv-cover-btn {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 18;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 7px;
+  background: #FFFFFF;
+  color: #111111;
+  border: 1px solid rgba(0,0,0,.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,.10);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all .15s ease;
+  backdrop-filter: blur(8px);
+}
+.tv-cover-btn:hover {
+  background: #F2F2F2;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.14);
+}
+.tv-cover-btn:active {
+  transform: translateY(1px);
+}
+html[data-theme="dark"] .tv-cover-btn {
+  background: #242424;
+  color: #E0E0E0;
+  border-color: rgba(255,255,255,.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+html[data-theme="dark"] .tv-cover-btn:hover {
+  background: #2E2E2E;
+}
+
 /* ---- 图表辅助线与把手 ---- */
 #pline{position:fixed;left:0;right:0;height:0;display:none;z-index:10;pointer-events:none;
   border-top:1.5px dashed #2B5C8F}
@@ -157,11 +206,8 @@ th:first-child,td:first-child{text-align:left}
   background:#111111;color:#FFFFFF;border-radius:6px;padding:2px 7px;white-space:nowrap}
 
 #dlayer{position:fixed;inset:0;z-index:4;pointer-events:none}
-.dl{position:absolute;left:0;right:0;height:0;display:none}
-.dl.sl{border-top:1.5px dashed #C0392B}
-.dl.tp{border-top:1.5px dashed #27AE60}
-.dl.en{border-top:1.5px dashed #2B5C8F}
-.dl.pos{border-top:2px solid #2B5C8F}
+.dl{position:absolute;left:0;right:0;height:0;display:none;border:none}
+.dl.sl,.dl.tp,.dl.en,.dl.pos{border:none;border-top:none}
 
 /* 选点与持仓/挂单的可移动把手 */
 .dl .grip{
@@ -201,10 +247,8 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <!-- 右侧 20% 推进触控区域 -->
 <div id="step_tap_zone"></div>
 
-<!-- 悬浮入口按钮 -->
-<div id="brr">
-  <button class="fab primary" id="bStats" title="查看训练数据与历史战绩">📊 训练数据</button>
-</div>
+<!-- 左下角覆盖 TV 插件的水印 Logo，并作为训练数据主入口的白色按钮 -->
+<button class="tv-cover-btn" id="bStats" title="查看训练数据与历史战绩">📊 训练数据</button>
 
 <div id="mask"></div>
 
@@ -911,49 +955,28 @@ function renderStatsView(){
   list.innerHTML = `<table>
     <thead>
       <tr>
-        <th style="min-width:65px">标的/方向</th>
-        <th style="min-width:65px">时间</th>
+        <th>标的/方向</th>
+        <th>时间</th>
         <th>入场价</th>
         <th>出场价</th>
         <th>盈亏(R)</th>
         <th>盈亏比</th>
-        <th style="min-width:110px;text-align:left">笔记/记录</th>
       </tr>
     </thead>
     <tbody>` +
     S.trades.map(t => {
       const isLong = t.side === "buy";
       const isWin = t.pnlR >= 0;
-      const symLabel = t.blindId ? `#${t.blindId}` : (t.sym || "ETH");
       const timeDisplay = t.timeStr ? t.timeStr.slice(5) : (new Date(t.time || t.id).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
-      const safeNote = (t.note || "").replace(/"/g, '&quot;');
       return `<tr>
-        <td><b>${symLabel}</b> <span class="${isLong ? "up" : "down"}">${isLong ? "多" : "空"}</span> <span style="font-size:10px;color:var(--faint)">${t.riskPct}%</span></td>
+        <td><b>ETH</b> <span class="${isLong ? "up" : "down"}">${isLong ? "多" : "空"}</span> <span style="font-size:10px;color:var(--faint)">${t.riskPct}%</span></td>
         <td style="font-size:11px;color:var(--faint)" title="${t.timeStr || ''}">${timeDisplay}</td>
         <td>${px(t.entry)}</td>
         <td>${px(t.exit)}</td>
         <td class="${isWin ? "up" : "down"}"><b>${rFmt(t.pnlR)}</b></td>
         <td>${t.rr ? Number(t.rr).toFixed(2) : "—"}</td>
-        <td style="text-align:left">
-          <input type="text" class="trade-note-input" data-id="${t.id}" value="${safeNote}" placeholder="${t.reason || '添加笔记...'}" title="点击可编辑此笔交易复盘笔记/说明" />
-        </td>
       </tr>`;
     }).join("") + `</tbody></table>`;
-
-  list.querySelectorAll(".trade-note-input").forEach(inp => {
-    inp.addEventListener("change", e => {
-      const id = +e.target.getAttribute("data-id");
-      const val = e.target.value.trim();
-      const tr = S.trades.find(x => x.id === id);
-      if(tr){
-        tr.note = val;
-        try{ localStorage.setItem("sim_trades_history", JSON.stringify(S.trades)); }catch(err){}
-      }
-    });
-    inp.addEventListener("keydown", e => {
-      if(e.key === "Enter") e.target.blur();
-    });
-  });
 }
 
 /* ================= 导出历史训练交易数据表格 (CSV 格式，支持 Excel/WPS) ================= */
@@ -965,47 +988,30 @@ function exportTradesToCSV(){
 
   const headers = [
     "标的",
-    "周期",
-    "切片编号",
-    "交易时间",
-    "行情历史时间",
-    "交易方向",
-    "仓位风险",
+    "时间",
+    "方向",
+    "仓位",
     "入场价",
-    "止损价",
-    "止盈价",
     "出场价",
     "盈亏(R)",
-    "盈亏比(R:R)",
-    "平仓原因",
-    "交易心得与笔记"
+    "盈亏比"
   ];
 
   const rows = S.trades.map(t => {
     const isLong = t.side === "buy";
     const tradeTime = t.timeStr || new Date(t.time || t.id).toLocaleString();
-    const marketTime = t.marketTime || "";
     const pnl = (t.pnlR >= 0 ? "+" : "") + Number(t.pnlR || 0).toFixed(2);
     const rr = t.rr != null ? Number(t.rr).toFixed(2) : "—";
-    const note = (t.note || "").replace(/"/g, '""');
-    const reason = (t.reason || "").replace(/"/g, '""');
 
     return [
-      t.sym || "ETHUSDT",
-      t.tf || "5m",
-      t.blindId ? `#${t.blindId}` : "ETH",
+      "ETHUSDT",
       `"${tradeTime}"`,
-      `"${marketTime}"`,
-      isLong ? "做多 (Long)" : "做空 (Short)",
+      isLong ? "做多" : "做空",
       `${t.riskPct || 1}% (${t.riskR || 1}R)`,
       Number(t.entry || 0).toFixed(2),
-      Number(t.sl || 0).toFixed(2),
-      t.tp != null ? Number(t.tp).toFixed(2) : "—",
       Number(t.exit || 0).toFixed(2),
       `${pnl} R`,
-      rr,
-      `"${reason}"`,
-      `"${note}"`
+      rr
     ].join(",");
   });
 
@@ -1016,7 +1022,7 @@ function exportTradesToCSV(){
   const now = new Date();
   const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   a.href = url;
-  a.download = `ETH_5m_训练回测记录_${dateStr}.csv`;
+  a.download = `ETH_5m_训练交易数据_${dateStr}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
