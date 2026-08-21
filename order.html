@@ -529,6 +529,10 @@ async function req(method,path,query,headers,ms){
     if(r.status===429||r.status===418||r.status===403){NET.fail++;
       backoffUntil=Math.max(backoffUntil,Date.now()+Math.min(60000,3000*NET.fail));
       throw bnErr(j||{msg:"HTTP "+r.status,code:-r.status});}
+    if(j&&j.msg&&j.msg.includes("restricted location")){
+      toast("⚠ 币安区域限制：检测到美国/受限节点，请将梯子切换至【台湾/日本/韩国】等非美国节点！");
+      throw new Error("币安受限地区IP (Restricted Location)");
+    }
     if(j&&j.code!=null&&+j.code<0)throw bnErr(j);
     if(!r.ok)throw bnErr(j||{msg:"HTTP "+r.status});
     NET.info=Date.now();NET.fail=0;backoffUntil=0;return j;
