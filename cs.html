@@ -707,12 +707,10 @@ async function loadRandomMarket(){
   const minTime = new Date("2020-03-01T00:00:00Z").getTime();
   const maxTime = now - (TOTAL_BARS * tfMs);
 
-  const origin = window.location.origin;
   const HOSTS = [
-    origin,
-    "https://binance-order.luoflyin-40b.workers.dev",
-    "https://order.124568.xyz",
-    "https://cs.124568.xyz"
+    "https://fapi.binance.com",
+    "https://fapi1.binance.com",
+    window.location.origin
   ];
   const uniqueHosts = [...new Set(HOSTS.filter(Boolean))];
 
