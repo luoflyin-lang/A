@@ -13,10 +13,8 @@ if (typeof LightweightCharts === "undefined") {
 }
 </script>
 <style>
-/* 彻底隐藏任何 TV / TradingView 插件标志与水印链接 */
-#tv_chart a, #tv_chart svg, #tv_chart [class*="tv-"], #tv_chart [id*="tv-"],
-#tv_chart [class*="tradingview"], #tv_chart [id*="tradingview"],
-.tv-logo, .tv-attribution, #tv-attr-logo, a[href*="tradingview"] {
+/* 彻底隐藏任何 TV / TradingView 插件标志与水印链接（保留图表主体） */
+#tv_chart a, #tv-attr-logo, .tv-attr-logo, a[href*="tradingview"] {
   display: none !important;
   opacity: 0 !important;
   visibility: hidden !important;
@@ -903,7 +901,7 @@ async function kline(force){
   if(!force&&c&&Date.now()-c.t<30000)return;
   try{
     const r=await pub("/fapi/v1/klines",{symbol:reqSym,interval:reqTf,limit:500});
-    const raw=(r||[]).map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
+    const raw=(Array.isArray(r)?r:[]).map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
     if(raw.length){
       S.kc[key]={k:raw,t:Date.now()};
       // 防切币竞态条件：确认当前仍是请求的币种和周期
