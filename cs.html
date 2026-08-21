@@ -560,15 +560,15 @@ function getCandleThemeOptions(isDark){
     return {
       bg, text,
       candle: {
-        upColor: "#089981",        // 阳线经典绿
-        downColor: "#F23645",      // 阴线经典红
+        upColor: "#FFFFFF",        // 阳线亮白实心
+        downColor: "#121212",      // 阴线暗黑空心
         borderVisible: true,
-        borderUpColor: "#089981",  // 阳线边框绿
-        borderDownColor: "#F23645",// 阴线边框红
-        wickUpColor: "#089981",    // 阳线影线绿
-        wickDownColor: "#F23645"   // 阴线影线红
+        borderUpColor: "#FFFFFF",  // 阳线边框纯白
+        borderDownColor: "#888888",// 阴线边框中灰
+        wickUpColor: "#FFFFFF",    // 阳线影线纯白
+        wickDownColor: "#888888"   // 阴线影线中灰
       },
-      emaColor: "#F0B90B"          // 均线亮金黄
+      emaColor: "#888888"          // 经典极简中灰均线
     };
   } else {
     return {
