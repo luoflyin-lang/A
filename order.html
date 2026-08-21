@@ -344,17 +344,17 @@ th:first-child,td:first-child{text-align:left}
 "use strict";
 let API_KEY="";                 // 留空，在页面里填
 let API_SECRET="";              // 留空，在页面里填
-const PROXY="https://order.124568.xyz";                 // 默认 Cloudflare 代理
-const PROXY_WS="wss://order.124568.xyz";              // 默认 Cloudflare WebSocket 代理
+const PROXY="https://order.124568.xyz";                 // 默认代理
+const PROXY_WS="wss://fstream.binance.com";          // 默认币安官方 WebSocket 直连
 
 let BASE=PROXY||"https://fapi.binance.com";
-let WSU=(PROXY_WS||"wss://fstream.binance.com")+"/ws";
+let WSU=PROXY_WS+"/ws";
 
-// 若直接在 Cloudflare 绑定的域名下访问，自动使用当前域名
+// 若在自定义域名下访问，HTTP REST API 自动使用当前域名（由 Vercel Edge 反代），WebSocket 保持官方直连
 if(typeof window !== "undefined" && window.location && window.location.protocol.startsWith("http")){
   if(window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"){
     BASE = window.location.origin;
-    WSU = (window.location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws";
+    // 注意：Vercel 不支持 WebSocket 反代，WSU 保持 wss://fstream.binance.com/ws 直连
   }
 }
 
@@ -2809,9 +2809,10 @@ async function boot(){
   await syncTime();
   initTradingViewChart();
   applyTheme();
+  const kInit = kline(true);
   try{await loadUniverse();sock();setInterval(tick,TICKER_MS);}
   catch(e){toast("行情加载失败，交易已锁定");log("boot universe err "+e.message);}
-  await kline(true);head();
+  await kInit;head();
   await bootKeys();
   avHint();
   if(HASKEY)await startPrivate();
