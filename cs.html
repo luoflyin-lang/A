@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#F5F2EB">
 <title>ETH 5m 模拟回测训练 · 经典黑白极简版</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
@@ -13,14 +13,14 @@ if (typeof LightweightCharts === "undefined") {
 }
 </script>
 <style>
-/* 经典纯白背景 + 纯正黑白 K 线极简配色 */
+/* 经典护眼温润羊皮纸背景 + 纯正黑白 K 线极简配色 */
 :root{
-  --bg:#FFFFFF;--surface:#FFFFFF;--raised:#F5F5F5;--text:#111111;--dim:rgba(0,0,0,.65);
-  --faint:rgba(0,0,0,.40);--line:rgba(0,0,0,.08);
+  --bg:#F5F2EB;--surface:#FAF8F5;--raised:#EAE6DE;--text:#1C1917;--dim:rgba(28,25,23,.68);
+  --faint:rgba(28,25,23,.42);--line:rgba(28,25,23,.10);
   --up:#27AE60;--down:#C0392B;--blue:#2B5C8F;--amber:#8A651E;
-  --ink:#111111;--onink:#FFFFFF;--cline:rgba(0,0,0,.40);--cbody:#111111;
-  --pop:rgba(255,255,255,.98);--fabbg:rgba(255,255,255,.94);
-  --tint:rgba(0,0,0,.06);--cgrid:transparent;--caim:rgba(0,0,0,.85);--chair:rgba(0,0,0,.25);
+  --ink:#1C1917;--onink:#FAF8F5;--cline:rgba(28,25,23,.40);--cbody:#1C1917;
+  --pop:rgba(250,248,245,.98);--fabbg:rgba(250,248,245,.94);
+  --tint:rgba(28,25,23,.06);--cgrid:transparent;--caim:rgba(28,25,23,.85);--chair:rgba(28,25,23,.25);
   color-scheme:light;--mono:"Menlo","Consolas",monospace}
 html[data-theme="dark"]{
   --bg:#121212;--surface:#1A1A1A;--raised:#262626;--text:#E0E0E0;
@@ -132,20 +132,20 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th{text-align:right;font-weight:500;font-size:10.5px;letter-spacing:.03em;
   color:var(--faint);padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{text-align:right;padding:10px 6px;white-space:nowrap;font-family:var(--mono);font-variant-numeric:tabular-nums;
-  border-bottom:1px solid var(--line)}
-th:first-child,td:first-child{text-align:left}
-.none{padding:28px 12px;color:var(--faint);font-size:13px;line-height:1.8;text-align:center}
+td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);font-size:11.5px;font-family:var(--mono)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--tint)}
+.none{text-align:center;padding:32px 16px;color:var(--faint);font-size:13px;line-height:1.6}
 
 #toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(8px);opacity:0;
   background:var(--ink);color:var(--onink);border-radius:10px;padding:10px 18px;font-size:13.5px;transition:.2s;pointer-events:none;z-index:30;
   max-width:82vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.18)}
 #toast.on{opacity:1;transform:translateX(-50%)}
 
-/* ---- 下单 HUD 面板（停靠在左下角上方） ---- */
-#ohud{position:fixed;left:20px;bottom:76px;z-index:18;width:380px;display:none;
-  background:var(--pop);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.12);
-  padding:18px 20px;backdrop-filter:blur(10px)}
+/* ---- 下单面板 (HUD) ---- */
+#ohud{position:fixed;left:20px;bottom:76px;width:340px;max-width:calc(100vw - 40px);background:var(--pop);
+  border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.14);border-radius:14px;padding:16px 18px;
+  z-index:20;display:none;backdrop-filter:blur(10px)}
 #ohud.on{display:block}
 #ohud .t{display:flex;align-items:center;gap:14px;font-size:14px;color:var(--faint);margin-bottom:12px}
 #ohud .t b{font-size:17px;color:var(--text);font-weight:600}
@@ -164,7 +164,7 @@ th:first-child,td:first-child{text-align:left}
 .obar button:hover{color:var(--text)}
 #ohR{background:var(--tint);color:var(--text);border:1px solid var(--line)}
 #ohGo{height:36px;width:100%;margin-top:10px;border-radius:9px;font-size:13.5px;font-weight:650}
-#ohGo.b{background:#111111;color:#FFFFFF}#ohGo.s{background:#111111;color:#FFFFFF}
+#ohGo.b{background:var(--ink);color:var(--onink)}#ohGo.s{background:var(--ink);color:var(--onink)}
 #ohGo:disabled{opacity:.35;cursor:not-allowed}
 #ohH{font-size:11.5px;color:var(--amber);margin-top:6px;min-height:16px;line-height:1.4}
 
@@ -185,10 +185,10 @@ th:first-child,td:first-child{text-align:left}
   height: 30px;
   padding: 0 12px;
   border-radius: 7px;
-  background: #FFFFFF;
-  color: #111111;
-  border: 1px solid rgba(0,0,0,.15);
-  box-shadow: 0 2px 8px rgba(0,0,0,.10);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
   font-size: 12px;
   font-weight: 600;
   display: inline-flex;
@@ -200,9 +200,9 @@ th:first-child,td:first-child{text-align:left}
   backdrop-filter: blur(8px);
 }
 .tv-cover-btn:hover {
-  background: #F2F2F2;
+  background: var(--raised);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,.14);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
 }
 .tv-cover-btn:active {
   transform: translateY(1px);
@@ -553,8 +553,8 @@ let tvChart = null, candleSeries = null, emaSeries = null;
 let tradeLines = { entry: null, sl: null, tp: null, posLines: [], ordLines: [] };
 
 function getCandleThemeOptions(isDark){
-  const bg = isDark ? "#121212" : "#FFFFFF";
-  const text = isDark ? "#E0E0E0" : "#111111";
+  const bg = isDark ? "#121212" : "#F5F2EB";
+  const text = isDark ? "#E0E0E0" : "#1C1917";
   
   if(isDark){
     return {
@@ -574,15 +574,15 @@ function getCandleThemeOptions(isDark){
     return {
       bg, text,
       candle: {
-        upColor: "#FFFFFF",        // 经典白身
-        downColor: "#000000",      // 经典黑身
+        upColor: "#FFFFFF",        // 柔和白身（在温润羊皮纸背景上立体凸显）
+        downColor: "#1C1917",      // 经典深石墨黑身
         borderVisible: true,
-        borderUpColor: "#000000",
-        borderDownColor: "#000000",
-        wickUpColor: "#000000",
-        wickDownColor: "#000000"
+        borderUpColor: "#1C1917",
+        borderDownColor: "#1C1917",
+        wickUpColor: "#1C1917",
+        wickDownColor: "#1C1917"
       },
-      emaColor: "#222222"
+      emaColor: "#57534E"          // 柔和中灰均线
     };
   }
 }
