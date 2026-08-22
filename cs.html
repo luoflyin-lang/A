@@ -845,7 +845,8 @@ function matchBar(bar){
     }
 
     if(reachedEntry){
-      // 触及入场价，入场成交！
+      // 触及入场价，入场成交！严格固化 1R 的初始风险价格距离
+      const rDist = o.initialRiskDist || Math.max(Math.abs(o.entry - (o.initialSl || o.sl)), o.entry * 0.0005);
       const newPos = {
         id: genId("pos"),
         side: o.side,
@@ -854,6 +855,7 @@ function matchBar(bar){
         tp: o.tp,
         initialSl: o.initialSl || o.sl,
         initialTp: o.initialTp || o.tp,
+        initialRiskDist: rDist,
         riskPct: o.riskPct,
         riskR: o.riskR,
         rr: o.rr,
@@ -881,16 +883,16 @@ function matchBar(bar){
   // 更新所有持仓在当前 K 线内的浮盈浮亏极值和持仓根数
   for(const p of allActivePositions){
     p.holdingBars = (p.holdingBars || 0) + 1;
-    const dist = Math.max(Math.abs(p.entry - p.sl), p.entry * 0.0005);
+    const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
     const isLong = p.side === "buy";
     if(isLong){
-      const barMaxR = ((bar.h - p.entry) / dist) * p.riskR;
-      const barMinR = ((bar.l - p.entry) / dist) * p.riskR;
+      const barMaxR = ((bar.h - p.entry) / rDist) * p.riskR;
+      const barMinR = ((bar.l - p.entry) / rDist) * p.riskR;
       p.maxFavR = Math.max(p.maxFavR ?? 0, barMaxR);
       p.maxAdvR = Math.min(p.maxAdvR ?? 0, barMinR);
     }else{
-      const barMaxR = ((p.entry - bar.l) / dist) * p.riskR;
-      const barMinR = ((p.entry - bar.h) / dist) * p.riskR;
+      const barMaxR = ((p.entry - bar.l) / rDist) * p.riskR;
+      const barMinR = ((p.entry - bar.h) / rDist) * p.riskR;
       p.maxFavR = Math.max(p.maxFavR ?? 0, barMaxR);
       p.maxAdvR = Math.min(p.maxAdvR ?? 0, barMinR);
     }
@@ -898,6 +900,7 @@ function matchBar(bar){
 
   for(const p of allActivePositions){
     const isLong = p.side === "buy";
+    const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
     
     let hitSL = false, hitTP = false;
     if(isLong){
@@ -916,10 +919,12 @@ function matchBar(bar){
     }
 
     if(hitSL){
-      finalizeClosePosition(p, "止损平仓", p.sl, -p.riskR);
+      const slPnlR = (isLong ? (p.sl - p.entry) : (p.entry - p.sl)) / rDist * p.riskR;
+      const slReason = Math.abs(slPnlR) < 0.05 ? "保本平仓" : (slPnlR > 0 ? "移动止损平仓" : "止损平仓");
+      finalizeClosePosition(p, slReason, p.sl, slPnlR);
     }else if(hitTP){
-      const winR = p.riskR * (p.rr || 1.0);
-      finalizeClosePosition(p, "止盈平仓", p.tp, winR);
+      const tpPnlR = (isLong ? (p.tp - p.entry) : (p.entry - p.tp)) / rDist * p.riskR;
+      finalizeClosePosition(p, "止盈平仓", p.tp, tpPnlR);
     }else{
       remainingPositions.push(p);
     }
@@ -929,16 +934,16 @@ function matchBar(bar){
 
 // 内部平仓结算核心函数
 function finalizeClosePosition(p, reason, exitPx, pnlR){
-  const dist = Math.max(Math.abs(p.entry - p.sl), p.entry * 0.0005);
+  const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
   const isLong = p.side === "buy";
   
   if(pnlR == null){
     const cp = curPrice();
     exitPx = cp;
     if(isLong){
-      pnlR = ((cp - p.entry) / dist) * p.riskR;
+      pnlR = ((cp - p.entry) / rDist) * p.riskR;
     }else{
-      pnlR = ((p.entry - cp) / dist) * p.riskR;
+      pnlR = ((p.entry - cp) / rDist) * p.riskR;
     }
   }
 
@@ -952,13 +957,13 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
 
   for(const fb of futureBars){
     if(isLong){
-      const rVal = ((fb.h - p.entry) / dist) * p.riskR;
+      const rVal = ((fb.h - p.entry) / rDist) * p.riskR;
       if(rVal > futureMfeR) futureMfeR = rVal;
       if(pnlR < 0 && p.initialTp != null && fb.h >= p.initialTp){
         sweepLoss = true;
       }
     }else{
-      const rVal = ((p.entry - fb.l) / dist) * p.riskR;
+      const rVal = ((p.entry - fb.l) / rDist) * p.riskR;
       if(rVal > futureMfeR) futureMfeR = rVal;
       if(pnlR < 0 && p.initialTp != null && fb.l <= p.initialTp){
         sweepLoss = true;
@@ -984,12 +989,16 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
       if(dSL < dTP) hTP = false; else hSL = false;
     }
     if(hSL){ planBenchR = -p.riskR; break; }
-    if(hTP){ planBenchR = p.riskR * (p.rr || 1.0); break; }
+    if(hTP){
+      const planWinR = (isLong ? (initTp - p.entry) : (p.entry - initTp)) / rDist * p.riskR;
+      planBenchR = planWinR;
+      break;
+    }
   }
 
   // 模拟 Benchmark B: 固定 2:1 机械基准 (1R 止损, 2R 止盈)
-  const fixedTpPx = isLong ? (p.entry + 2.0 * dist) : (p.entry - 2.0 * dist);
-  const fixedSlPx = isLong ? (p.entry - 1.0 * dist) : (p.entry + 1.0 * dist);
+  const fixedTpPx = isLong ? (p.entry + 2.0 * rDist) : (p.entry - 2.0 * rDist);
+  const fixedSlPx = isLong ? (p.entry - 1.0 * rDist) : (p.entry + 1.0 * rDist);
   for(const sb of simBars){
     let hSL = isLong ? (sb.l <= fixedSlPx) : (sb.h >= fixedSlPx);
     let hTP = isLong ? (sb.h >= fixedTpPx) : (sb.l <= fixedTpPx);
@@ -1021,7 +1030,7 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
     exit: exitPx,
     sl: p.sl,
     tp: p.tp,
-    rr: p.rr || (dist > 0 ? (Math.abs(exitPx - p.entry) / dist) : 1.0),
+    rr: (rDist > 0 ? (Math.abs(exitPx - p.entry) / rDist) : (p.rr || 1.0)),
     riskPct: p.riskPct,
     riskR: p.riskR,
     pnlR: pnlR,
@@ -1526,9 +1535,12 @@ function syncTradeLines(){
       axisLabelVisible: false,
       title: `${labelNum}持仓 ${isLong ? "多" : "空"} (${p.riskR}R) @ ${px(p.entry)}`
     });
+    const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
+    const slPnlR = (isLong ? (p.sl - p.entry) : (p.entry - p.sl)) / rDist * p.riskR;
+    const slSign = slPnlR >= 0 ? "+" : "";
     const slLine = candleSeries.createPriceLine({
       price: p.sl, color: downColor, lineWidth: 1.5,
-      lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: `${labelNum}止损 (-${p.riskR}R) @ ${px(p.sl)}`
+      lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: `${labelNum}止损 (${slSign}${slPnlR.toFixed(2)}R) @ ${px(p.sl)}`
     });
     tradeLines.posLines.push(posLine, slLine);
 
@@ -1643,13 +1655,15 @@ function renderDOMHandles(){
 
     bindLiveGrip(dSl.querySelector(".grip"), newPrice => {
       p.sl = newPrice;
-      const newDist = Math.max(Math.abs(p.entry - newPrice), p.entry * 0.0005);
-      if(p.tp != null){
-        p.rr = Math.abs(p.tp - p.entry) / newDist;
-      }
+      const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
+      const curSlR = (isLong ? (newPrice - p.entry) : (p.entry - newPrice)) / rDist * p.riskR;
+      const gripSpan = dSl.querySelector(".grip");
+      if(gripSpan) gripSpan.textContent = `${labelNum}止损 (${curSlR >= 0 ? "+" : ""}${curSlR.toFixed(2)}R) @ ${px(p.sl)} ↕`;
       syncTradeLines();
     }, () => {
-      toast(`${labelNum}止损已调整至 ${px(p.sl)}`);
+      const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
+      const curSlR = (isLong ? (p.sl - p.entry) : (p.entry - p.sl)) / rDist * p.riskR;
+      toast(`${labelNum}止损已调整至 ${px(p.sl)} (${curSlR >= 0 ? "+" : ""}${curSlR.toFixed(2)}R)`);
     });
 
     // (C) 止盈线
@@ -1663,8 +1677,11 @@ function renderDOMHandles(){
 
       bindLiveGrip(dTp.querySelector(".grip"), newPrice => {
         p.tp = newPrice;
-        const dist = Math.max(Math.abs(p.entry - p.sl), p.entry * 0.0005);
-        p.rr = Math.abs(newPrice - p.entry) / dist;
+        const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
+        p.rr = Math.abs(newPrice - p.entry) / rDist;
+        const curWinR = (p.riskR * (p.rr || 1.0)).toFixed(2);
+        const gripSpan = dTp.querySelector(".grip");
+        if(gripSpan) gripSpan.textContent = `${labelNum}止盈 (+${curWinR}R · ${(p.rr || 1).toFixed(2)}RR) @ ${px(p.tp)} ↕`;
         syncTradeLines();
       }, () => {
         toast(`${labelNum}止盈已调整至 ${px(p.tp)} (盈亏比: ${(p.rr || 1).toFixed(2)})`);
@@ -2044,6 +2061,7 @@ $("#ohGo").addEventListener("click", () => {
     tp: r.tp,
     initialSl: r.sl,
     initialTp: r.tp,
+    initialRiskDist: r.dist,
     riskPct: r.riskPct,
     riskR: r.riskR,
     rr: r.rr,
