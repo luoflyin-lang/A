@@ -1782,11 +1782,9 @@ function renderDOMHandles(){
   repositionHandles();
 }
 
-// 快速更新所有现有 DOM 节点坐标
+// 快速更新所有现有 DOM 坐标
 function repositionHandles(){
   const baseLeft = window.innerWidth > 640 ? 440 : 140;
-
-  // 1. 下单选点时的把手
   [["e","#hEn","入场"],["sl","#hSl","止损"],["tp","#hTp","止盈"]].forEach(([k,hd,lb])=>{
     const el=$(hd),v=F.on?F[k]:null,y=p2y(v);
     if(!el) return;
@@ -1795,39 +1793,28 @@ function repositionHandles(){
     const grip=el.querySelector(".grip");
     if(grip) grip.textContent=lb+" "+px(v);
   });
-
-  // 2. 所有持仓把手
   S.positions.forEach((p, idx) => {
     const isLong = p.side === "buy";
     const labelNum = S.positions.length > 1 ? `#${idx + 1} ` : "";
     const offsetLeft = baseLeft + (idx % 3) * 15;
-    
     const dE = $(`#h_pos_entry_${p.id}`);
     if(dE){
       const y = p2y(p.entry);
       if(y != null && y > 0 && y < window.innerHeight){
         dE.style.display = "block"; dE.style.top = y + "px";
         const g = dE.querySelector(".grip");
-        if(g){
-          g.style.left = offsetLeft + "px";
-          g.querySelector("span").textContent = `${labelNum}持仓 ${isLong ? "做多" : "做空"} (${p.riskR}R) @ ${px(p.entry)}`;
-        }
+        if(g){ g.style.left = offsetLeft + "px"; g.querySelector("span").textContent = `${labelNum}持仓 ${isLong ? "做多" : "做空"} (${p.riskR}R) @ ${px(p.entry)}`; }
       }else{ dE.style.display = "none"; }
     }
-
     const dS = $(`#h_pos_sl_${p.id}`);
     if(dS){
       const y = p2y(p.sl);
       if(y != null && y > 0 && y < window.innerHeight){
         dS.style.display = "block"; dS.style.top = y + "px";
         const g = dS.querySelector(".grip");
-        if(g){
-          g.style.left = offsetLeft + "px";
-          g.textContent = `${labelNum}止损 (-${p.riskR}R) @ ${px(p.sl)} ↕`;
-        }
+        if(g){ g.style.left = offsetLeft + "px"; g.textContent = `${labelNum}止损 (-${p.riskR}R) @ ${px(p.sl)} ↕`; }
       }else{ dS.style.display = "none"; }
     }
-
     const dT = $(`#h_pos_tp_${p.id}`);
     if(dT && p.tp != null){
       const y = p2y(p.tp);
@@ -1835,104 +1822,78 @@ function repositionHandles(){
         dT.style.display = "block"; dT.style.top = y + "px";
         const winR = (p.riskR * (p.rr || 1.0)).toFixed(2);
         const g = dT.querySelector(".grip");
-        if(g){
-          g.style.left = offsetLeft + "px";
-          g.textContent = `${labelNum}止盈 (+${winR}R · ${(p.rr || 1).toFixed(2)}RR) @ ${px(p.tp)} ↕`;
-        }
+        if(g){ g.style.left = offsetLeft + "px"; g.textContent = `${labelNum}止盈 (+${winR}R · ${(p.rr || 1).toFixed(2)}RR) @ ${px(p.tp)} ↕`; }
       }else{ dT.style.display = "none"; }
     }
   });
-
-  // 3. 所有挂单把手
   S.orders.forEach((o, idx) => {
     const isLong = o.side === "buy";
     const labelNum = S.orders.length > 1 ? `#${idx + 1} ` : "";
     const offsetLeft = baseLeft + (idx % 3) * 15;
-
     const dE = $(`#h_ord_entry_${o.id}`);
     if(dE){
       const y = p2y(o.entry);
       if(y != null && y > 0 && y < window.innerHeight){
         dE.style.display = "block"; dE.style.top = y + "px";
         const g = dE.querySelector(".grip");
-        if(g){
-          g.style.left = offsetLeft + "px";
-          g.querySelector("span").textContent = `${labelNum}挂单 ${isLong ? "多" : "空"} @ ${px(o.entry)} ↕`;
-        }
+        if(g){ g.style.left = offsetLeft + "px"; g.querySelector("span").textContent = `${labelNum}挂单 ${isLong ? "多" : "空"} @ ${px(o.entry)} ↕`; }
       }else{ dE.style.display = "none"; }
     }
-
     const dS = $(`#h_ord_sl_${o.id}`);
     if(dS){
       const y = p2y(o.sl);
       if(y != null && y > 0 && y < window.innerHeight){
         dS.style.display = "block"; dS.style.top = y + "px";
         const g = dS.querySelector(".grip");
-        if(g){
-          g.style.left = offsetLeft + "px";
-          g.textContent = `${labelNum}挂单止损 @ ${px(o.sl)} ↕`;
-        }
+        if(g){ g.style.left = offsetLeft + "px"; g.textContent = `${labelNum}挂单止损 @ ${px(o.sl)} ↕`; }
       }else{ dS.style.display = "none"; }
     }
-
     const dT = $(`#h_ord_tp_${o.id}`);
     if(dT && o.tp != null){
       const y = p2y(o.tp);
       if(y != null && y > 0 && y < window.innerHeight){
         dT.style.display = "block"; dT.style.top = y + "px";
         const g = dT.querySelector(".grip");
-        if(g){
-          g.style.left = offsetLeft + "px";
-          g.textContent = `${labelNum}挂单止盈 @ ${px(o.tp)} ↕`;
-        }
+        if(g){ g.style.left = offsetLeft + "px"; g.textContent = `${labelNum}挂单止盈 @ ${px(o.tp)} ↕`; }
       }else{ dT.style.display = "none"; }
     }
   });
 }
 
-/* ================= 长按、拖动选点与右侧 20% 点击推进 ================= */
-let aim=false, aimPrice=null, pT=null, pX=0, pY=0, pKill=false, pMulti=false, pTime=0;
-let isMouseDownOnChart = false, isTouchDownOnChart = false;
-const AIM_MS=100, H_TOL=5;
+/* ================= 统一 Pointer 手势交互系统 ================= */
+let aim = false, aimPrice = null, isAimDragging = false, pX = 0, pY = 0, pTime = 0;
+let activePointerId = null;
 
 function guide(clientY){
-  if(!aim){ hideGuide(); return null; }
   const p = y2p(clientY), l = $("#pline");
   if(p == null || !isFinite(p) || p <= 0){ l.style.display="none"; aimPrice=null; return null; }
   aimPrice = p;
   
-  let lb = (!F.on || F.step <= 1) ? "入场" : (F.step === 3 ? "止盈" : "调整");
+  let lb = (!F.on || F.step <= 1) ? "入场" : (F.step === 3 ? "止盈" : "微调");
   let extra = "";
-  if(F.on && F.e != null){
-    if(F.step === 3){
-      const isBuy = p > F.e;
-      const curBar = getCurKBar();
-      const tempSl = isBuy ? ((curBar && curBar.l < F.e) ? curBar.l : F.sl) : ((curBar && curBar.h > F.e) ? curBar.h : F.sl);
-      const dist = tempSl ? Math.abs(F.e - tempSl) : (F.e * 0.005);
-      if(dist > 0){
-        const rr = Math.abs(p - F.e) / dist;
-        extra = ` · ${isBuy ? "做多" : "做空"}盈亏比 1:${rr.toFixed(2)}`;
-      }
+  if(F.on && F.e != null && F.step === 3){
+    const isBuy = p > F.e;
+    const curBar = getCurKBar();
+    const tempSl = isBuy ? ((curBar && curBar.l < F.e) ? curBar.l : (F.e * 0.995)) : ((curBar && curBar.h > F.e) ? curBar.h : (F.e * 1.005));
+    const dist = Math.max(Math.abs(F.e - tempSl), F.e * 0.0005);
+    if(dist > 0){
+      const rr = Math.abs(p - F.e) / dist;
+      extra = ` · ${isBuy ? "做多" : "做空"}预计盈亏比 1:${rr.toFixed(2)}`;
     }
   }
-  l.style.display="block"; l.style.top=clientY+"px";
+  l.style.display = "block";
+  l.style.top = clientY + "px";
   $("#pbub").textContent = lb + " " + px(p) + extra;
   return p;
 }
 
 function hideGuide(){ $("#pline").style.display="none"; aimPrice=null; }
 
-function enterAim(){
-  if(pKill || pMulti || isGripDragging) return;
-  aim = true;
-  $("#pline").classList.add("aim");
-  guide(pY);
-  navigator.vibrate?.(15);
-}
-
 function resetPress(){
-  clearTimeout(pT); pT=null; aim=false; pKill=false; pMulti=false;
-  hideGuide(); $("#pline").classList.remove("aim");
+  aim = false;
+  isAimDragging = false;
+  hideGuide();
+  $("#pline").classList.remove("aim");
 }
 
 function onChart(t){
@@ -1941,13 +1902,13 @@ function onChart(t){
   return t === document.body || t === document.documentElement;
 }
 
-// 选点面板手柄
+// 选点面板手柄拖动
 function bindFlowGrip(hd, key){
   const grip = $(hd)?.querySelector(".grip"); if(!grip) return;
   let on = false;
   const mv = ev => {
     if(!on) return;
-    const cy = ev.touches?.[0]?.clientY ?? ev.clientY, p = y2p(cy);
+    const cy = ev.clientY, p = y2p(cy);
     if(p == null || !isFinite(p) || p <= 0) return;
     F[key] = p; renderFlow();
     if(ev.cancelable) ev.preventDefault();
@@ -1970,49 +1931,61 @@ function bindFlowGrip(hd, key){
 }
 bindFlowGrip("#hEn","e"); bindFlowGrip("#hSl","sl"); bindFlowGrip("#hTp","tp");
 
-// 鼠标交互：按下即拖动，松手即确定
-addEventListener("mousedown", e => {
-  if(e.button !== 0 || !onChart(e.target) || isGripDragging) return;
-  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet")) return;
-  
+// 核心 Pointer 事件监听器（单一事件源，彻底杜绝触摸和鼠标重叠双发问题）
+window.addEventListener("pointerdown", e => {
+  if(!e.isPrimary) return;
+  if(isGripDragging) return;
+  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet") || e.target.closest(".tv-cover-btn")) return;
+  if(!onChart(e.target)) return;
+
   const isRight20 = e.clientX >= window.innerWidth * 0.80;
   if(isRight20){
-    // 右侧 20% 区域专用于推进 K 线，绝不开启下单导引
+    // 右侧 20% 点击直接推进 K 线
     return;
   }
 
-  isMouseDownOnChart = true;
-  aim = false; aimPrice = null; pKill = false; pMulti = false;
-  pX = e.clientX; pY = e.clientY; pTime = Date.now();
-  clearTimeout(pT);
-  pT = setTimeout(enterAim, AIM_MS);
+  activePointerId = e.pointerId;
+  aim = false;
+  aimPrice = null;
+  isAimDragging = false;
+  pX = e.clientX;
+  pY = e.clientY;
+  pTime = Date.now();
 });
 
-addEventListener("mousemove", e => {
-  if(!isMouseDownOnChart) return;
+window.addEventListener("pointermove", e => {
+  if(activePointerId == null || e.pointerId !== activePointerId) return;
   const dy = Math.abs(e.clientY - pY), dx = Math.abs(e.clientX - pX);
-  if(!aim && (dy > H_TOL || dx > H_TOL || Date.now() - pTime > AIM_MS)){
-    enterAim();
+  
+  if(!isAimDragging && (dy > 6 || dx > 6)){
+    isAimDragging = true;
+    aim = true;
+    $("#pline").classList.add("aim");
   }
+
   if(aim){
     guide(e.clientY);
   }
 });
 
-addEventListener("mouseup", e => {
+window.addEventListener("pointerup", e => {
   const isRight20 = e.clientX >= window.innerWidth * 0.80;
-  if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn")){
+  if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn") && !e.target.closest(".tv-cover-btn")){
     stepNextBar();
+    activePointerId = null;
     resetPress();
-    isMouseDownOnChart = false;
     return;
   }
 
-  if(!isMouseDownOnChart) return;
-  isMouseDownOnChart = false;
-  const wasAim = aim && !pKill && onChart(e.target);
+  if(activePointerId == null || e.pointerId !== activePointerId){
+    activePointerId = null;
+    return;
+  }
+  activePointerId = null;
+
+  const wasAim = aim && isAimDragging;
   const p = aimPrice || y2p(e.clientY);
-  
+
   resetPress();
 
   if(wasAim && p != null && isFinite(p) && p > 0){
@@ -2020,79 +1993,12 @@ addEventListener("mouseup", e => {
   }
 });
 
-addEventListener("contextmenu", e => {
-  if(!onChart(e.target) || e.target.closest(".grip") || e.target.closest(".xbtn")) return;
-  const isRight20 = e.clientX >= window.innerWidth * 0.80;
-  if(isRight20) return;
-  const p = y2p(e.clientY);
-  if(p == null || !isFinite(p) || p <= 0) return;
-  e.preventDefault();
-  pickPrice(p);
-});
-
-// 触屏交互：按下即拖动，松手即确定
-addEventListener("touchstart", e => {
-  if(!onChart(e.target) || isGripDragging) return;
-  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet")) return;
-  pMulti = e.touches.length > 1;
-  pKill = pMulti;
-  
-  const t = e.touches[0]; if(!t) return;
-  const isRight20 = t.clientX >= window.innerWidth * 0.80;
-  if(isRight20){
-    // 右侧 20% 区域为推进专用
-    return;
-  }
-
-  isTouchDownOnChart = !pMulti;
-  aim = false; aimPrice = null; pTime = Date.now();
-  pX = t.clientX; pY = t.clientY;
-  clearTimeout(pT);
-  if(!pMulti) pT = setTimeout(enterAim, AIM_MS);
-}, { passive: false });
-
-addEventListener("touchmove", e => {
-  if(e.touches.length > 1){
-    pMulti = pKill = true; isTouchDownOnChart = false; clearTimeout(pT); aim = false; hideGuide();
-    return;
-  }
-  if(!isTouchDownOnChart) return;
-  const t = e.touches[0]; if(!t) return;
-  const dy = Math.abs(t.clientY - pY), dx = Math.abs(t.clientX - pX);
-  if(!aim && (dy > H_TOL || dx > H_TOL || Date.now() - pTime > AIM_MS)){
-    enterAim();
-  }
-  if(aim){
-    guide(t.clientY);
-    if(e.cancelable) e.preventDefault();
-  }
-}, { passive: false });
-
-addEventListener("touchend", e => {
-  const t = e.changedTouches?.[0];
-  const clickX = t ? t.clientX : pX;
-  const isRight20 = clickX >= window.innerWidth * 0.80;
-  
-  if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn")){
-    stepNextBar();
+window.addEventListener("pointercancel", e => {
+  if(activePointerId != null && e.pointerId === activePointerId){
+    activePointerId = null;
     resetPress();
-    isTouchDownOnChart = false;
-    return;
   }
-
-  if(!isTouchDownOnChart && !aim) return;
-  isTouchDownOnChart = false;
-  clearTimeout(pT);
-  const wasAim = aim && !pKill && !pMulti;
-  const p = aimPrice;
-
-  resetPress();
-
-  if(wasAim && p != null && isFinite(p) && p > 0){
-    if(e.cancelable) e.preventDefault();
-    pickPrice(p);
-  }
-}, { passive: false });
+});
 
 /* ================= 事件交互与流程 ================= */
 // 仓位切换 1% <-> 4%
@@ -2103,9 +2009,16 @@ $("#ohR").addEventListener("click", () => {
 
 $("#ohSkip").addEventListener("click", () => {
   if(F.step === 3){
+    const curBar = getCurKBar();
+    const isBuy = curBar ? (F.e >= curBar.c) : true;
+    if(isBuy){
+      F.sl = (curBar && curBar.l < F.e) ? curBar.l : (F.e * 0.995);
+    } else {
+      F.sl = (curBar && curBar.h > F.e) ? curBar.h : (F.e * 1.005);
+    }
     F.tp = null;
     F.step = 4;
-    toast("已跳过止盈，可直接点击【确认下单】");
+    toast(`已跳过止盈 · 止损已自动挂于 K 线端点 (${px(F.sl)}) · 可直接下单`);
   } else {
     F.step = 1;
     F.e = F.sl = F.tp = null;
