@@ -1412,7 +1412,7 @@ function sizing(){
 
 function renderFlow(){
   if(!F.on){ syncTradeLines(); return; }
-  const isBuy = F.sl != null && F.e != null ? F.sl < F.e : true;
+  const isBuy = (F.tp != null && F.e != null) ? (F.tp > F.e) : (F.sl != null && F.e != null ? F.sl < F.e : true);
   const displaySym = S.isRevealed ? "ETHUSDT · 5m" : `ETH #${S.blindId} · 5m`;
   $("#ohT").textContent = displaySym + " · 模拟下单";
   
@@ -1422,11 +1422,11 @@ function renderFlow(){
     $("#ohSkip").textContent = "重新选";
   } else if(F.step === 3){
     $("#ohS").textContent = "2. 拖动选止盈";
-    $("#ohH").textContent = "止损已自动置于 K 线端点，拖动设置止盈或直接下单";
+    $("#ohH").textContent = "入场已定，请再次按下拖动设置止盈（或点击跳过）";
     $("#ohSkip").textContent = "跳过止盈";
   } else {
     $("#ohS").textContent = "3. 确认下单";
-    $("#ohH").textContent = "可拖动图表把手微调，点击下方按钮决定下单";
+    $("#ohH").textContent = "止损已自动就位，可拖动把手微调，点击下方决定下单";
     $("#ohSkip").textContent = "重新选点";
   }
 
@@ -1441,7 +1441,7 @@ function renderFlow(){
   const r = sizing();
   const c = $("#ohC");
   if(!r.ok){
-    c.innerHTML = `单笔风险: <b>${F.risk.toFixed(2)} R (${F.risk}%)</b> · 止损距离: —`;
+    c.innerHTML = `单笔风险: <b>${F.risk.toFixed(2)} R (${F.risk}%)</b> · 止盈/止损: 待拖动定好`;
   }else{
     let h = `单笔风险: <b>${r.riskR.toFixed(2)} R (${r.riskPct}%)</b> · 止损幅度: ${(r.dist / r.e * 100).toFixed(2)}%`;
     if(r.rr != null){
@@ -1458,7 +1458,7 @@ function renderFlow(){
   const go = $("#ohGo");
   go.className = isBuy ? "b" : "s";
   go.textContent = isBuy ? "确认模拟 · 做多" : "确认模拟 · 做空";
-  go.disabled = !r.ok;
+  go.disabled = (F.step < 4 && F.sl == null);
 
   syncTradeLines();
 }
@@ -1471,54 +1471,34 @@ function pickPrice(p){
   lastCommitTime = nowT;
 
   const curBar = getCurKBar();
-  const barC = curBar ? curBar.c : p;
-  const barL = curBar ? curBar.l : (p * 0.99);
-  const barH = curBar ? curBar.h : (p * 1.01);
 
   if(!F.on || F.step <= 1){
-    // 1. 设置入场价格，松手即定
+    // 第一次拖动松手：仅设置好入场价格，绝不同时挂上止损和止盈！
     F.on = true;
     F.e = p;
+    F.sl = null; // 此时绝不设置止损
+    F.tp = null; // 此时绝不设置止盈
+    F.step = 3;  // 进入第二步：等待拖动设置止盈
     $("#ohud").classList.add("on");
-
-    // 2. 自动预设止损在入场 K 线的相反方向
-    if(p >= barC){
-      // 默认做多：止损置于 K 线下沿（若完全相等则留 0.1% 缓冲）
-      F.sl = p > barL ? barL : (p * 0.995);
-    } else {
-      // 默认做空：止损置于 K 线上沿
-      F.sl = p < barH ? barH : (p * 1.005);
-    }
-
-    F.tp = null;
-    F.step = 3; // 立即进入第2步：拖动选止盈
-    toast(`【入场已定】${px(p)} · 止损已自动置于 K 线相反端点 (${px(F.sl)}) · 请拖动设置【止盈价】`);
+    toast(`【入场已定】${px(p)} · 请再次按下拖动设置【止盈价】`);
   } else if(F.step === 3){
-    // 3. 手动拖动设置止盈，松手即定
+    // 第二次拖动松手：设置好止盈价格，此时止损才根据方向自动挂在入场 K 线的相反端点！
     F.tp = p;
-    F.step = 4; // 进入确认下单阶段
-
-    // 根据止盈相对于入场的方向，精确将止损锚定在入场 K 线的反方向端点
     const isBuy = F.tp > F.e;
+    
+    // 做多：止损挂在入场 K 线下沿；做空：止损挂在入场 K 线上沿
     if(isBuy){
-      if(curBar && curBar.l < F.e){
-        F.sl = curBar.l;
-      } else if(F.sl >= F.e){
-        F.sl = F.e * 0.995;
-      }
+      F.sl = (curBar && curBar.l < F.e) ? curBar.l : (F.e * 0.995);
     } else {
-      if(curBar && curBar.h > F.e){
-        F.sl = curBar.h;
-      } else if(F.sl <= F.e){
-        F.sl = F.e * 1.005;
-      }
+      F.sl = (curBar && curBar.h > F.e) ? curBar.h : (F.e * 1.005);
     }
 
+    F.step = 4; // 进入第三步：决定下单
     const dist = Math.max(Math.abs(F.e - F.sl), F.e * 0.0005);
     const rr = dist > 0 ? (Math.abs(F.tp - F.e) / dist).toFixed(2) : "1.00";
-    toast(`【止盈已定】${px(p)} (盈亏比 1:${rr}) · 止损: ${px(F.sl)} · 请决定下单`);
+    toast(`【止盈已定】${px(p)} · 止损已自动挂于 K 线端点 (${px(F.sl)}) · 盈亏比 1:${rr} · 请决定下单`);
   } else {
-    // 4. 处于确认下单阶段，再次拖动智能微调最近手柄
+    // 第三步微调阶段：再次拖动智能微调最近手柄
     const candidates = [["e", F.e], ["sl", F.sl], ["tp", F.tp]].filter(x => x[1] != null);
     candidates.sort((a, b) => Math.abs(a[1] - p) - Math.abs(b[1] - p));
     if(candidates.length > 0){
@@ -1994,6 +1974,13 @@ bindFlowGrip("#hEn","e"); bindFlowGrip("#hSl","sl"); bindFlowGrip("#hTp","tp");
 addEventListener("mousedown", e => {
   if(e.button !== 0 || !onChart(e.target) || isGripDragging) return;
   if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet")) return;
+  
+  const isRight20 = e.clientX >= window.innerWidth * 0.80;
+  if(isRight20){
+    // 右侧 20% 区域专用于推进 K 线，绝不开启下单导引
+    return;
+  }
+
   isMouseDownOnChart = true;
   aim = false; aimPrice = null; pKill = false; pMulti = false;
   pX = e.clientX; pY = e.clientY; pTime = Date.now();
@@ -2013,32 +2000,30 @@ addEventListener("mousemove", e => {
 });
 
 addEventListener("mouseup", e => {
+  const isRight20 = e.clientX >= window.innerWidth * 0.80;
+  if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn")){
+    stepNextBar();
+    resetPress();
+    isMouseDownOnChart = false;
+    return;
+  }
+
   if(!isMouseDownOnChart) return;
   isMouseDownOnChart = false;
   const wasAim = aim && !pKill && onChart(e.target);
   const p = aimPrice || y2p(e.clientY);
-  const clickX = e.clientX, clickY = e.clientY;
-  const elapsed = Date.now() - pTime;
-  const isQuickClick = !wasAim && Math.abs(clickX - pX) <= H_TOL && Math.abs(clickY - pY) <= H_TOL && elapsed < 280;
   
   resetPress();
 
   if(wasAim && p != null && isFinite(p) && p > 0){
     pickPrice(p);
-    return;
-  }
-
-  // 点击屏幕右侧 20% 位置推进 K 线
-  if(isQuickClick && onChart(e.target) && !isGripDragging){
-    const isRight20 = clickX >= window.innerWidth * 0.80;
-    if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn")){
-      stepNextBar();
-    }
   }
 });
 
 addEventListener("contextmenu", e => {
   if(!onChart(e.target) || e.target.closest(".grip") || e.target.closest(".xbtn")) return;
+  const isRight20 = e.clientX >= window.innerWidth * 0.80;
+  if(isRight20) return;
   const p = y2p(e.clientY);
   if(p == null || !isFinite(p) || p <= 0) return;
   e.preventDefault();
@@ -2051,9 +2036,16 @@ addEventListener("touchstart", e => {
   if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet")) return;
   pMulti = e.touches.length > 1;
   pKill = pMulti;
+  
+  const t = e.touches[0]; if(!t) return;
+  const isRight20 = t.clientX >= window.innerWidth * 0.80;
+  if(isRight20){
+    // 右侧 20% 区域为推进专用
+    return;
+  }
+
   isTouchDownOnChart = !pMulti;
   aim = false; aimPrice = null; pTime = Date.now();
-  const t = e.touches[0]; if(!t) return;
   pX = t.clientX; pY = t.clientY;
   clearTimeout(pT);
   if(!pMulti) pT = setTimeout(enterAim, AIM_MS);
@@ -2077,29 +2069,28 @@ addEventListener("touchmove", e => {
 }, { passive: false });
 
 addEventListener("touchend", e => {
+  const t = e.changedTouches?.[0];
+  const clickX = t ? t.clientX : pX;
+  const isRight20 = clickX >= window.innerWidth * 0.80;
+  
+  if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn")){
+    stepNextBar();
+    resetPress();
+    isTouchDownOnChart = false;
+    return;
+  }
+
   if(!isTouchDownOnChart && !aim) return;
   isTouchDownOnChart = false;
   clearTimeout(pT);
   const wasAim = aim && !pKill && !pMulti;
   const p = aimPrice;
-  const clickX = pX;
-  const elapsed = Date.now() - pTime;
-  const isQuickTap = !wasAim && !pMulti && elapsed < 280;
 
   resetPress();
 
   if(wasAim && p != null && isFinite(p) && p > 0){
     if(e.cancelable) e.preventDefault();
     pickPrice(p);
-    return;
-  }
-
-  // 触屏右侧 20% 点击推进
-  if(isQuickTap && onChart(e.target) && !isGripDragging){
-    const isRight20 = clickX >= window.innerWidth * 0.80;
-    if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn")){
-      stepNextBar();
-    }
   }
 }, { passive: false });
 
