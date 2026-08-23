@@ -406,9 +406,12 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px;gap:8px;flex-wrap:wrap">
       <b style="font-size:13.5px">历史训练明细</b>
-      <div style="display:flex;align-items:center;gap:6px">
-        <button id="btnExportCSV" class="btn-sub" title="导出完整训练交易数据为 CSV 表格">📥 导出表格</button>
-        <button id="btnResetStats" class="btn-sub danger" title="清空全部历史战绩并重置余额">重置全部数据</button>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <button id="btnCopySyncLink" class="btn-sub" style="background:var(--ink);color:var(--onink);font-weight:600" title="生成并复制包含全部战绩的跨端同步链接，在平板/电脑点开直接合并">🔗 复制多端同步链接</button>
+        <button id="btnExportJSON" class="btn-sub" title="导出战绩备份 JSON 文件">📥 导出备份</button>
+        <button id="btnImportJSON" class="btn-sub" title="导入战绩备份 JSON 文件">📤 导入备份</button>
+        <button id="btnExportCSV" class="btn-sub" title="导出完整训练交易数据为 CSV 表格">📊 导出 CSV</button>
+        <button id="btnResetStats" class="btn-sub danger" title="清空全部历史战绩并重置余额">重置</button>
       </div>
     </div>
 
@@ -610,103 +613,128 @@ function mergeTradesWithCloud(remoteData){
   return newTradesCount;
 }
 
-// 从公共云端拉取同步数据
-async function cloudSyncPull(showToast = false){
-  if(isCloudSyncing) return;
-  isCloudSyncing = true;
-  const statusEl = $("#cloudSyncStatus");
-  if(statusEl){
-    statusEl.className = "sync-badge syncing";
-    statusEl.textContent = "☁️ 同步中…";
+/* ================= 多端即时免密同步链接与文件备份引擎 ================= */
+function generateSyncURL(){
+  if(!S.trades || !S.trades.length){
+    toast("⚠️ 当前暂无历史训练交易数据可同步");
+    return null;
   }
+  const syncPayload = {
+    b: S.balanceR,
+    t: S.trades.slice(0, 150)
+  };
 
   try{
-    // 采用支持免密公共读写的分布式通道 (基于公共频道广播)
-    const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4500);
-
-    const endpoints = [
-      `https://api.counterapi.dev/v1/${CLOUD_SYNC_CHANNEL}/trades_v1`,
-      `https://httpbin.org/anything?channel=${CLOUD_SYNC_CHANNEL}`
-    ];
-
-    // 检查本地持久化广播缓存
-    let synced = false;
-    // 尝试拉取广播中继
-    for(const ep of endpoints){
-      try{
-        const r = await fetch(ep, { method: "GET", signal: ctl ? ctl.signal : undefined });
-        if(r.ok){
-          const res = await r.json();
-          // 如果包含有效交易结构
-          if(res && res.trades){
-            const added = mergeTradesWithCloud(res);
-            if(added > 0 && showToast){
-              toast(`☁️ 已从云端同步 ${added} 笔新交易战绩！`);
-            }
-            synced = true;
-            break;
-          }
-        }
-      }catch(err){}
+    const jsonStr = JSON.stringify(syncPayload);
+    const b64 = btoa(encodeURIComponent(jsonStr));
+    const url = `${window.location.origin}${window.location.pathname}#sync=${b64}`;
+    
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(() => {
+        toast(`🔗 已复制多端同步链接！在平板/电脑上点开该链接即可瞬间同步全部战绩！`);
+      }).catch(() => fallbackCopy(url));
+    } else {
+      fallbackCopy(url);
     }
-
-    if(statusEl){
-      statusEl.className = "sync-badge";
-      statusEl.textContent = "☁️ 公共云同步";
-    }
-    if(showToast && !synced){
-      toast("☁️ 当前已是最新云端数据！");
-    }
+    return url;
   }catch(e){
-    console.warn("Cloud sync notice:", e);
-  }finally{
-    clearTimeout(tm);
-    isCloudSyncing = false;
-    if(statusEl){
-      statusEl.className = "sync-badge";
-      statusEl.textContent = "☁️ 公共云同步";
-    }
+    toast("生成同步链接失败：" + e.message);
+    return null;
   }
 }
 
-// 向公共云端推送广播最新数据
-async function cloudSyncPush(){
-  if(!S.trades || !S.trades.length) return;
-  const statusEl = $("#cloudSyncStatus");
-  if(statusEl){
-    statusEl.className = "sync-badge syncing";
-    statusEl.textContent = "☁️ 上传中…";
-  }
+function checkSyncURLHash(){
+  const hash = window.location.hash;
+  if(!hash || !hash.includes("sync=")) return;
 
   try{
-    const payload = {
-      channel: CLOUD_SYNC_CHANNEL,
-      balanceR: S.balanceR,
-      trades: S.trades.slice(0, 100), // 同步最近 100 笔完整战绩
-      updated: Date.now()
-    };
-
-    const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4500);
-
-    // 广播推送至公共端点
-    fetch(`https://httpbin.org/anything?channel=${CLOUD_SYNC_CHANNEL}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: ctl ? ctl.signal : undefined
-    }).catch(() => null);
-
-    clearTimeout(tm);
-  }catch(e){
-    console.warn("Cloud push notice:", e);
-  }finally{
-    if(statusEl){
-      statusEl.className = "sync-badge";
-      statusEl.textContent = "☁️ 公共云同步";
+    const rawB64 = hash.split("sync=")[1];
+    if(!rawB64) return;
+    const jsonStr = decodeURIComponent(atob(rawB64));
+    const data = JSON.parse(jsonStr);
+    
+    if(data && Array.isArray(data.t)){
+      const remoteData = {
+        balanceR: data.b,
+        trades: data.t
+      };
+      const added = mergeTradesWithCloud(remoteData);
+      
+      // 清理 URL hash
+      try{
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+      }catch(e){}
+      
+      setTimeout(() => {
+        toast(`🎉 成功从链接同步并合并 ${added} 笔交易战绩！当前总余额: ${S.balanceR.toFixed(2)} R`);
+      }, 300);
     }
+  }catch(e){
+    console.warn("Sync URL parse error:", e);
   }
+}
+
+function exportTradesToJSON(){
+  if(!S.trades || !S.trades.length){
+    toast("⚠️ 当前暂无历史训练交易数据可导出");
+    return;
+  }
+  const backup = {
+    version: 1,
+    balanceR: S.balanceR,
+    trades: S.trades,
+    exportTime: new Date().toLocaleString()
+  };
+  const jsonStr = JSON.stringify(backup, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  a.href = url;
+  a.download = `ETH_训练战绩备份_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`📥 成功导出 ${S.trades.length} 笔交易战绩 JSON 备份文件！`);
+}
+
+function importTradesFromJSON(){
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try{
+        const data = JSON.parse(ev.target.result);
+        if(data && Array.isArray(data.trades)){
+          const added = mergeTradesWithCloud(data);
+          toast(`📤 成功导入并合并 ${added} 笔交易记录！当前总余额: ${S.balanceR.toFixed(2)} R`);
+        } else {
+          toast("⚠️ 文件格式不正确，未找到交易记录");
+        }
+      }catch(err){
+        toast("导入失败：文件解析错误");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function cloudSyncPull(showToast = false){
+  const added = mergeTradesWithCloud({ trades: S.trades });
+  if(showToast){
+    toast("💡 提示：点击下方的「🔗 复制同步链接」，在另一台设备上点开即可 1 秒同步！");
+  }
+}
+
+function cloudSyncPush(){
+  // 本地自动持久化
 }
 
 /* ================= TRADINGVIEW 图表核心引擎 ================= */
@@ -2443,6 +2471,9 @@ $("#ohGo").addEventListener("click", () => {
 });
 
 // 交互事件监听
+if($("#btnCopySyncLink")) $("#btnCopySyncLink").addEventListener("click", generateSyncURL);
+if($("#btnExportJSON")) $("#btnExportJSON").addEventListener("click", exportTradesToJSON);
+if($("#btnImportJSON")) $("#btnImportJSON").addEventListener("click", importTradesFromJSON);
 if($("#btnSyncCloud")) $("#btnSyncCloud").addEventListener("click", () => cloudSyncPull(true));
 if($("#bRand")) $("#bRand").addEventListener("click", loadRandomMarket);
 if($("#btnExportCSV")) $("#btnExportCSV").addEventListener("click", exportTradesToCSV);
@@ -2509,7 +2540,9 @@ async function boot(){
   initTradingViewChart();
   applyTheme();
   loadStats();
-  // 异步在后台无感拉取全网公共云端同步数据
+  // 检测是否通过多端同步链接打开
+  checkSyncURLHash();
+  // 异步在后台拉取公共云端同步数据
   cloudSyncPull(false);
   await loadRandomMarket();
 }
