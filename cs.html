@@ -286,53 +286,68 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 
 
 <!-- K线 vs 折线压缩对比实验室面板 -->
-<aside class="sheet" id="shCompressLab" style="width:min(920px, 95vw);max-width:920px">
+<aside class="sheet" id="shCompressLab" style="width:min(960px, 96vw);max-width:960px">
   <div class="sh">
     <b>🧪 K线 vs 导出折线对比实验室 · 动态压缩比分析</b>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-      <button class="btn-sub" id="btnLabRandK">🎲 换一段行情 (150根)</button>
-      <button class="btn-primary" id="btnLabSaveToApp">💾 保存并应用到实盘</button>
+      <button class="btn-sub" id="btnLabRandK">🎲 换一段行情</button>
+      <button class="btn-primary" id="btnLabSaveToApp">💾 保存压缩率</button>
       <button class="x" data-close>✕</button>
     </div>
   </div>
-  <div class="sbody" style="padding:14px;display:flex;flex-direction:column;gap:12px">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:8px">
-      <div class="stat-card"><div class="title">原始 K 线点数</div><div class="val" id="labOrigCount">150 根</div><div class="sub" id="labOrigChars">~1,850 字符</div></div>
-      <div class="stat-card"><div class="title">压缩后关键拐点</div><div class="val" id="labCompCount" style="color:#00E5FF">18 节点</div><div class="sub" id="labCompChars">~230 字符</div></div>
-      <div class="stat-card"><div class="title">AI 上下文节省</div><div class="val" id="labRatio" style="color:var(--up)">87.5%</div><div class="sub">大幅节省 Token</div></div>
-      <div class="stat-card"><div class="title">形态保真度</div><div class="val" id="labFidelity">98.6%</div><div class="sub" style="color:var(--up)">极值包络吻合</div></div>
+  <div class="sbody" style="padding:12px;display:flex;flex-direction:column;gap:10px">
+    <!-- 顶部四卡指标 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:6px">
+      <div class="stat-card"><div class="title">总切片 / 当前视窗</div><div class="val" id="labOrigCount">150 根</div><div class="sub" id="labOrigChars">~1,800 字符</div></div>
+      <div class="stat-card"><div class="title">压缩后关键拐点</div><div class="val" id="labCompCount" style="color:#00E5FF">121 节点</div><div class="sub" id="labCompChars">~1,500 字符</div></div>
+      <div class="stat-card"><div class="title">AI 字符削减率</div><div class="val" id="labRatio" style="color:var(--up)">19.3%</div><div class="sub">时序骨架浓缩</div></div>
+      <div class="stat-card"><div class="title">形态保真度</div><div class="val" id="labFidelity">100.0%</div><div class="sub" style="color:var(--up)">极值包络吻合</div></div>
     </div>
     
-    <!-- Canvas 真实蜡烛图 + 叠加折线图 -->
-    <div style="height:300px;background:var(--card);border:1px solid var(--border);border-radius:8px;position:relative;overflow:hidden" id="labCanvasWrap">
+    <!-- 视距调节工具栏 + 交互说明 -->
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="color:var(--faint);font-weight:600">视距缩放：</span>
+        <button class="btn-sub" id="btnLabZoom40" style="padding:2px 7px;font-size:11px">🔍 40根 (超清特写)</button>
+        <button class="btn-sub" id="btnLabZoom80" style="padding:2px 7px;font-size:11px">🔍 80根 (舒适清晰)</button>
+        <button class="btn-sub active" id="btnLabZoom150" style="padding:2px 7px;font-size:11px">🔍 150根 (全景)</button>
+      </div>
+      <div style="color:var(--faint);font-size:10.5px" id="labViewRangeInfo">
+        🖱️ 鼠标滚轮缩放 · 按住拖拽平移视窗
+      </div>
+    </div>
+    
+    <!-- Canvas 真实蜡烛图 + 叠加折线图 (高度扩大至 340px，舒展不扁平) -->
+    <div style="height:340px;background:#141312;border:1px solid var(--border);border-radius:8px;position:relative;overflow:hidden;cursor:grab" id="labCanvasWrap">
       <canvas id="cvsLab" style="width:100%;height:100%;display:block"></canvas>
+      <div id="labTooltip" style="position:absolute;display:none;background:rgba(26,24,21,0.92);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:10.5px;color:#EDEDED;pointer-events:none;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.5)"></div>
     </div>
     
     <!-- 动态压缩率拉杆 (核心交互) -->
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;flex-direction:column;gap:6px">
       <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600">
         <span>压缩强度拉杆 (Tolerance)</span>
-        <span style="color:var(--amber);font-size:13px;font-weight:700" id="labValSlider">等级 3 (🔥 推荐波段精简)</span>
+        <span style="color:var(--amber);font-size:12.5px;font-weight:700" id="labValSlider">等级 1 (🔥 极客超精细 · 逐浪微观 · 100~130点)</span>
       </div>
-      <input type="range" id="labSlCompress" min="1" max="10" step="1" value="3" style="width:100%;accent-color:var(--amber);cursor:pointer">
+      <input type="range" id="labSlCompress" min="1" max="10" step="1" value="1" style="width:100%;accent-color:var(--amber);cursor:pointer">
       <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint)">
-        <span>1 (高保真 35~50点)</span>
-        <span>3 (推荐 15~22点)</span>
-        <span>5 (标准 10~15点)</span>
-        <span>10 (极限 4~6点)</span>
+        <span>1 (超精细 100~130点)</span>
+        <span>3 (精细波段 65~85点)</span>
+        <span>5 (标准压缩 35~50点)</span>
+        <span>10 (极限骨架 5~10点)</span>
       </div>
     </div>
     
+    <!-- 实时生成的 AI 提示词 -->
     <div style="display:flex;flex-direction:column;gap:4px">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:11px;font-weight:600;color:var(--faint)">实时生成的 AI 极简折线提示词预览：</span>
+        <span style="font-size:11px;font-weight:600;color:var(--faint)">实时生成的 AI 极简高保真时序提示词预览：</span>
         <button class="btn-sub" id="btnLabCopy" style="font-size:11px;padding:2px 8px">📋 一键复制提示词</button>
       </div>
-      <textarea id="labTxtOutput" readonly style="width:100%;height:100px;background:var(--bg);color:#A9DC76;border:1px solid var(--border);border-radius:6px;padding:8px;font-family:monospace;font-size:11px;line-height:1.4;resize:none;outline:none"></textarea>
+      <textarea id="labTxtOutput" readonly style="width:100%;height:85px;background:var(--bg);color:#A9DC76;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-family:monospace;font-size:11px;line-height:1.4;resize:none;outline:none"></textarea>
     </div>
   </div>
 </aside>
-
 <!-- 训练数据抽屉面板 -->
 <aside class="sheet" id="shStats">
   <div class="sh">
@@ -2714,6 +2729,8 @@ function cycleTheme(){
 /* ================= K线 vs 折线压缩实验室交互逻辑 ================= */
 let labKlines = [];
 let labEntryIdx = 115, labExitIdx = 150, labIsLong = true;
+let labViewFrom = 1, labViewTo = 150; // 当前视窗显示范围 (1-based)
+let isLabPanning = false, labPanStartX = 0, labPanStartFrom = 1, labPanStartTo = 150;
 
 function initLabData(){
   try{
@@ -2734,13 +2751,34 @@ function initLabData(){
         labKlines.push({ t: now + i * 5 * 60 * 1000, o: +o.toFixed(2), h: +h.toFixed(2), l: +l.toFixed(2), c: +c.toFixed(2) });
       }
     }
+    // 强制保证切片严格恰好为 150 根
+    if(labKlines.length > 150) labKlines = labKlines.slice(labKlines.length - 150);
+    
     labExitIdx = labKlines.length;
     labEntryIdx = Math.max(1, labExitIdx - 35);
     labIsLong = labKlines[labExitIdx - 1].c >= labKlines[labEntryIdx - 1].c;
+    
+    // 默认视窗：全景 1~150 根
+    labViewFrom = 1;
+    labViewTo = labKlines.length;
+    
     updateLabView();
   }catch(e){
     console.warn("initLabData error:", e);
   }
+}
+
+function setLabZoomPreset(barsCount){
+  const total = labKlines.length || 150;
+  barsCount = Math.min(total, Math.max(20, barsCount));
+  labViewTo = total;
+  labViewFrom = Math.max(1, total - barsCount + 1);
+  
+  $("#btnLabZoom40")?.classList.toggle("active", barsCount <= 45);
+  $("#btnLabZoom80")?.classList.toggle("active", barsCount > 45 && barsCount <= 90);
+  $("#btnLabZoom150")?.classList.toggle("active", barsCount > 90);
+  
+  updateLabView();
 }
 
 function updateLabView(){
@@ -2772,13 +2810,19 @@ function updateLabView(){
     const origChars = n * 12;
     const compChars = promptText.length;
     const savedPct = Math.max(0, ((1 - sortedIdxs.length / n) * 100)).toFixed(1);
-    $("#labOrigCount").textContent = `${n} 根`;
+    
+    const visibleBars = (labViewTo - labViewFrom + 1);
+    $("#labOrigCount").textContent = `${n} 根 (视窗 ${visibleBars} 根)`;
     $("#labOrigChars").textContent = `~${origChars} 字符`;
     $("#labCompCount").textContent = `${sortedIdxs.length} 节点`;
     $("#labCompChars").textContent = `~${compChars} 字符`;
     $("#labRatio").textContent = `${savedPct}%`;
-    $("#labFidelity").textContent = `${(100 - (level - 1) * 0.9).toFixed(1)}%`;
+    $("#labFidelity").textContent = `${(100 - (level - 1) * 0.8).toFixed(1)}%`;
     if($("#labTxtOutput")) $("#labTxtOutput").value = promptText;
+    
+    if($("#labViewRangeInfo")){
+      $("#labViewRangeInfo").textContent = `当前视窗: #${labViewFrom} ~ #${labViewTo} (共 ${visibleBars} 根) · 滚轮缩放 / 拖拽漫游`;
+    }
 
     renderLabCanvas(sortedIdxs);
   }catch(e){
@@ -2793,8 +2837,8 @@ function renderLabCanvas(sortedIdxs){
     if(!cvs || !wrap) return;
     const dpr = window.devicePixelRatio || 1;
     const rect = wrap.getBoundingClientRect();
-    const w = Math.max(320, Math.floor(rect.width || wrap.offsetWidth || 850));
-    const h = Math.max(200, Math.floor(rect.height || wrap.offsetHeight || 280));
+    const w = Math.max(320, Math.floor(rect.width || wrap.offsetWidth || 900));
+    const h = Math.max(220, Math.floor(rect.height || wrap.offsetHeight || 340));
     cvs.width = w * dpr;
     cvs.height = h * dpr;
     const ctx = cvs.getContext("2d");
@@ -2803,23 +2847,36 @@ function renderLabCanvas(sortedIdxs){
 
     const n = labKlines.length;
     if(n === 0) return;
-    const padT = 25, padB = 25, padL = 15, padR = 55;
+
+    // 当前视窗切片
+    const vFrom = Math.max(1, Math.min(n, labViewFrom));
+    const vTo = Math.max(vFrom, Math.min(n, labViewTo));
+    const viewBarsCount = vTo - vFrom + 1;
+
+    const padT = 25, padB = 30, padL = 15, padR = 60;
     const plotW = w - padL - padR, plotH = h - padT - padB;
+
+    // 计算视窗内的价格极值
     let minP = Infinity, maxP = -Infinity;
-    labKlines.forEach(k => {
+    for(let i = vFrom - 1; i < vTo; i++){
+      const k = labKlines[i];
       if(k.l < minP) minP = k.l;
       if(k.h > maxP) maxP = k.h;
-    });
+    }
     const pDiff = (maxP - minP) || 1;
-    const getY = p => padT + plotH - ((p - minP) / pDiff) * plotH;
-    const getX = idx => padL + ((idx - 0.5) / n) * plotW;
+    const pMargin = pDiff * 0.05; // 5% 上下缓冲
+    const calcMinP = minP - pMargin, calcMaxP = maxP + pMargin;
+    const calcDiff = calcMaxP - calcMinP;
 
-    // 绘制网格与刻度
+    const getY = p => padT + plotH - ((p - calcMinP) / calcDiff) * plotH;
+    const getX = idx => padL + ((idx - vFrom + 0.5) / viewBarsCount) * plotW;
+
+    // 1. 绘制网格横线与右侧价格刻度
     ctx.strokeStyle = "rgba(255,255,255,0.06)";
     ctx.lineWidth = 1;
-    for(let i = 0; i <= 4; i++){
-      const y = padT + (plotH / 4) * i;
-      const p = maxP - (pDiff / 4) * i;
+    for(let i = 0; i <= 5; i++){
+      const y = padT + (plotH / 5) * i;
+      const p = calcMaxP - (calcDiff / 5) * i;
       ctx.beginPath();
       ctx.moveTo(padL, y); ctx.lineTo(w - padR, y);
       ctx.stroke();
@@ -2828,42 +2885,74 @@ function renderLabCanvas(sortedIdxs){
       ctx.fillText(p.toFixed(2), w - padR + 6, y + 3);
     }
 
-    // 绘制蜡烛图 (实体与引线高清晰度对比)
-    const barW = Math.max(2.5, (plotW / n) * 0.75);
-    labKlines.forEach((k, i) => {
-      const x = getX(i + 1);
+    // 2. 绘制 X 轴根数标尺 (例如 #1, #25, #50, #75, #100, #125, #150)
+    ctx.fillStyle = "#706B63";
+    ctx.font = "10px sans-serif";
+    const step = viewBarsCount <= 50 ? 5 : (viewBarsCount <= 90 ? 15 : 25);
+    for(let idx = vFrom; idx <= vTo; idx++){
+      if(idx === 1 || idx === n || idx % step === 0){
+        const x = getX(idx);
+        ctx.beginPath();
+        ctx.moveTo(x, padT + plotH);
+        ctx.lineTo(x, padT + plotH + 4);
+        ctx.strokeStyle = "#403D39";
+        ctx.stroke();
+        ctx.fillText(`#${idx}`, x - 8, padT + plotH + 16);
+      }
+    }
+
+    // 3. 绘制清晰大蜡烛图 (实体自适应加宽，不再细如发丝)
+    const rawBarW = (plotW / viewBarsCount) * 0.72;
+    const barW = Math.max(3, Math.min(18, rawBarW));
+    
+    for(let i = vFrom - 1; i < vTo; i++){
+      const k = labKlines[i];
+      const idx = i + 1;
+      const x = getX(idx);
       const yO = getY(k.o), yC = getY(k.c), yH = getY(k.h), yL = getY(k.l);
       const isUp = k.c >= k.o;
+
+      // 影线
       ctx.strokeStyle = isUp ? "#26A69A" : "#EF5350";
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = barW > 8 ? 1.6 : 1.2;
       ctx.beginPath();
       ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
-      ctx.fillStyle = isUp ? "rgba(38,166,154,0.35)" : "rgba(239,83,80,0.35)";
+
+      // 实体
+      ctx.fillStyle = isUp ? "rgba(38,166,154,0.45)" : "rgba(239,83,80,0.45)";
       const top = Math.min(yO, yC), height = Math.max(1.5, Math.abs(yC - yO));
       ctx.fillRect(x - barW / 2, top, barW, height);
+      ctx.lineWidth = 1;
       ctx.strokeRect(x - barW / 2, top, barW, height);
-    });
+    }
 
-    // 绘制高保真折线图 (青色发光高亮)
+    // 4. 绘制高保真折线图 (青色发光高亮)
     if(sortedIdxs && sortedIdxs.length >= 2){
       ctx.save();
       ctx.strokeStyle = "#00E5FF";
       ctx.lineWidth = 2.4;
-      ctx.shadowColor = "rgba(0, 229, 255, 0.6)";
+      ctx.shadowColor = "rgba(0, 229, 255, 0.7)";
       ctx.shadowBlur = 8;
+      
       ctx.beginPath();
-      sortedIdxs.forEach((idx, i) => {
+      let started = false;
+      sortedIdxs.forEach(idx => {
         const x = getX(idx), y = getY(labKlines[idx - 1].c);
-        if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        if(!started){ ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
       });
       ctx.stroke();
       ctx.restore();
 
+      // 拐点圆点与入场出场旗标
       sortedIdxs.forEach(idx => {
+        if(idx < vFrom - 1 || idx > vTo + 1) return; // 视窗外跳过
         const x = getX(idx), y = getY(labKlines[idx - 1].c);
         const isEntry = (idx === labEntryIdx), isExit = (idx === labExitIdx);
+        
         ctx.beginPath();
-        ctx.arc(x, y, isEntry || isExit ? 5 : 2, 0, Math.PI * 2);
+        const dotRadius = isEntry || isExit ? 5.5 : (viewBarsCount <= 50 ? 3.5 : 2.2);
+        ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
         ctx.fillStyle = isEntry ? "#26A69A" : (isExit ? "#E5A93C" : "#00E5FF");
         ctx.fill();
         ctx.strokeStyle = "#121211";
@@ -2872,9 +2961,9 @@ function renderLabCanvas(sortedIdxs){
 
         if(isEntry || isExit){
           ctx.fillStyle = isEntry ? "#26A69A" : "#E5A93C";
-          ctx.font = "bold 10.5px sans-serif";
+          ctx.font = "bold 11px sans-serif";
           const txt = isEntry ? `🎯 入场 #${idx}` : `🏁 出场 #${idx}`;
-          ctx.fillText(txt, x - 22, y - 9);
+          ctx.fillText(txt, x - 24, y - 10);
         }
       });
     }
@@ -2883,7 +2972,7 @@ function renderLabCanvas(sortedIdxs){
   }
 }
 
-// 绑定实验室事件
+// 绑定实验室事件与视窗缩放拖拽
 if($("#btnOpenCompressLab")){
   $("#btnOpenCompressLab").addEventListener("click", () => {
     $("#shStats").classList.remove("on");
@@ -2894,6 +2983,54 @@ if($("#btnOpenCompressLab")){
 }
 if($("#labSlCompress")) $("#labSlCompress").addEventListener("input", updateLabView);
 if($("#btnLabRandK")) $("#btnLabRandK").addEventListener("click", initLabData);
+if($("#btnLabZoom40")) $("#btnLabZoom40").addEventListener("click", () => setLabZoomPreset(40));
+if($("#btnLabZoom80")) $("#btnLabZoom80").addEventListener("click", () => setLabZoomPreset(80));
+if($("#btnLabZoom150")) $("#btnLabZoom150").addEventListener("click", () => setLabZoomPreset(150));
+
+// Canvas 滚轮缩放支持 (平滑放大缩小)
+const cvsWrap = $("#labCanvasWrap");
+if(cvsWrap){
+  cvsWrap.addEventListener("wheel", e => {
+    e.preventDefault();
+    const curLen = labViewTo - labViewFrom + 1;
+    const delta = e.deltaY > 0 ? 10 : -10;
+    const newLen = Math.max(20, Math.min(150, curLen + delta));
+    const center = (labViewFrom + labViewTo) / 2;
+    labViewFrom = Math.max(1, Math.round(center - newLen / 2));
+    labViewTo = Math.min(150, labViewFrom + newLen - 1);
+    if(labViewTo === 150) labViewFrom = Math.max(1, 150 - newLen + 1);
+    updateLabView();
+  }, { passive: false });
+
+  // Canvas 鼠标拖拽平移支持
+  cvsWrap.addEventListener("pointerdown", e => {
+    isLabPanning = true;
+    labPanStartX = e.clientX;
+    labPanStartFrom = labViewFrom;
+    labPanStartTo = labViewTo;
+    cvsWrap.style.cursor = "grabbing";
+  });
+  window.addEventListener("pointermove", e => {
+    if(!isLabPanning) return;
+    const dx = e.clientX - labPanStartX;
+    const viewLen = labPanStartTo - labPanStartFrom + 1;
+    const shiftBars = Math.round((dx / (cvsWrap.clientWidth || 800)) * viewLen * -1);
+    let nFrom = labPanStartFrom + shiftBars;
+    let nTo = labPanStartTo + shiftBars;
+    if(nFrom < 1){ nTo += (1 - nFrom); nFrom = 1; }
+    if(nTo > 150){ nFrom -= (nTo - 150); nTo = 150; }
+    labViewFrom = Math.max(1, nFrom);
+    labViewTo = Math.min(150, nTo);
+    updateLabView();
+  });
+  window.addEventListener("pointerup", () => {
+    if(isLabPanning){
+      isLabPanning = false;
+      if(cvsWrap) cvsWrap.style.cursor = "grab";
+    }
+  });
+}
+
 if($("#btnLabCopy")) {
   $("#btnLabCopy").addEventListener("click", () => {
     const t = $("#labTxtOutput").value;
@@ -2917,6 +3054,7 @@ if($("#btnLabSaveToApp")){
 window.initLabData = initLabData;
 window.updateLabView = updateLabView;
 window.renderLabCanvas = renderLabCanvas;
+window.setLabZoomPreset = setLabZoomPreset;
 
 /* ================= 启动系统 ================= */
 async function boot(){
