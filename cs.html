@@ -1021,6 +1021,10 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
   const now = new Date();
   const timeStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
 
+  const exitIdx = S.visibleCount - 1;
+  const startIdx = Math.max(0, exitIdx - 149);
+  const snapshotCloses = S.fullK.slice(startIdx, exitIdx + 1).map(b => b.c);
+
   const record = {
     id: Date.now(),
     sym: "ETHUSDT",
@@ -1037,6 +1041,8 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
     pnlR: pnlR,
     reason: reason,
     holdingBars: p.holdingBars || 1,
+    exitBarIndex: exitIdx,
+    klineSnapshot: snapshotCloses,
     maxFavR: Math.max(p.maxFavR ?? 0, pnlR),
     maxAdvR: Math.min(p.maxAdvR ?? 0, pnlR),
     futureMfeR: futureMfeR,
@@ -1293,6 +1299,7 @@ function renderStatsView(){
         <th>出场价</th>
         <th>盈亏(R)</th>
         <th>盈亏比</th>
+        <th>AI 复盘</th>
       </tr>
     </thead>
     <tbody>` +
@@ -1307,9 +1314,107 @@ function renderStatsView(){
         <td>${px(t.exit)}</td>
         <td class="${isWin ? "up" : "down"}"><b>${rFmt(t.pnlR)}</b></td>
         <td>${t.rr ? Number(t.rr).toFixed(2) : "—"}</td>
+        <td><button class="btn-sub" style="font-size:10.5px;padding:2px 7px" onclick="copyTradeAIData(${t.id})" title="复制该单出场前 150 根极简压缩折线数据">📋 复制</button></td>
       </tr>`;
     }).join("") + `</tbody></table>`;
 }
+
+/* ================= 生成 AI 极简时序压缩复盘数据 (出场前 150 根) ================= */
+function generateCompressedAIChartText(t){
+  let closes = [];
+  if(t.klineSnapshot && t.klineSnapshot.length){
+    closes = t.klineSnapshot.map(x => typeof x === "number" ? x : (x.c || x.close || 0));
+  } else if(S.fullK && S.fullK.length){
+    const exitIdx = t.exitBarIndex != null ? t.exitBarIndex : (S.visibleCount - 1);
+    const startIdx = Math.max(0, exitIdx - 149);
+    closes = S.fullK.slice(startIdx, exitIdx + 1).map(b => b.c);
+  }
+  if(!closes || !closes.length) return "暂无历史 K 线数据";
+
+  const totalBars = closes.length;
+  const holding = Math.max(1, t.holdingBars || 1);
+  const localExitIdx = totalBars;
+  const localEntryIdx = Math.max(1, totalBars - holding);
+
+  const isLong = t.side === "buy";
+  const sideStr = isLong ? "做多" : "做空";
+  
+  // 第一行：纯编号引用，不带重复价格
+  const header = `${sideStr} 入场#${localEntryIdx} 出场#${localExitIdx}`;
+
+  // 关键微观保留点：入场点前后各 2 根及出场点
+  const criticalIndices = new Set();
+  for(let off = -2; off <= 2; off++){
+    const k = localEntryIdx + off;
+    if(k >= 1 && k <= totalBars) criticalIndices.add(k);
+  }
+  criticalIndices.add(localExitIdx);
+
+  const lines = [header];
+
+  let i = 1;
+  while(i <= totalBars){
+    if(criticalIndices.has(i)){
+      lines.push(`#${i}: ${closes[i - 1].toFixed(2)}`);
+      i++;
+      continue;
+    }
+
+    let j = i;
+    if(j < totalBars && !criticalIndices.has(j + 1)){
+      const dir = closes[j] >= closes[j - 1] ? 1 : -1;
+      while(j + 1 <= totalBars && !criticalIndices.has(j + 1)){
+        const diff = closes[j] - closes[j - 1];
+        if(dir === 1 && diff >= 0) j++;
+        else if(dir === -1 && diff <= 0) j++;
+        else break;
+      }
+    }
+
+    if(j > i + 1){
+      lines.push(`#${i}~#${j}: ${closes[i - 1].toFixed(2)} -> ${closes[j - 1].toFixed(2)}`);
+      i = j + 1;
+    } else {
+      lines.push(`#${i}: ${closes[i - 1].toFixed(2)}`);
+      i++;
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function copyTradeAIData(tradeId){
+  const t = S.trades.find(x => x.id === tradeId) || S.trades[0];
+  if(!t){
+    toast("未找到该笔交易数据");
+    return;
+  }
+  const text = generateCompressedAIChartText(t);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(() => {
+      toast(`📋 已复制【${t.side === "buy" ? "多单" : "空单"} ${rFmt(t.pnlR)}】前 150 根极简压缩数据！`);
+    }).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text){
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try{
+    document.execCommand("copy");
+    toast(`📋 已复制前 150 根极简压缩数据到剪贴板！`);
+  }catch(e){
+    prompt("请手动复制以下 AI 压缩数据：", text);
+  }
+  document.body.removeChild(ta);
+}
+window.copyTradeAIData = copyTradeAIData;
 
 /* ================= 导出历史训练交易数据表格 (CSV 格式，支持 Excel/WPS) ================= */
 function exportTradesToCSV(){
