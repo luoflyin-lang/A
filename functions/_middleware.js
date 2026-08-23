@@ -29,22 +29,47 @@ export async function onRequest(context) {
       console.error("Failed to fetch from KV in middleware:", e);
     }
 
-    return new HTMLRewriter()
+    const newHeaders = new Headers(response.headers);
+    newHeaders.delete("content-length");
+    newHeaders.delete("etag");
+    newHeaders.set("cache-control", "no-store, no-cache, must-revalidate");
+
+    const transformedResponse = new HTMLRewriter()
       .on("head", {
         element(element) {
-          element.append(`�            <script>
+          element.append(`
+            <script>
               try {
                 const syncedData = ${JSON.stringify(syncedData)};
+                // 1. 若云端有数据，注入戱 localStorage
                 Object.keys(syncedData).forEach(k => {
-                  if (syncedData[k] !== null && syncedData+k] !== undefined) {
-                    localStorage.setItem(k, syncedData+k]);
+                  if (syncedData[k] !== null && syncedData[k] !== undefined && syncedData[k] !== "") {
+                    localStorage.setItem(k, syncedData[k]);
                   }
                 });
+
+                // 2. 若本地存在诅绂旧��+x~但亡端为空，自动将拧洙罞上报同步至亡端
+                const localTrades = localStorage.getItem('sim_trades_history');
+                const localBal = localStorage.getItem('sim_balance_r');
+                if (localTrades && localTrades !== '[]' && (!syncedData['wsim_trades_history'] || syncedData['sim_trades_history'] === '[]')) {
+                  fetch('/api/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: 'sim_trades_history', value: localTrades })
+                  });
+                  if (localBal) {
+                    fetch('/api/sync', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ key: 'sim_balance_r', value: localBal })
+                    });
+                  }
+                }
               } catch (e) {
-                console.error('Failed to pre-populate local storage from KV:', e);
+                console.error('Failed to pre-populate local storage from KV', e);
               }
 
-
+              // 3. 劫持厞生方法，任何变动自动私级启动同步臱 Cloudflare KV
               (function() {
                 const originalSetItem = localStorage.setItem;
                 const originalRemoveItem = localStorage.removeItem;
@@ -69,7 +94,7 @@ export async function onRequest(context) {
                           body: JSON.stringify({ key: k, value: val })
                         }).catch(err => console.error('Cloudflare KV Sync failed for ' + k + ':', err));
                       });
-                    }, 600);
+                    }, 400);
                   }
                 };
 
@@ -83,7 +108,7 @@ export async function onRequest(context) {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ key: key, value: null })
-                    }).catch(err => console.error('Cloudflare KV Sync deletion failed for ' + k + ':', err));
+                    }).catch(err => console.error('Cloudflare KV Sync deletion failed for ' + key + ':', err));
                   }
                 };
 
@@ -97,7 +122,7 @@ export async function onRequest(context) {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ key: key, value: null })
-                    }).catch(err => console.error('Cloudflare KV Sync clear failed for ' + k + ':', err));
+                    }).catch(err => console.error('Cloudflare KV Sync clear failed for ' + key + ':', err));
                   });
                 };
               })();
@@ -105,7 +130,13 @@ export async function onRequest(context) {
           `, { html: true });
         }
       })
-      .transform(response);
+      .transform(new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: newHeaders
+      }));
+
+    return transformedResponse;
   }
 
   return response;
