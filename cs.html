@@ -544,7 +544,7 @@ function toggleReveal(){
 if($("#btnReveal")) $("#btnReveal").addEventListener("click", toggleReveal);
 
 /* ================= 本地数据持久化与 Cloudflare Worker + KV 全网免密实时云同步引擎 ================= */
-const CLOUD_SYNC_ENDPOINT = "https://cs-trade-sync.luoflyin-40b.workers.dev";
+const CLOUD_SYNC_ENDPOINT = "/api/sync";
 let isCloudSyncing = false;
 let cloudSyncTimer = null;
 
