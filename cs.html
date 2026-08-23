@@ -547,6 +547,7 @@ if($("#btnReveal")) $("#btnReveal").addEventListener("click", toggleReveal);
 const CLOUD_SYNC_ENDPOINT = "https://cs-trade-sync.luoflyin-40b.workers.dev";
 let isCloudSyncing = false;
 let cloudSyncTimer = null;
+let cloudSyncPendingPush = false;
 
 function loadStats(){
   try{
@@ -643,6 +644,11 @@ async function cloudSyncPull(showToast = false){
           toast("☁️ 当前已是最新云端数据！");
         }
       }
+      // 如果有此前因断网未上传成功的单子，立即重试补传
+      if(cloudSyncPendingPush){
+        cloudSyncPendingPush = false;
+        cloudSyncPush();
+      }
     }
   }catch(e){
     console.warn("Cloud sync pull error:", e);
@@ -656,7 +662,7 @@ async function cloudSyncPull(showToast = false){
   }
 }
 
-// 向 Cloudflare Worker + KV 实时推送广播最新数据
+// 向 Cloudflare Worker + KV 实时推送广播最新数据 (含弱网防丢补传队列)
 async function cloudSyncPush(){
   const statusEl = $("#cloudSyncStatus");
   if(statusEl){
@@ -680,15 +686,22 @@ async function cloudSyncPush(){
     const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
     const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 5000);
 
-    await fetch(CLOUD_SYNC_ENDPOINT, {
+    const r = await fetch(CLOUD_SYNC_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: ctl ? ctl.signal : undefined
     });
     clearTimeout(tm);
+    
+    if(!r.ok){
+      cloudSyncPendingPush = true;
+    } else {
+      cloudSyncPendingPush = false;
+    }
   }catch(e){
     console.warn("Cloud sync push error:", e);
+    cloudSyncPendingPush = true; // 标记断网挂起，待网络恢复后自动补传
   }finally{
     if(statusEl){
       statusEl.className = "sync-badge";
@@ -702,7 +715,11 @@ document.addEventListener("visibilitychange", () => {
   if(document.visibilityState === "visible") cloudSyncPull(false);
 });
 window.addEventListener("focus", () => cloudSyncPull(false));
-window.addEventListener("online", () => cloudSyncPull(true));
+window.addEventListener("pageshow", () => cloudSyncPull(false));
+window.addEventListener("online", () => {
+  cloudSyncPull(true);
+  if(cloudSyncPendingPush) cloudSyncPush();
+});
 setInterval(() => cloudSyncPull(false), 20000); // 每 20 秒温和心跳自动检查更新
 
 /* ================= TRADINGVIEW 图表核心引擎 ================= */
@@ -1182,7 +1199,7 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
   const snapshotCloses = S.fullK.slice(startIdx, exitIdx + 1).map(b => b.c);
 
   const record = {
-    id: Date.now(),
+    id: Date.now() * 1000 + Math.floor(Math.random() * 1000),
     sym: "ETHUSDT",
     tf: "5m",
     blindId: S.blindId,
@@ -2444,6 +2461,7 @@ if($("#bRand")) $("#bRand").addEventListener("click", loadRandomMarket);
 if($("#btnExportCSV")) $("#btnExportCSV").addEventListener("click", exportTradesToCSV);
 $("#bStats").addEventListener("click", () => {
   renderStatsView();
+  cloudSyncPull(false); // 展开抽屉时静默检查并更新最新云端数据
   $("#shStats").classList.add("on");
   $("#mask").classList.add("on");
 });
