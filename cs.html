@@ -289,6 +289,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
   <div class="sh">
     <b>训练统计数据 (ETH · 5m)</b>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+      <a href="./compress_lab.html" class="btn-sub" style="text-decoration:none" title="打开 K线 vs 折线动态压缩实验室">🧪 压缩实验室</a>
       <button class="btn-sub" id="btnSyncCloud" title="立即从云端拉取最新记录并双向同步">🔄 刷新同步</button>
       <button class="btn-rand" id="bRand" title="随机抽取新的 ETH 5m 真实历史切片 (快捷键 R / N)">🎲 换行情</button>
       <button class="x" data-close>✕</button>
@@ -636,6 +637,78 @@ function mergeTradesWithCloud(remoteData){
   return newFromRemoteCount;
 }
 
+// 同步云端漫游的 K 线行情切片与推演进度
+async function syncMarketProgressFromCloud(prog){
+  if(!prog || !prog.marketEndTime) return;
+  if(prog.updated <= (S.progressUpdated || 0)) return;
+  S.progressUpdated = prog.updated;
+
+  // 1. 如果云端切换了新的行情切片
+  if(S.marketEndTime !== prog.marketEndTime){
+    try{
+      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=5m&endTime=${prog.marketEndTime}&limit=${TOTAL_BARS}`;
+      const r = await fetch(url);
+      const j = await r.json();
+      if(Array.isArray(j) && j.length >= INITIAL_VISIBLE_BARS){
+        S.fullK = j.map(x => ({ t: +x[0], o: +x[1], h: +x[2], l: +x[3], c: +x[4] }));
+        S.marketEndTime = prog.marketEndTime;
+        S.blindId = prog.blindId || S.blindId;
+        S.visibleCount = Math.min(prog.visibleCount || INITIAL_VISIBLE_BARS, S.fullK.length);
+        S.curK = S.fullK.slice(0, S.visibleCount);
+        S.realTimeStr = prog.realTimeStr || S.realTimeStr;
+        S.orders = prog.orders || [];
+        S.positions = prog.positions || [];
+        updateBlindBoxUI();
+        updateChartCandles(S.curK);
+        syncTradeLines();
+        toast(`☁️ 漫游同步：已对齐切片 #${S.blindId} (第 ${S.visibleCount} 根 K 线)`);
+        return;
+      }
+    }catch(e){
+      console.warn("Market progress slice sync error:", e);
+    }
+  }
+
+  // 2. 如果是同一个切片，自动漫游推进
+  if(prog.visibleCount > S.visibleCount && S.fullK && S.fullK.length){
+    S.visibleCount = Math.min(prog.visibleCount, S.fullK.length);
+    S.curK = S.fullK.slice(0, S.visibleCount);
+    S.orders = prog.orders || [];
+    S.positions = prog.positions || [];
+    updateChartCandles(S.curK);
+    syncTradeLines();
+    toast(`☁️ 漫游推进至第 ${S.visibleCount} 根 K 线`);
+  }
+}
+
+let progressSyncTimer = null;
+function cloudSyncPushProgress(){
+  clearTimeout(progressSyncTimer);
+  progressSyncTimer = setTimeout(async () => {
+    if(!S.marketEndTime || !S.visibleCount) return;
+    try {
+      const payload = {
+        progress: {
+          blindId: S.blindId,
+          marketEndTime: S.marketEndTime,
+          visibleCount: S.visibleCount,
+          orders: S.orders || [],
+          positions: S.positions || [],
+          realTimeStr: S.realTimeStr,
+          updated: Date.now()
+        }
+      };
+      await fetch(CLOUD_SYNC_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } catch(e) {
+      console.warn("Progress push error:", e);
+    }
+  }, 400);
+}
+
 // 从 Cloudflare 云端拉取全网最新数据
 async function cloudSyncPull(showToast = false){
   if(isCloudSyncing) return;
@@ -663,6 +736,9 @@ async function cloudSyncPull(showToast = false){
         } else if(showToast){
           toast(`☁️ 云端同步成功！当前共 ${S.trades.length} 笔交易，总余额: ${S.balanceR.toFixed(2)} R`);
         }
+      }
+      if(data && data.progress){
+        syncMarketProgressFromCloud(data.progress);
       }
     }
   }catch(e){
@@ -917,6 +993,7 @@ async function loadRandomMarket(){
       if(Array.isArray(j) && j.length >= INITIAL_VISIBLE_BARS){
         // 100% 真实币安历史数据: [时间, 开, 高, 低, 收, 成交量, ...]
         S.fullK = j.map(x => ({ t: +x[0], o: +x[1], h: +x[2], l: +x[3], c: +x[4] }));
+        S.marketEndTime = randomEndTime;
         S.visibleCount = Math.min(INITIAL_VISIBLE_BARS, S.fullK.length);
         S.curK = S.fullK.slice(0, S.visibleCount);
         
@@ -949,6 +1026,7 @@ async function loadRandomMarket(){
 
         toast(`已就绪：ETH 5m 真实切片 #${S.blindId} (${S.curK.length} / 1000根真实K线)`);
         success = true;
+        cloudSyncPushProgress();
         return;
       }
     }catch(e){
@@ -986,6 +1064,7 @@ function stepNextBar(silent = false){
   updateChartCandles(S.curK);
   syncTradeLines();
   requestAnimationFrame(repositionHandles);
+  cloudSyncPushProgress();
   return true;
 }
 
@@ -1488,6 +1567,39 @@ function generateCompressedAIChartText(t){
   if(t.klineSnapshot && t.klineSnapshot.length){
     closes = t.klineSnapshot.map(x => typeof x === "number" ? x : (x.c || x.close || 0));
   } else if(S.fullK && S.fullK.length){
+/* ================= 生成 AI 极简时序压缩复盘数据 (出场前 150 根) ================= */
+function rdpSimplifyPoints(pts, epsilon){
+  if(pts.length <= 2) return pts;
+  let dmax = 0, index = 0;
+  const end = pts.length - 1;
+  const x1 = pts[0].x, y1 = pts[0].y;
+  const x2 = pts[end].x, y2 = pts[end].y;
+  const lineDist = Math.hypot(x2 - x1, y2 - x1) || 1;
+
+  for(let i = 1; i < end; i++){
+    const x0 = pts[i].x, y0 = pts[i].y;
+    const num = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
+    const d = num / lineDist;
+    if(d > dmax){
+      dmax = d;
+      index = i;
+    }
+  }
+
+  if(dmax > epsilon){
+    const left = rdpSimplifyPoints(pts.slice(0, index + 1), epsilon);
+    const right = rdpSimplifyPoints(pts.slice(index), epsilon);
+    return left.slice(0, -1).concat(right);
+  } else {
+    return [pts[0], pts[end]];
+  }
+}
+
+function generateCompressedAIChartText(t){
+  let closes = [];
+  if(t.klineSnapshot && t.klineSnapshot.length){
+    closes = t.klineSnapshot.map(x => typeof x === "number" ? x : (x.c || x.close || 0));
+  } else if(S.fullK && S.fullK.length){
     const exitIdx = t.exitBarIndex != null ? t.exitBarIndex : (S.visibleCount - 1);
     const startIdx = Math.max(0, exitIdx - 149);
     closes = S.fullK.slice(startIdx, exitIdx + 1).map(b => b.c);
@@ -1501,46 +1613,49 @@ function generateCompressedAIChartText(t){
 
   const isLong = t.side === "buy";
   const sideStr = isLong ? "做多" : "做空";
-  
-  // 第一行：纯编号引用，不带重复价格
   const header = `${sideStr} 入场#${localEntryIdx} 出场#${localExitIdx}`;
 
   // 关键微观保留点：入场点前后各 2 根及出场点
-  const criticalIndices = new Set();
+  const critical = new Set();
   for(let off = -2; off <= 2; off++){
     const k = localEntryIdx + off;
-    if(k >= 1 && k <= totalBars) criticalIndices.add(k);
+    if(k >= 1 && k <= totalBars) critical.add(k);
   }
-  criticalIndices.add(localExitIdx);
+  critical.add(localExitIdx);
+  critical.add(1);
+
+  // 读取用户在实验室设置的压缩等级 (默认等级 3：波段精简)
+  const level = +(localStorage.getItem("ai_compress_level") || 3);
+  const minP = Math.min(...closes), maxP = Math.max(...closes);
+  const priceRange = (maxP - minP) || 1;
+  const epsilon = priceRange * (0.008 + (level - 1) * 0.012);
+
+  const pts = closes.map((c, i) => ({ x: i + 1, y: c }));
+  const simplified = rdpSimplifyPoints(pts, epsilon);
+  
+  const retainedSet = new Set(critical);
+  simplified.forEach(p => retainedSet.add(p.x));
+  const sortedIdxs = Array.from(retainedSet).sort((a, b) => a - b);
 
   const lines = [header];
-
-  let i = 1;
-  while(i <= totalBars){
-    if(criticalIndices.has(i)){
-      lines.push(`#${i}: ${closes[i - 1].toFixed(2)}`);
-      i++;
-      continue;
-    }
-
-    let j = i;
-    if(j < totalBars && !criticalIndices.has(j + 1)){
-      const dir = closes[j] >= closes[j - 1] ? 1 : -1;
-      while(j + 1 <= totalBars && !criticalIndices.has(j + 1)){
-        const diff = closes[j] - closes[j - 1];
-        if(dir === 1 && diff >= 0) j++;
-        else if(dir === -1 && diff <= 0) j++;
-        else break;
+  for(let k = 0; k < sortedIdxs.length; k++){
+    const curIdx = sortedIdxs[k];
+    const curPrice = closes[curIdx - 1].toFixed(2);
+    
+    if(k < sortedIdxs.length - 1){
+      const nextIdx = sortedIdxs[k + 1];
+      if(nextIdx > curIdx + 1){
+        const nextPrice = closes[nextIdx - 1].toFixed(2);
+        lines.push(`#${curIdx}~#${nextIdx}: ${curPrice} -> ${nextPrice}`);
+        k++;
+        continue;
       }
     }
 
-    if(j > i + 1){
-      lines.push(`#${i}~#${j}: ${closes[i - 1].toFixed(2)} -> ${closes[j - 1].toFixed(2)}`);
-      i = j + 1;
-    } else {
-      lines.push(`#${i}: ${closes[i - 1].toFixed(2)}`);
-      i++;
-    }
+    let note = "";
+    if(curIdx === localEntryIdx) note = " (入场)";
+    else if(curIdx === localExitIdx) note = " (出场)";
+    lines.push(`#${curIdx}: ${curPrice}${note}`);
   }
 
   return lines.join("\n");
