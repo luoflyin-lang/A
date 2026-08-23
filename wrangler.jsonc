@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "eth-kline-replay",
+  "pages_build_output_dir": ".",
+  "compatibility_date": "2026-06-25",
+  "kv_namespaces": [
+    {
+      "binding": "KLINE_REPLAY_KV",
+      "id": "3826f1c63ef84651994b3786a0d09ff6"
+    }
+  ]
+}

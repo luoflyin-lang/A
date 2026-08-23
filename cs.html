@@ -284,12 +284,8 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <!-- 训练数据抽屉面板 -->
 <aside class="sheet" id="shStats">
   <div class="sh">
-    <div style="display:flex;align-items:center;gap:8px">
-      <b>训练统计数据 (ETH · 5m)</b>
-      <span id="cloudSyncStatus" class="sync-badge" title="全网公共免密实时云同步">☁️ 公共云同步</span>
-    </div>
+    <b>训练统计数据 (ETH · 5m)</b>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-      <button class="btn-sub" id="btnSyncCloud" title="立即从云端拉取最新记录并双向同步">🔄 云同步</button>
       <button class="btn-rand" id="bRand" title="随机抽取新的 ETH 5m 真实历史切片 (快捷键 R / N)">🎲 换行情</button>
       <button class="x" data-close>✕</button>
     </div>
@@ -543,12 +539,7 @@ function toggleReveal(){
 }
 if($("#btnReveal")) $("#btnReveal").addEventListener("click", toggleReveal);
 
-/* ================= 本地数据持久化与 Cloudflare Worker + KV 全网免密实时云同步引擎 ================= */
-const CLOUD_SYNC_ENDPOINT = "https://cs-trade-sync.luoflyin-40b.workers.dev";
-let isCloudSyncing = false;
-let cloudSyncTimer = null;
-let cloudSyncPendingPush = false;
-
+/* ================= 本地数据持久化与 Cloudflare 云端全自动秒级同步 ================= */
 function loadStats(){
   try{
     const b = localStorage.getItem("sim_balance_r");
@@ -559,168 +550,25 @@ function loadStats(){
   renderStatsView();
 }
 
-function saveStats(skipCloudPush = false){
+function saveStats(){
   try{
     localStorage.setItem("sim_balance_r", S.balanceR.toFixed(2));
     localStorage.setItem("sim_trades_history", JSON.stringify(S.trades));
   }catch(e){}
   renderStatsView();
-  
-  if(!skipCloudPush){
-    clearTimeout(cloudSyncTimer);
-    cloudSyncTimer = setTimeout(cloudSyncPush, 300);
-  }
 }
 
-// 智能无损双向合并本地与 Cloudflare 云端交易数据
-function mergeTradesWithCloud(remoteData){
-  if(!remoteData || !Array.isArray(remoteData.trades)) return 0;
-  
-  const tradesMap = new Map();
-  // 1. 先载入本地数据
-  (S.trades || []).forEach(t => {
-    if(t && t.id) tradesMap.set(String(t.id), t);
-  });
-  
-  let newTradesCount = 0;
-  // 2. 双向合并云端数据
-  remoteData.trades.forEach(t => {
-    if(!t || !t.id) return;
-    const key = String(t.id);
-    if(!tradesMap.has(key)){
-      tradesMap.set(key, t);
-      newTradesCount++;
-    } else {
-      // 补充可能更全的 klineSnapshot 快照
-      const local = tradesMap.get(key);
-      if((!local.klineSnapshot || !local.klineSnapshot.length) && (t.klineSnapshot && t.klineSnapshot.length)){
-        tradesMap.set(key, { ...local, klineSnapshot: t.klineSnapshot });
-      }
-    }
-  });
-
-  const merged = Array.from(tradesMap.values());
-  merged.sort((a, b) => b.id - a.id);
-  
-  // 重新计算总余额 (基准 100.00 R + 所有已成交单子的实际盈亏)
-  const totalNetPnl = merged.reduce((acc, cur) => acc + (cur.pnlR || 0), 0);
-  S.balanceR = Math.round((INITIAL_BALANCE_R + totalNetPnl) * 100) / 100;
-  S.trades = merged;
-
-  saveStats(true); // 保存本地，避免循环推送
-  return newTradesCount;
-}
-
-// 从 Cloudflare 云端拉取全网最新数据 (附带时间戳防止浏览器/CDN缓存)
-async function cloudSyncPull(showToast = false){
-  if(isCloudSyncing) return;
-  isCloudSyncing = true;
-  const statusEl = $("#cloudSyncStatus");
-  if(statusEl){
-    statusEl.className = "sync-badge syncing";
-    statusEl.textContent = "☁️ 同步中…";
+// 跨窗口、切换前台、后台唤醒时自动重载最新同步数据
+window.addEventListener("storage", e => {
+  if(e.key === "sim_trades_history" || e.key === "sim_balance_r"){
+    loadStats();
   }
-
-  try{
-    const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 5000);
-
-    const cacheBusterUrl = `${CLOUD_SYNC_ENDPOINT}?_t=${Date.now()}`;
-    const r = await fetch(cacheBusterUrl, {
-      method: "GET",
-      cache: "no-store",
-      headers: { "Cache-Control": "no-cache" },
-      signal: ctl ? ctl.signal : undefined
-    });
-    clearTimeout(tm);
-
-    if(r.ok){
-      const data = await r.json();
-      if(data && Array.isArray(data.trades)){
-        const added = mergeTradesWithCloud(data);
-        if(added > 0){
-          toast(`☁️ 刚刚已从云端同步 ${added} 笔新交易！当前总余额: ${S.balanceR.toFixed(2)} R`);
-        } else if(showToast){
-          toast("☁️ 当前已是最新云端数据！");
-        }
-      }
-      // 如果有此前因断网未上传成功的单子，立即重试补传
-      if(cloudSyncPendingPush){
-        cloudSyncPendingPush = false;
-        cloudSyncPush();
-      }
-    }
-  }catch(e){
-    console.warn("Cloud sync pull error:", e);
-    if(showToast) toast("云同步提示：网络连接中…");
-  }finally{
-    isCloudSyncing = false;
-    if(statusEl){
-      statusEl.className = "sync-badge";
-      statusEl.textContent = "☁️ CF云端已同步";
-    }
-  }
-}
-
-// 向 Cloudflare Worker + KV 实时推送广播最新数据 (含弱网防丢补传队列)
-async function cloudSyncPush(){
-  const statusEl = $("#cloudSyncStatus");
-  if(statusEl){
-    statusEl.className = "sync-badge syncing";
-    statusEl.textContent = "☁️ 上传中…";
-  }
-
-  try{
-    const isReset = (!S.trades || !S.trades.length);
-    const payload = isReset ? {
-      reset: true,
-      balanceR: INITIAL_BALANCE_R,
-      trades: [],
-      updated: Date.now()
-    } : {
-      balanceR: S.balanceR,
-      trades: S.trades.slice(0, 300),
-      updated: Date.now()
-    };
-
-    const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 5000);
-
-    const r = await fetch(CLOUD_SYNC_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: ctl ? ctl.signal : undefined
-    });
-    clearTimeout(tm);
-    
-    if(!r.ok){
-      cloudSyncPendingPush = true;
-    } else {
-      cloudSyncPendingPush = false;
-    }
-  }catch(e){
-    console.warn("Cloud sync push error:", e);
-    cloudSyncPendingPush = true; // 标记断网挂起，待网络恢复后自动补传
-  }finally{
-    if(statusEl){
-      statusEl.className = "sync-badge";
-      statusEl.textContent = "☁️ CF云端已同步";
-    }
-  }
-}
-
-// 多端生命周期无感自动同步监听 (切换标签、解锁设备、回到前台、恢复网络自动拉取)
+});
 document.addEventListener("visibilitychange", () => {
-  if(document.visibilityState === "visible") cloudSyncPull(false);
+  if(document.visibilityState === "visible") loadStats();
 });
-window.addEventListener("focus", () => cloudSyncPull(false));
-window.addEventListener("pageshow", () => cloudSyncPull(false));
-window.addEventListener("online", () => {
-  cloudSyncPull(true);
-  if(cloudSyncPendingPush) cloudSyncPush();
-});
-setInterval(() => cloudSyncPull(false), 20000); // 每 20 秒温和心跳自动检查更新
+window.addEventListener("focus", () => loadStats());
+window.addEventListener("pageshow", () => loadStats());
 
 /* ================= TRADINGVIEW 图表核心引擎 ================= */
 let tvChart = null, candleSeries = null, emaSeries = null;
@@ -2456,12 +2304,10 @@ $("#ohGo").addEventListener("click", () => {
 });
 
 // 交互事件监听
-if($("#btnSyncCloud")) $("#btnSyncCloud").addEventListener("click", () => cloudSyncPull(true));
 if($("#bRand")) $("#bRand").addEventListener("click", loadRandomMarket);
 if($("#btnExportCSV")) $("#btnExportCSV").addEventListener("click", exportTradesToCSV);
 $("#bStats").addEventListener("click", () => {
   renderStatsView();
-  cloudSyncPull(false); // 展开抽屉时静默检查并更新最新云端数据
   $("#shStats").classList.add("on");
   $("#mask").classList.add("on");
 });
@@ -2523,8 +2369,6 @@ async function boot(){
   initTradingViewChart();
   applyTheme();
   loadStats();
-  // 异步在后台拉取 Cloudflare 云端全网最新数据
-  cloudSyncPull(false);
   await loadRandomMarket();
 }
 boot();
