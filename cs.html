@@ -539,7 +539,11 @@ function toggleReveal(){
 }
 if($("#btnReveal")) $("#btnReveal").addEventListener("click", toggleReveal);
 
-/* ================= 本地数据持久化与 Cloudflare 云端全自动秒级同步 ================= */
+/* ================= 本地数据持久化与 Cloudflare Worker + KV 全网免密实时云同步引擎 ================= */
+const CLOUD_SYNC_ENDPOINT = "https://cs-trade-sync.luoflyin-40b.workers.dev";
+let isCloudSyncing = false;
+let cloudSyncTimer = null;
+
 function loadStats(){
   try{
     const b = localStorage.getItem("sim_balance_r");
@@ -550,25 +554,146 @@ function loadStats(){
   renderStatsView();
 }
 
-function saveStats(){
+function saveStats(skipCloudPush = false){
   try{
     localStorage.setItem("sim_balance_r", S.balanceR.toFixed(2));
     localStorage.setItem("sim_trades_history", JSON.stringify(S.trades));
   }catch(e){}
   renderStatsView();
+
+  if(!skipCloudPush){
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(cloudSyncPush, 300);
+  }
 }
 
-// 跨窗口、切换前台、后台唤醒时自动重载最新同步数据
-window.addEventListener("storage", e => {
-  if(e.key === "sim_trades_history" || e.key === "sim_balance_r"){
-    loadStats();
+// 智能无损双向合并本地与 Cloudflare 云端交易数据 (自动识别并补传本地老单子)
+function mergeTradesWithCloud(remoteData){
+  if(!remoteData || !Array.isArray(remoteData.trades)) return 0;
+  
+  const tradesMap = new Map();
+  let localUniqueCount = 0;
+
+  // 1. 先载入本地数据
+  (S.trades || []).forEach(t => {
+    if(t && t.id) tradesMap.set(String(t.id), t);
+  });
+  
+  // 记录云端已有的 ID 集合
+  const remoteIdSet = new Set((remoteData.trades || []).map(t => String(t.id)));
+
+  // 检查本地是否有云端尚未包含的老单子
+  for(const k of tradesMap.keys()){
+    if(!remoteIdSet.has(k)) localUniqueCount++;
   }
-});
+
+  let newFromRemoteCount = 0;
+  // 2. 合并云端数据
+  remoteData.trades.forEach(t => {
+    if(!t || !t.id) return;
+    const key = String(t.id);
+    if(!tradesMap.has(key)){
+      tradesMap.set(key, t);
+      newFromRemoteCount++;
+    } else {
+      const local = tradesMap.get(key);
+      if((!local.klineSnapshot || !local.klineSnapshot.length) && (t.klineSnapshot && t.klineSnapshot.length)){
+        tradesMap.set(key, { ...local, klineSnapshot: t.klineSnapshot });
+      }
+    }
+  });
+
+  const merged = Array.from(tradesMap.values());
+  merged.sort((a, b) => b.id - a.id);
+  
+  // 重新计算总余额 (基准 100.00 R + 所有已成交单子的实际盈亏)
+  const totalNetPnl = merged.reduce((acc, cur) => acc + (cur.pnlR || 0), 0);
+  S.balanceR = Math.round((INITIAL_BALANCE_R + totalNetPnl) * 100) / 100;
+  S.trades = merged;
+
+  saveStats(true); // 保存本地，避免循环推送
+
+  // 如果本地有老单子尚未上报云端，立即触发一次补传推送
+  if(localUniqueCount > 0){
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(cloudSyncPush, 500);
+  }
+
+  return newFromRemoteCount;
+}
+
+// 从 Cloudflare 云端拉取全网最新数据
+async function cloudSyncPull(showToast = false){
+  if(isCloudSyncing) return;
+  isCloudSyncing = true;
+
+  try{
+    const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 5000);
+
+    const cacheBusterUrl = `${CLOUD_SYNC_ENDPOINT}?_t=${Date.now()}`;
+    const r = await fetch(cacheBusterUrl, {
+      method: "GET",
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+      signal: ctl ? ctl.signal : undefined
+    });
+    clearTimeout(tm);
+
+    if(r.ok){
+      const data = await r.json();
+      if(data && Array.isArray(data.trades)){
+        const added = mergeTradesWithCloud(data);
+        if(added > 0 && showToast){
+          toast(`☁️ 已同步 ${added} 笔新交易！当前总余额: ${S.balanceR.toFixed(2)} R`);
+        }
+      }
+    }
+  }catch(e){
+    console.warn("Cloud sync pull error:", e);
+  }finally{
+    isCloudSyncing = false;
+  }
+}
+
+// 向 Cloudflare Worker + KV 实时推送广播最新数据
+async function cloudSyncPush(){
+  try{
+    const isReset = (!S.trades || !S.trades.length);
+    const payload = isReset ? {
+      reset: true,
+      balanceR: INITIAL_BALANCE_R,
+      trades: [],
+      updated: Date.now()
+    } : {
+      balanceR: S.balanceR,
+      trades: S.trades.slice(0, 300),
+      updated: Date.now()
+    };
+
+    const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 5000);
+
+    await fetch(CLOUD_SYNC_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: ctl ? ctl.signal : undefined
+    });
+    clearTimeout(tm);
+  }catch(e){
+    console.warn("Cloud sync push error:", e);
+  }
+}
+
+// 多端生命周期无感自动同步监听 (切换标签、解锁设备、回到前台、恢复网络自动拉取)
 document.addEventListener("visibilitychange", () => {
-  if(document.visibilityState === "visible") loadStats();
+  if(document.visibilityState === "visible") cloudSyncPull(false);
 });
-window.addEventListener("focus", () => loadStats());
-window.addEventListener("pageshow", () => loadStats());
+window.addEventListener("focus", () => cloudSyncPull(false));
+window.addEventListener("pageshow", () => cloudSyncPull(false));
+window.addEventListener("online", () => cloudSyncPull(false));
+setInterval(() => cloudSyncPull(false), 15000); // 每 15 秒温和心跳自动检查更新
 
 /* ================= TRADINGVIEW 图表核心引擎 ================= */
 let tvChart = null, candleSeries = null, emaSeries = null;
@@ -2369,6 +2494,7 @@ async function boot(){
   initTradingViewChart();
   applyTheme();
   loadStats();
+  cloudSyncPull(false);
   await loadRandomMarket();
 }
 boot();
