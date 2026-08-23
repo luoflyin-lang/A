@@ -2680,168 +2680,207 @@ let labKlines = [];
 let labEntryIdx = 115, labExitIdx = 150, labIsLong = true;
 
 function initLabData(){
-  if(S.fullK && S.fullK.length >= 150){
-    const exitIdx = S.visibleCount ? Math.min(S.visibleCount, S.fullK.length) : S.fullK.length;
-    const startIdx = Math.max(0, exitIdx - 150);
-    labKlines = S.fullK.slice(startIdx, exitIdx);
-  } else {
-    labKlines = [];
-    let p = 2400 + Math.random() * 200;
-    const now = Date.now() - 150 * 5 * 60 * 1000;
-    for(let i = 0; i < 150; i++){
-      const delta = (Math.random() - 0.49) * 8 + (Math.sin(i / 12) * 4);
-      const o = p, c = o + delta;
-      const h = Math.max(o, c) + Math.random() * 4;
-      const l = Math.min(o, c) - Math.random() * 4;
-      p = c;
-      labKlines.push({ t: now + i * 5 * 60 * 1000, o: +o.toFixed(2), h: +h.toFixed(2), l: +l.toFixed(2), c: +c.toFixed(2) });
+  try{
+    if(S.fullK && S.fullK.length >= 150){
+      const exitIdx = S.visibleCount ? Math.min(S.visibleCount, S.fullK.length) : S.fullK.length;
+      const startIdx = Math.max(0, exitIdx - 150);
+      labKlines = S.fullK.slice(startIdx, exitIdx);
+    } else {
+      labKlines = [];
+      let p = 2450.0;
+      const now = Date.now() - 150 * 5 * 60 * 1000;
+      for(let i = 0; i < 150; i++){
+        const delta = (Math.random() - 0.49) * 8 + (Math.sin(i / 12) * 5);
+        const o = p, c = o + delta;
+        const h = Math.max(o, c) + Math.random() * 3.5;
+        const l = Math.min(o, c) - Math.random() * 3.5;
+        p = c;
+        labKlines.push({ t: now + i * 5 * 60 * 1000, o: +o.toFixed(2), h: +h.toFixed(2), l: +l.toFixed(2), c: +c.toFixed(2) });
+      }
     }
+    labExitIdx = labKlines.length;
+    labEntryIdx = Math.max(1, labExitIdx - 35);
+    labIsLong = labKlines[labExitIdx - 1].c >= labKlines[labEntryIdx - 1].c;
+    updateLabView();
+  }catch(e){
+    console.warn("initLabData error:", e);
   }
-  labExitIdx = labKlines.length;
-  labEntryIdx = Math.max(1, labExitIdx - 35);
-  labIsLong = labKlines[labExitIdx - 1].c >= labKlines[labEntryIdx - 1].c;
-  updateLabView();
 }
 
 function updateLabView(){
-  const slider = $("#labSlCompress");
-  if(!slider) return;
-  const level = +slider.value;
-  const labels = [
-    "等级 1 (高保真 · 35~45点)",
-    "等级 2 (微观细腻 · 25~35点)",
-    "等级 3 (🔥 推荐波段精简 · 15~22点)",
-    "等级 4 (紧凑波段 · 12~18点)",
-    "等级 5 (中度压缩 · 10~15点)",
-    "等级 6 (强力过滤 · 8~12点)",
-    "等级 7 (大波段拐点 · 7~10点)",
-    "等级 8 (极简骨架 · 6~8点)",
-    "等级 9 (极度浓缩 · 5~7点)",
-    "等级 10 (极限压缩 · 4~5点)"
-  ];
-  $("#labValSlider").textContent = labels[level - 1] || `等级 ${level}`;
+  try{
+    const slider = $("#labSlCompress");
+    if(!slider) return;
+    const level = +slider.value;
+    const labels = [
+      "等级 1 (高保真 · 35~45点)",
+      "等级 2 (微观细腻 · 25~35点)",
+      "等级 3 (🔥 推荐波段精简 · 15~22点)",
+      "等级 4 (紧凑波段 · 12~18点)",
+      "等级 5 (中度压缩 · 10~15点)",
+      "等级 6 (强力过滤 · 8~12点)",
+      "等级 7 (大波段拐点 · 7~10点)",
+      "等级 8 (极简骨架 · 6~8点)",
+      "等级 9 (极度浓缩 · 5~7点)",
+      "等级 10 (极限压缩 · 4~5点)"
+    ];
+    $("#labValSlider").textContent = labels[level - 1] || `等级 ${level}`;
 
-  const n = labKlines.length;
-  if(n < 2) return;
-  const closes = labKlines.map(k => k.c);
-  const minP = Math.min(...closes), maxP = Math.max(...closes);
-  const priceRange = (maxP - minP) || 1;
-  const epsilon = priceRange * (0.008 + (level - 1) * 0.012);
+    const n = labKlines.length;
+    if(n < 2) return;
+    const closes = labKlines.map(k => k.c);
+    const minP = Math.min(...closes), maxP = Math.max(...closes);
+    const priceRange = (maxP - minP) || 1;
+    const epsilon = priceRange * (0.008 + (level - 1) * 0.012);
 
-  const critical = new Set();
-  for(let off = -2; off <= 2; off++){
-    const k = labEntryIdx + off;
-    if(k >= 1 && k <= n) critical.add(k);
-  }
-  critical.add(labExitIdx);
-  critical.add(1);
-
-  const pts = closes.map((c, i) => ({ x: i + 1, y: c }));
-  const simplified = rdpSimplifyPoints(pts, epsilon);
-  const retainedSet = new Set(critical);
-  simplified.forEach(p => retainedSet.add(p.x));
-  const sortedIdxs = Array.from(retainedSet).sort((a, b) => a - b);
-
-  const sideStr = labIsLong ? "做多" : "做空";
-  const header = `${sideStr} 入场#${labEntryIdx} 出场#${labExitIdx}`;
-  const lines = [header];
-  for(let k = 0; k < sortedIdxs.length; k++){
-    const curIdx = sortedIdxs[k];
-    const curPrice = closes[curIdx - 1].toFixed(2);
-    if(k < sortedIdxs.length - 1){
-      const nextIdx = sortedIdxs[k + 1];
-      if(nextIdx > curIdx + 1){
-        lines.push(`#${curIdx}~#${nextIdx}: ${curPrice} -> ${closes[nextIdx - 1].toFixed(2)}`);
-        k++;
-        continue;
-      }
+    const critical = new Set();
+    for(let off = -2; off <= 2; off++){
+      const k = labEntryIdx + off;
+      if(k >= 1 && k <= n) critical.add(k);
     }
-    let note = "";
-    if(curIdx === labEntryIdx) note = " (入场)";
-    else if(curIdx === labExitIdx) note = " (出场)";
-    lines.push(`#${curIdx}: ${curPrice}${note}`);
+    critical.add(labExitIdx);
+    critical.add(1);
+
+    const pts = closes.map((c, i) => ({ x: i + 1, y: c }));
+    const simplified = rdpSimplifyPoints(pts, epsilon);
+    const retainedSet = new Set(critical);
+    simplified.forEach(p => retainedSet.add(p.x));
+    const sortedIdxs = Array.from(retainedSet).sort((a, b) => a - b);
+
+    const sideStr = labIsLong ? "做多" : "做空";
+    const header = `${sideStr} 入场#${labEntryIdx} 出场#${labExitIdx}`;
+    const lines = [header];
+    let k = 0;
+    while(k < sortedIdxs.length){
+      const curIdx = sortedIdxs[k];
+      const curPrice = (closes[curIdx - 1] || 0).toFixed(2);
+      if(k < sortedIdxs.length - 1){
+        const nextIdx = sortedIdxs[k + 1];
+        if(nextIdx > curIdx + 1 && closes[nextIdx - 1] != null){
+          lines.push(`#${curIdx}~#${nextIdx}: ${curPrice} -> ${closes[nextIdx - 1].toFixed(2)}`);
+          k += 2;
+          continue;
+        }
+      }
+      let note = "";
+      if(curIdx === labEntryIdx) note = " (入场)";
+      else if(curIdx === labExitIdx) note = " (出场)";
+      lines.push(`#${curIdx}: ${curPrice}${note}`);
+      k += 1;
+    }
+    const promptText = lines.join("\n");
+
+    const origChars = n * 12;
+    const compChars = promptText.length;
+    const savedPct = Math.max(0, ((1 - compChars / origChars) * 100)).toFixed(1);
+    $("#labOrigCount").textContent = `${n} 根`;
+    $("#labOrigChars").textContent = `~${origChars} 字符`;
+    $("#labCompCount").textContent = `${sortedIdxs.length} 节点`;
+    $("#labCompChars").textContent = `~${compChars} 字符`;
+    $("#labRatio").textContent = `${savedPct}%`;
+    $("#labFidelity").textContent = `${(100 - (level - 1) * 1.8).toFixed(1)}%`;
+    if($("#labTxtOutput")) $("#labTxtOutput").value = promptText;
+
+    renderLabCanvas(sortedIdxs);
+  }catch(e){
+    console.warn("updateLabView error:", e);
   }
-  const promptText = lines.join("\n");
-
-  const origChars = n * 12;
-  const compChars = promptText.length;
-  const savedPct = Math.max(0, ((1 - compChars / origChars) * 100)).toFixed(1);
-  $("#labOrigCount").textContent = `${n} 根`;
-  $("#labOrigChars").textContent = `~${origChars} 字符`;
-  $("#labCompCount").textContent = `${sortedIdxs.length} 节点`;
-  $("#labCompChars").textContent = `~${compChars} 字符`;
-  $("#labRatio").textContent = `${savedPct}%`;
-  $("#labFidelity").textContent = `${(100 - (level - 1) * 1.8).toFixed(1)}%`;
-  $("#labTxtOutput").value = promptText;
-
-  renderLabCanvas(sortedIdxs);
 }
 
 function renderLabCanvas(sortedIdxs){
-  const cvs = $("#cvsLab");
-  const wrap = $("#labCanvasWrap");
-  if(!cvs || !wrap) return;
-  const dpr = window.devicePixelRatio || 1;
-  const measuredW = wrap.clientWidth;
-  const w = measuredW > 100 ? measuredW : Math.min(880, window.innerWidth * 0.9);
-  const measuredH = wrap.clientHeight;
-  const h = measuredH > 100 ? measuredH : 300;
-  cvs.width = w * dpr;
-  cvs.height = h * dpr;
-  const ctx = cvs.getContext("2d");
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, w, h);
+  try{
+    const cvs = $("#cvsLab");
+    const wrap = $("#labCanvasWrap");
+    if(!cvs || !wrap) return;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = wrap.getBoundingClientRect();
+    const w = Math.max(320, Math.floor(rect.width || wrap.offsetWidth || 850));
+    const h = Math.max(200, Math.floor(rect.height || wrap.offsetHeight || 280));
+    cvs.width = w * dpr;
+    cvs.height = h * dpr;
+    const ctx = cvs.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
 
-  const n = labKlines.length;
-  if(n === 0) return;
-  const padT = 20, padB = 25, padL = 15, padR = 50;
-  const plotW = w - padL - padR, plotH = h - padT - padB;
-  let minP = Infinity, maxP = -Infinity;
-  labKlines.forEach(k => {
-    if(k.l < minP) minP = k.l;
-    if(k.h > maxP) maxP = k.h;
-  });
-  const pDiff = (maxP - minP) || 1;
-  const getY = p => padT + plotH - ((p - minP) / pDiff) * plotH;
-  const getX = idx => padL + ((idx - 0.5) / n) * plotW;
+    const n = labKlines.length;
+    if(n === 0) return;
+    const padT = 25, padB = 25, padL = 15, padR = 55;
+    const plotW = w - padL - padR, plotH = h - padT - padB;
+    let minP = Infinity, maxP = -Infinity;
+    labKlines.forEach(k => {
+      if(k.l < minP) minP = k.l;
+      if(k.h > maxP) maxP = k.h;
+    });
+    const pDiff = (maxP - minP) || 1;
+    const getY = p => padT + plotH - ((p - minP) / pDiff) * plotH;
+    const getX = idx => padL + ((idx - 0.5) / n) * plotW;
 
-  const barW = Math.max(2, (plotW / n) * 0.7);
-  labKlines.forEach((k, i) => {
-    const x = getX(i + 1);
-    const yO = getY(k.o), yC = getY(k.c), yH = getY(k.h), yL = getY(k.l);
-    const isUp = k.c >= k.o;
-    ctx.strokeStyle = isUp ? "#A0A0A0" : "#404040";
+    // 绘制网格与刻度
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
-    ctx.fillStyle = isUp ? "#E0E0E0" : "#181818";
-    const top = Math.min(yO, yC), height = Math.max(1.5, Math.abs(yC - yO));
-    ctx.fillRect(x - barW / 2, top, barW, height);
-    ctx.strokeRect(x - barW / 2, top, barW, height);
-  });
-
-  if(sortedIdxs && sortedIdxs.length >= 2){
-    ctx.save();
-    ctx.strokeStyle = "#00E5FF";
-    ctx.lineWidth = 2.2;
-    ctx.shadowColor = "rgba(0, 229, 255, 0.5)";
-    ctx.shadowBlur = 6;
-    ctx.beginPath();
-    sortedIdxs.forEach((idx, i) => {
-      const x = getX(idx), y = getY(labKlines[idx - 1].c);
-      if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-    ctx.restore();
-
-    sortedIdxs.forEach(idx => {
-      const x = getX(idx), y = getY(labKlines[idx - 1].c);
-      const isEntry = (idx === labEntryIdx), isExit = (idx === labExitIdx);
+    for(let i = 0; i <= 4; i++){
+      const y = padT + (plotH / 4) * i;
+      const p = maxP - (pDiff / 4) * i;
       ctx.beginPath();
-      ctx.arc(x, y, isEntry || isExit ? 4.5 : 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = isEntry ? "#26A69A" : (isExit ? "#E5A93C" : "#00E5FF");
-      ctx.fill();
+      ctx.moveTo(padL, y); ctx.lineTo(w - padR, y);
+      ctx.stroke();
+      ctx.fillStyle = "#8C867A";
+      ctx.font = "10px monospace";
+      ctx.fillText(p.toFixed(2), w - padR + 6, y + 3);
+    }
+
+    // 绘制蜡烛图
+    const barW = Math.max(2, (plotW / n) * 0.7);
+    labKlines.forEach((k, i) => {
+      const x = getX(i + 1);
+      const yO = getY(k.o), yC = getY(k.c), yH = getY(k.h), yL = getY(k.l);
+      const isUp = k.c >= k.o;
+      ctx.strokeStyle = isUp ? "#9E9E9E" : "#555555";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
+      ctx.fillStyle = isUp ? "#EDEDED" : "#1A1A1A";
+      const top = Math.min(yO, yC), height = Math.max(1.5, Math.abs(yC - yO));
+      ctx.fillRect(x - barW / 2, top, barW, height);
+      ctx.strokeRect(x - barW / 2, top, barW, height);
     });
+
+    // 绘制提取的压缩折线
+    if(sortedIdxs && sortedIdxs.length >= 2){
+      ctx.save();
+      ctx.strokeStyle = "#00E5FF";
+      ctx.lineWidth = 2.4;
+      ctx.shadowColor = "rgba(0, 229, 255, 0.6)";
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      sortedIdxs.forEach((idx, i) => {
+        const x = getX(idx), y = getY(labKlines[idx - 1].c);
+        if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.restore();
+
+      sortedIdxs.forEach(idx => {
+        const x = getX(idx), y = getY(labKlines[idx - 1].c);
+        const isEntry = (idx === labEntryIdx), isExit = (idx === labExitIdx);
+        ctx.beginPath();
+        ctx.arc(x, y, isEntry || isExit ? 5 : 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = isEntry ? "#26A69A" : (isExit ? "#E5A93C" : "#00E5FF");
+        ctx.fill();
+        ctx.strokeStyle = "#121211";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+
+        if(isEntry || isExit){
+          ctx.fillStyle = isEntry ? "#26A69A" : "#E5A93C";
+          ctx.font = "bold 10.5px sans-serif";
+          const txt = isEntry ? `🎯 入场 #${idx}` : `🏁 出场 #${idx}`;
+          ctx.fillText(txt, x - 22, y - 9);
+        }
+      });
+    }
+  }catch(e){
+    console.warn("renderLabCanvas error:", e);
   }
 }
 
@@ -2851,7 +2890,7 @@ if($("#btnOpenCompressLab")){
     $("#shStats").classList.remove("on");
     $("#shCompressLab").classList.add("on");
     $("#mask").classList.add("on");
-    setTimeout(initLabData, 80);
+    setTimeout(initLabData, 100);
   });
 }
 if($("#labSlCompress")) $("#labSlCompress").addEventListener("input", updateLabView);
