@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -6,10 +6,11 @@
 <script>
 (function(){
   var host = window.location.hostname.toLowerCase();
+  var v = Date.now();
   if (host.startsWith("cs.") || host.indexOf("cs") !== -1) {
-    window.location.replace("./cs.html");
+    window.location.replace("./cs.html?_v=" + v);
   } else {
-    window.location.replace("./order.html");
+    window.location.replace("./order.html?_v=" + v);
   }
 })();
 </script>

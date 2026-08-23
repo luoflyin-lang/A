@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#F5F2EB">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>ETH 5m 模拟回测训练 · 经典黑白极简版</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
@@ -286,6 +289,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
   <div class="sh">
     <b>训练统计数据 (ETH · 5m)</b>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+      <button class="btn-sub" id="btnSyncCloud" title="立即从云端拉取最新记录并双向同步">🔄 刷新同步</button>
       <button class="btn-rand" id="bRand" title="随机抽取新的 ETH 5m 真实历史切片 (快捷键 R / N)">🎲 换行情</button>
       <button class="x" data-close>✕</button>
     </div>
@@ -644,13 +648,16 @@ async function cloudSyncPull(showToast = false){
       const data = await r.json();
       if(data && Array.isArray(data.trades)){
         const added = mergeTradesWithCloud(data);
-        if(added > 0 && showToast){
-          toast(`☁️ 已同步 ${added} 笔新交易！当前总余额: ${S.balanceR.toFixed(2)} R`);
+        if(added > 0){
+          toast(`☁️ 自动同步了 ${added} 笔新交易！当前总余额: ${S.balanceR.toFixed(2)} R`);
+        } else if(showToast){
+          toast(`☁️ 云端同步成功！当前共 ${S.trades.length} 笔交易，总余额: ${S.balanceR.toFixed(2)} R`);
         }
       }
     }
   }catch(e){
     console.warn("Cloud sync pull error:", e);
+    if(showToast) toast("云端连接中，稍后自动重试…");
   }finally{
     isCloudSyncing = false;
   }
@@ -2429,10 +2436,12 @@ $("#ohGo").addEventListener("click", () => {
 });
 
 // 交互事件监听
+if($("#btnSyncCloud")) $("#btnSyncCloud").addEventListener("click", () => cloudSyncPull(true));
 if($("#bRand")) $("#bRand").addEventListener("click", loadRandomMarket);
 if($("#btnExportCSV")) $("#btnExportCSV").addEventListener("click", exportTradesToCSV);
 $("#bStats").addEventListener("click", () => {
   renderStatsView();
+  cloudSyncPull(false); // 展开抽屉时静默拉取最新云端战绩
   $("#shStats").classList.add("on");
   $("#mask").classList.add("on");
 });
