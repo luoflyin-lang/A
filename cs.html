@@ -2782,8 +2782,10 @@ function renderLabCanvas(sortedIdxs){
   const wrap = $("#labCanvasWrap");
   if(!cvs || !wrap) return;
   const dpr = window.devicePixelRatio || 1;
-  const w = wrap.clientWidth || 800;
-  const h = wrap.clientHeight || 300;
+  const measuredW = wrap.clientWidth;
+  const w = measuredW > 100 ? measuredW : Math.min(880, window.innerWidth * 0.9);
+  const measuredH = wrap.clientHeight;
+  const h = measuredH > 100 ? measuredH : 300;
   cvs.width = w * dpr;
   cvs.height = h * dpr;
   const ctx = cvs.getContext("2d");
@@ -2847,9 +2849,9 @@ function renderLabCanvas(sortedIdxs){
 if($("#btnOpenCompressLab")){
   $("#btnOpenCompressLab").addEventListener("click", () => {
     $("#shStats").classList.remove("on");
-    initLabData();
     $("#shCompressLab").classList.add("on");
     $("#mask").classList.add("on");
+    setTimeout(initLabData, 80);
   });
 }
 if($("#labSlCompress")) $("#labSlCompress").addEventListener("input", updateLabView);
