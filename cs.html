@@ -610,22 +610,25 @@ function mergeTradesWithCloud(remoteData){
   return newTradesCount;
 }
 
-// 从 Cloudflare 云端拉取全网最新数据
+// 从 Cloudflare 云端拉取全网最新数据 (附带时间戳防止浏览器/CDN缓存)
 async function cloudSyncPull(showToast = false){
   if(isCloudSyncing) return;
   isCloudSyncing = true;
   const statusEl = $("#cloudSyncStatus");
   if(statusEl){
     statusEl.className = "sync-badge syncing";
-    statusEl.textContent = "☁️ 正在同步…";
+    statusEl.textContent = "☁️ 同步中…";
   }
 
   try{
     const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
     const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 5000);
 
-    const r = await fetch(CLOUD_SYNC_ENDPOINT, {
+    const cacheBusterUrl = `${CLOUD_SYNC_ENDPOINT}?_t=${Date.now()}`;
+    const r = await fetch(cacheBusterUrl, {
       method: "GET",
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
       signal: ctl ? ctl.signal : undefined
     });
     clearTimeout(tm);
@@ -634,8 +637,8 @@ async function cloudSyncPull(showToast = false){
       const data = await r.json();
       if(data && Array.isArray(data.trades)){
         const added = mergeTradesWithCloud(data);
-        if(added > 0 && showToast){
-          toast(`☁️ 已从 Cloudflare 同步 ${added} 笔新交易！当前总余额: ${S.balanceR.toFixed(2)} R`);
+        if(added > 0){
+          toast(`☁️ 刚刚已从云端同步 ${added} 笔新交易！当前总余额: ${S.balanceR.toFixed(2)} R`);
         } else if(showToast){
           toast("☁️ 当前已是最新云端数据！");
         }
@@ -655,7 +658,6 @@ async function cloudSyncPull(showToast = false){
 
 // 向 Cloudflare Worker + KV 实时推送广播最新数据
 async function cloudSyncPush(){
-  if(!S.trades || !S.trades.length) return;
   const statusEl = $("#cloudSyncStatus");
   if(statusEl){
     statusEl.className = "sync-badge syncing";
@@ -663,7 +665,13 @@ async function cloudSyncPush(){
   }
 
   try{
-    const payload = {
+    const isReset = (!S.trades || !S.trades.length);
+    const payload = isReset ? {
+      reset: true,
+      balanceR: INITIAL_BALANCE_R,
+      trades: [],
+      updated: Date.now()
+    } : {
       balanceR: S.balanceR,
       trades: S.trades.slice(0, 300),
       updated: Date.now()
@@ -688,6 +696,14 @@ async function cloudSyncPush(){
     }
   }
 }
+
+// 多端生命周期无感自动同步监听 (切换标签、解锁设备、回到前台、恢复网络自动拉取)
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible") cloudSyncPull(false);
+});
+window.addEventListener("focus", () => cloudSyncPull(false));
+window.addEventListener("online", () => cloudSyncPull(true));
+setInterval(() => cloudSyncPull(false), 20000); // 每 20 秒温和心跳自动检查更新
 
 /* ================= TRADINGVIEW 图表核心引擎 ================= */
 let tvChart = null, candleSeries = null, emaSeries = null;
