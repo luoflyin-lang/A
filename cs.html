@@ -2909,6 +2909,10 @@ if($("#btnLabSaveToApp")){
   });
 }
 
+window.initLabData = initLabData;
+window.updateLabView = updateLabView;
+window.renderLabCanvas = renderLabCanvas;
+
 /* ================= 启动系统 ================= */
 async function boot(){
   initTradingViewChart();
@@ -2916,6 +2920,7 @@ async function boot(){
   loadStats();
   cloudSyncPull(false);
   await loadRandomMarket();
+  setTimeout(initLabData, 500);
 }
 boot();
 </script>
