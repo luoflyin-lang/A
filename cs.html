@@ -575,6 +575,16 @@ function saveStats(skipCloudPush = false){
 function mergeTradesWithCloud(remoteData){
   if(!remoteData || !Array.isArray(remoteData.trades)) return 0;
   
+  // 1. 检查云端是否触发了全新重置
+  const localLastReset = +(localStorage.getItem("sim_last_reset_time") || 0);
+  if(remoteData.resetTime && remoteData.resetTime > localLastReset && (!remoteData.trades || remoteData.trades.length === 0)){
+    S.trades = [];
+    S.balanceR = INITIAL_BALANCE_R;
+    localStorage.setItem("sim_last_reset_time", String(remoteData.resetTime));
+    saveStats(true);
+    return 0;
+  }
+
   const tradesMap = new Map();
   let localUniqueCount = 0;
 
@@ -1623,9 +1633,11 @@ function exportTradesToCSV(){
 
 function resetAllStats(){
   if(!confirm("确定重置全部训练统计数据并将余额恢复为 100.00 R 吗？")) return;
+  const now = Date.now();
   S.balanceR = INITIAL_BALANCE_R;
   S.trades = [];
   S.lastLossIndex = null;
+  try{ localStorage.setItem("sim_last_reset_time", String(now)); }catch(e){}
   saveStats();
   toast("训练统计数据已重置为 100.00 R");
 }
