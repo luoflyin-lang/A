@@ -725,4 +725,366 @@ window.addEventListener("resize", update);
 fetchRealBinance150();
 </script>
 </body>
-</html>
+</html>function getEpsilonLabel(lvl){
+  const epsMap = {
+    1: "等级 1 (🔥 极客超精细 · 逐浪微观 · 100~130点)",
+    2: "等级 2 (高保真细腻 · 保留所有微调 · 80~105点)",
+    3: "等级 3 (标准精细波段 · 清晰拐点 · 65~85点)",
+    4: "等级 4 (紧凑波段 · 过滤杂波 · 45~65点)",
+    5: "等级 5 (中度压缩 · 35~50点)",
+    6: "等级 6 (波段转折 · 25~38点)",
+    7: "等级 7 (大波段转折 · 18~28点)",
+    8: "等级 8 (大趋势形态 · 12~20点)",
+    9: "等级 9 (极简趋势 · 8~15点)",
+    10: "等级 10 (极度浓缩骨架 · 5~10点)"
+  };
+  return epsMap[lvl] || epsMap[3];
+}
+
+function rdpSimplifyNormalized(pts, epsilon){
+  if(pts.length <= 2) return pts;
+  let dmax = 0, index = 0;
+  const end = pts.length - 1;
+  const x1 = pts[0].xNorm, y1 = pts[0].yNorm;
+  const x2 = pts[end].xNorm, y2 = pts[end].yNorm;
+  const lineDist = Math.hypot(x2 - x1, y2 - x1) || 1e-9;
+
+  for(let i = 1; i < end; i++){
+    const x0 = pts[i].xNorm, y0 = pts[i].yNorm;
+    const num = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
+    const d = num / lineDist;
+    if(d > dmax){
+      dmax = d;
+      index = i;
+    }
+  }
+
+  if(dmax > epsilon){
+    const left = rdpSimplifyNormalized(pts.slice(0, index + 1), epsilon);
+    const right = rdpSimplifyNormalized(pts.slice(index), epsilon);
+    return left.slice(0, -1).concat(right);
+  } else {
+    return [pts[0], pts[end]];
+  }
+}
+
+function findLocalSwingPivots(closes, windowSize){
+  const swings = new Set();
+  const n = closes.length;
+  if(windowSize <= 0) return swings;
+  for(let i = windowSize; i < n - windowSize; i++){
+    let isHigh = true, isLow = true;
+    for(let d = -windowSize; d <= windowSize; d++){
+      if(d === 0) continue;
+      if(closes[i] < closes[i + d]) isHigh = false;
+      if(closes[i] > closes[i + d]) isLow = false;
+    }
+    if(isHigh || isLow) swings.add(i + 1);
+  }
+  return swings;
+}
+
+function compressKlines(klines, level, algo, keepCritical){
+  const n = klines.length;
+  if(n < 2) return [1];
+
+  const closes = klines.map(k => k.c);
+  const minP = Math.min(...closes), maxP = Math.max(...closes);
+  const priceRange = (maxP - minP) || 1;
+
+  const epsMap = {
+    1: { eps: 0.0006, swingWin: 1 },
+    2: { eps: 0.0012, swingWin: 2 },
+    3: { eps: 0.0022, swingWin: 3 },
+    4: { eps: 0.0040, swingWin: 0 },
+    5: { eps: 0.0070, swingWin: 0 },
+    6: { eps: 0.0120, swingWin: 0 },
+    7: { eps: 0.0200, swingWin: 0 },
+    8: { eps: 0.0350, swingWin: 0 },
+    9: { eps: 0.0550, swingWin: 0 },
+    10: { eps: 0.0900, swingWin: 0 }
+  };
+  const cfg = epsMap[level] || epsMap[3];
+
+  const pts = closes.map((c, i) => ({
+    idx: i + 1,
+    price: c,
+    xNorm: (i) / (n - 1),
+    yNorm: (c - minP) / priceRange
+  }));
+
+  let retainedIndices = new Set();
+  if(keepCritical){
+    for(let off = -2; off <= 2; off++){
+      const k = entryIdx + off;
+      if(k >= 1 && k <= n) retainedIndices.add(k);
+    }
+    retainedIndices.add(exitIdx);
+    retainedIndices.add(1);
+    retainedIndices.add(n);
+  }
+
+  const rdpPts = rdpSimplifyNormalized(pts, cfg.eps);
+  rdpPts.forEach(p => retainedIndices.add(p.idx));
+
+  if(cfg.swingWin > 0){
+    const swings = findLocalSwingPivots(closes, cfg.swingWin);
+    swings.forEach(idx => retainedIndices.add(idx));
+  }
+
+  const sortedIdxs = Array.from(retainedIndices).sort((a, b) => a - b);
+  return sortedIdxs;
+}
+
+function formatAIPrompt(sortedIdxs, klines){
+  const sideStr = isLong ? "做多" : "做空";
+  const header = `${sideStr} 入场#${entryIdx} 出场#${exitIdx}`;
+  const lines = [header];
+
+  sortedIdxs.forEach(idx => {
+    const curPrice = klines[idx - 1].c.toFixed(2);
+    let note = "";
+    if(idx === entryIdx) note = " (入场)";
+    else if(idx === exitIdx) note = " (出场)";
+    lines.push(`#${idx}: ${curPrice}${note}`);
+  });
+
+  return lines.join("\n");
+}
+
+function renderCanvas(sortedIdxs){
+  const cvs = $("#cvs");
+  const wrap = $("#canvasWrap");
+  const dpr = window.devicePixelRatio || 1;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+
+  cvs.width = w * dpr;
+  cvs.height = h * dpr;
+  const ctx = cvs.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  ctx.clearRect(0, 0, w, h);
+
+  const n = curKlines.length;
+  if(n === 0) return;
+
+  const padT = 30, padB = 40, padL = 20, padR = 60;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  let minP = Infinity, maxP = -Infinity;
+  curKlines.forEach(k => {
+    if(k.l < minP) minP = k.l;
+    if(k.h > maxP) maxP = k.h;
+  });
+  const pDiff = (maxP - minP) || 1;
+  const getY = p => padT + plotH - ((p - minP) / pDiff) * plotH;
+  const getX = idx => padL + ((idx - 0.5) / n) * plotW;
+
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  for(let i = 0; i <= 5; i++){
+    const y = padT + (plotH / 5) * i;
+    const p = maxP - (pDiff / 5) * i;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+
+    ctx.fillStyle = "#7A756D";
+    ctx.font = "10px monospace";
+    ctx.fillText(p.toFixed(2), w - padR + 6, y + 3);
+  }
+
+  const barW = Math.max(2, (plotW / n) * 0.7);
+  curKlines.forEach((k, i) => {
+    const x = getX(i + 1);
+    const yO = getY(k.o), yC = getY(k.c), yH = getY(k.h), yL = getY(k.l);
+    const isUp = k.c >= k.o;
+
+    ctx.strokeStyle = isUp ? "#A0A0A0" : "#404040";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, yH);
+    ctx.lineTo(x, yL);
+    ctx.stroke();
+
+    ctx.fillStyle = isUp ? "#E0E0E0" : "#181818";
+    const top = Math.min(yO, yC);
+    const height = Math.max(1.5, Math.abs(yC - yO));
+    ctx.fillRect(x - barW / 2, top, barW, height);
+    ctx.strokeRect(x - barW / 2, top, barW, height);
+  });
+
+  if(sortedIdxs && sortedIdxs.length >= 2){
+    ctx.save();
+    ctx.strokeStyle = "#00E5FF";
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = "rgba(0, 229, 255, 0.6)";
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+
+    sortedIdxs.forEach((idx, i) => {
+      const x = getX(idx);
+      const y = getY(curKlines[idx - 1].c);
+      if(i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+
+    sortedIdxs.forEach(idx => {
+      const x = getX(idx);
+      const y = getY(curKlines[idx - 1].c);
+      const isEntry = (idx === entryIdx);
+      const isExit = (idx === exitIdx);
+
+      ctx.beginPath();
+      ctx.arc(x, y, isEntry || isExit ? 5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = isEntry ? "#26A69A" : (isExit ? "#E5A93C" : "#00E5FF");
+      ctx.fill();
+      ctx.strokeStyle = "#121211";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      if(isEntry || isExit){
+        ctx.fillStyle = isEntry ? "#26A69A" : "#E5A93C";
+        ctx.font = "bold 11px sans-serif";
+        const txt = isEntry ? `🎯 入场 #${idx}` : `🏁 出场 #${idx}`;
+        ctx.fillText(txt, x - 25, y - 10);
+      }
+    });
+  }
+}
+
+function update(){
+  const level = +$("#slCompress").value;
+  const algo = $("#selAlgo").value;
+  const protect = $("#chkProtectEntry").checked;
+
+  const labels = [
+    "等级 1 (高保真 · 35~45点)",
+    "等级 2 (微观细腻 · 25~35点)",
+    "等级 3 (🔥 推荐波段精简 · 15~22点)",
+    "等级 4 (紧凑波段 · 12~18点)",
+    "等级 5 (中度压缩 · 10~15点)",
+    "等级 6 (强力过滤 · 8~12点)",
+    "等级 7 (大波段拐点 · 7~10点)",
+    "等级 8 (极简骨架 · 6~8点)",
+    "等级 9 (极度浓缩 · 5~7点)",
+    "等级 10 (极限压缩 · 4~5点)"
+  ];
+  $("#valSlider").textContent = labels[level - 1] || `等级 ${level}`;
+
+  const retained = compressKlines(curKlines, level, algo, protect);
+  const promptText = formatAIPrompt(retained, curKlines);
+
+  const origChars = curKlines.length * 12;
+  const compChars = promptText.length;
+  const savedPct = Math.max(0, ((1 - compChars / origChars) * 100)).toFixed(1);
+
+  $("#mOrigCount").textContent = `${curKlines.length} 根`;
+  $("#mOrigChars").textContent = `~${origChars} 字符`;
+  $("#mCompCount").textContent = `${retained.length} 节点`;
+  $("#mCompChars").textContent = `~${compChars} 字符`;
+  $("#mRatio").textContent = `${savedPct}%`;
+
+  const fidelity = (100 - (level - 1) * 1.8).toFixed(1);
+  $("#mFidelity").textContent = `${fidelity}%`;
+
+  $("#txtAIOutput").value = promptText;
+
+  renderCanvas(retained);
+}
+
+$("#slCompress").addEventListener("input", update);
+$("#selAlgo").addEventListener("change", update);
+$("#chkProtectEntry").addEventListener("change", update);
+$("#btnRandK").addEventListener("click", fetchRealBinance150);
+
+$("#btnCopyPrompt").addEventListener("click", () => {
+  const t = $("#txtAIOutput").value;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(() => toast("📋 已复制当前精炼 AI 提示词！"));
+  } else {
+    $("#txtAIOutput").select();
+    document.execCommand("copy");
+    toast("📋 已复制当前精炼 AI 提示词！");
+  }
+});
+
+$("#btnSaveToApp").addEventListener("click", () => {
+  const level = $("#slCompress").value;
+  try{
+    localStorage.setItem("ai_compress_level", level);
+    localStorage.setItem("ai_compress_algo", $("#selAlgo").value);
+  }catch(e){}
+  toast(`💾 已将【压缩等级 ${level}】固化为主系统实盘默认规则！`);
+});
+
+window.addEventListener("resize", update);
+
+fetchRealBinance150();
+</script>
+</body>
+</html>function getEpsilonLabel(lvl){
+  const epsMap = {
+    1: "等级 1 (🔥 极客超精细 · 逐浪微观 · 100~130点)",
+    2: "等级 2 (高保真细腻 · 保留所有微调 · 80~105点)",
+    3: "等级 3 (标准精细波段 · 清晰拐点 · 65~85点)",
+    4: "等级 4 (紧凑波段 · 过滤杂波 · 45~65点)",
+    5: "等级 5 (中度压缩 · 35~50点)",
+    6: "等级 6 (波段转折 · 25~38点)",
+    7: "等级 7 (大波段转折 · 18~28点)",
+    8: "等级 8 (大趋势形态 · 12~20点)",
+    9: "等级 9 (极简趋势 · 8~15点)",
+    10: "等级 10 (极度浓缩骨架 · 5~10点)"
+  };
+  return epsMap[lvl] || epsMap[3];
+}
+
+function rdpSimplifyNormalized(pts, epsilon){
+  if(pts.length <= 2) return pts;
+  let dmax = 0, index = 0;
+  const end = pts.length - 1;
+  const x1 = pts[0].xNorm, y1 = pts[0].yNorm;
+  const x2 = pts[end].xNorm, y2 = pts[end].yNorm;
+  const lineDist = Math.hypot(x2 - x1, y2 - x1) || 1e-9;
+
+  for(let i = 1; i < end; i++){
+    const x0 = pts[i].xNorm, y0 = pts[i].yNorm;
+    const num = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
+    const d = num / lineDist;
+    if(d > dmax){
+      dmax = d;
+      index = i;
+    }
+  }
+
+  if(dmax > epsilon){
+    const left = rdpSimplifyNormalized(pts.slice(0, index + 1), epsilon);
+    const right = rdpSimplifyNormalized(pts.slice(index), epsilon);
+    return left.slice(0, -1).concat(right);
+  } else {
+    return [pts[0], pts[end]];
+  }
+}
+
+function findLocalSwingPivots(closes, windowSize){
+  const swings = new Set();
+  const n = closes.length;
+  if(windowSize <= 0) return swings;
+  for(let i = windowSize; i < n - windowSize; i++){
+    let isHigh = true, isLow = true;
+    for(let d = -windowSize; d <= windowSize; d++){
+      if(d === 0) continue;
+      if(closes[i] < closes[i + d]) isHigh = false;
+      if(closes[i] > closes[i + d]) isLow = false;
+    }
+    if(isHigh || isLow) swings.add(i + 1);
+  }
+  return swings;
+}
+
+

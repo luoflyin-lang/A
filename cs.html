@@ -1611,16 +1611,16 @@ function renderStatsView(){
 }
 
 /* ================= 生成 AI 极简时序压缩复盘数据 (出场前 150 根) ================= */
-function rdpSimplifyPoints(pts, epsilon){
+function rdpSimplifyNormalized(pts, epsilon){
   if(pts.length <= 2) return pts;
   let dmax = 0, index = 0;
   const end = pts.length - 1;
-  const x1 = pts[0].x, y1 = pts[0].y;
-  const x2 = pts[end].x, y2 = pts[end].y;
-  const lineDist = Math.hypot(x2 - x1, y2 - x1) || 1;
+  const x1 = pts[0].xNorm, y1 = pts[0].yNorm;
+  const x2 = pts[end].xNorm, y2 = pts[end].yNorm;
+  const lineDist = Math.hypot(x2 - x1, y2 - x1) || 1e-9;
 
   for(let i = 1; i < end; i++){
-    const x0 = pts[i].x, y0 = pts[i].y;
+    const x0 = pts[i].xNorm, y0 = pts[i].yNorm;
     const num = Math.abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1);
     const d = num / lineDist;
     if(d > dmax){
@@ -1630,12 +1630,85 @@ function rdpSimplifyPoints(pts, epsilon){
   }
 
   if(dmax > epsilon){
-    const left = rdpSimplifyPoints(pts.slice(0, index + 1), epsilon);
-    const right = rdpSimplifyPoints(pts.slice(index), epsilon);
+    const left = rdpSimplifyNormalized(pts.slice(0, index + 1), epsilon);
+    const right = rdpSimplifyNormalized(pts.slice(index), epsilon);
     return left.slice(0, -1).concat(right);
   } else {
     return [pts[0], pts[end]];
   }
+}
+
+function findLocalSwingPivots(closes, windowSize){
+  const swings = new Set();
+  const n = closes.length;
+  if(windowSize <= 0) return swings;
+  for(let i = windowSize; i < n - windowSize; i++){
+    let isHigh = true, isLow = true;
+    for(let d = -windowSize; d <= windowSize; d++){
+      if(d === 0) continue;
+      if(closes[i] < closes[i + d]) isHigh = false;
+      if(closes[i] > closes[i + d]) isLow = false;
+    }
+    if(isHigh || isLow) swings.add(i + 1);
+  }
+  return swings;
+}
+
+function getLevelEpsilon(level){
+  // 10 级高灵敏度平滑曲线：等级 1 为极客超精细 (0.0006)，保留 100~130 根走势细节
+  const epsMap = {
+    1: { eps: 0.0006, swingWin: 1, label: "等级 1 (🔥 极客超精细 · 逐浪微观 · 100~130点)" },
+    2: { eps: 0.0012, swingWin: 2, label: "等级 2 (高保真细腻 · 保留所有微调 · 80~105点)" },
+    3: { eps: 0.0022, swingWin: 3, label: "等级 3 (标准精细波段 · 清晰拐点 · 65~85点)" },
+    4: { eps: 0.0040, swingWin: 0, label: "等级 4 (紧凑波段 · 过滤杂波 · 45~65点)" },
+    5: { eps: 0.0070, swingWin: 0, label: "等级 5 (中度压缩 · 35~50点)" },
+    6: { eps: 0.0120, swingWin: 0, label: "等级 6 (波段转折 · 25~38点)" },
+    7: { eps: 0.0200, swingWin: 0, label: "等级 7 (大波段转折 · 18~28点)" },
+    8: { eps: 0.0350, swingWin: 0, label: "等级 8 (大趋势形态 · 12~20点)" },
+    9: { eps: 0.0550, swingWin: 0, label: "等级 9 (极简趋势 · 8~15点)" },
+    10: { eps: 0.0900, swingWin: 0, label: "等级 10 (极度浓缩骨架 · 5~10点)" }
+  };
+  return epsMap[level] || epsMap[3];
+}
+
+function compressKlineSequence(closes, level = 3, localEntryIdx = null, localExitIdx = null){
+  const n = closes.length;
+  if(n < 2) return { indices: [1], lines: [] };
+
+  const minP = Math.min(...closes), maxP = Math.max(...closes);
+  const priceRange = (maxP - minP) || 1;
+  const cfg = getLevelEpsilon(level);
+
+  // 归一化点列 (0~1 坐标空间，消除时间轴与价格轴尺度失衡)
+  const pts = closes.map((c, i) => ({
+    idx: i + 1,
+    price: c,
+    xNorm: (i) / (n - 1),
+    yNorm: (c - minP) / priceRange
+  }));
+
+  const rdpPts = rdpSimplifyNormalized(pts, cfg.eps);
+  const retainedSet = new Set(rdpPts.map(p => p.idx));
+
+  // 高保真模式下提取局部摆动高低点 (Fractal Swing Pivots)
+  if(cfg.swingWin > 0){
+    const swings = findLocalSwingPivots(closes, cfg.swingWin);
+    swings.forEach(idx => retainedSet.add(idx));
+  }
+
+  // 关键微观保留点：入场前后各 2 根与出场点
+  if(localEntryIdx != null){
+    for(let off = -2; off <= 2; off++){
+      const k = localEntryIdx + off;
+      if(k >= 1 && k <= n) retainedSet.add(k);
+    }
+  }
+  if(localExitIdx != null) retainedSet.add(localExitIdx);
+  retainedSet.add(1);
+  retainedSet.add(n);
+
+  const sortedIdxs = Array.from(retainedSet).sort((a, b) => a - b);
+  return { indices: sortedIdxs, cfg, priceRange, minP, maxP };
 }
 
 function generateCompressedAIChartText(t){
@@ -1658,48 +1731,17 @@ function generateCompressedAIChartText(t){
   const sideStr = isLong ? "做多" : "做空";
   const header = `${sideStr} 入场#${localEntryIdx} 出场#${localExitIdx}`;
 
-  // 关键微观保留点：入场点前后各 2 根及出场点
-  const critical = new Set();
-  for(let off = -2; off <= 2; off++){
-    const k = localEntryIdx + off;
-    if(k >= 1 && k <= totalBars) critical.add(k);
-  }
-  critical.add(localExitIdx);
-  critical.add(1);
-
-  // 读取用户在实验室设置的压缩等级 (默认等级 3：波段精简)
-  const level = +(localStorage.getItem("ai_compress_level") || 3);
-  const minP = Math.min(...closes), maxP = Math.max(...closes);
-  const priceRange = (maxP - minP) || 1;
-  const epsilon = priceRange * (0.008 + (level - 1) * 0.012);
-
-  const pts = closes.map((c, i) => ({ x: i + 1, y: c }));
-  const simplified = rdpSimplifyPoints(pts, epsilon);
-  
-  const retainedSet = new Set(critical);
-  simplified.forEach(p => retainedSet.add(p.x));
-  const sortedIdxs = Array.from(retainedSet).sort((a, b) => a - b);
+  const level = +(localStorage.getItem("ai_compress_level") || 2); // 默认高保真等级 2
+  const comp = compressKlineSequence(closes, level, localEntryIdx, localExitIdx);
 
   const lines = [header];
-  for(let k = 0; k < sortedIdxs.length; k++){
-    const curIdx = sortedIdxs[k];
-    const curPrice = closes[curIdx - 1].toFixed(2);
-    
-    if(k < sortedIdxs.length - 1){
-      const nextIdx = sortedIdxs[k + 1];
-      if(nextIdx > curIdx + 1){
-        const nextPrice = closes[nextIdx - 1].toFixed(2);
-        lines.push(`#${curIdx}~#${nextIdx}: ${curPrice} -> ${nextPrice}`);
-        k++;
-        continue;
-      }
-    }
-
+  comp.indices.forEach(idx => {
+    const p = (closes[idx - 1] || 0).toFixed(2);
     let note = "";
-    if(curIdx === localEntryIdx) note = " (入场)";
-    else if(curIdx === localExitIdx) note = " (出场)";
-    lines.push(`#${curIdx}: ${curPrice}${note}`);
-  }
+    if(idx === localEntryIdx) note = " (入场)";
+    else if(idx === localExitIdx) note = " (出场)";
+    lines.push(`#${idx}: ${p}${note}`);
+  });
 
   return lines.join("\n");
 }
@@ -1713,7 +1755,7 @@ function copyTradeAIData(tradeId){
   const text = generateCompressedAIChartText(t);
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(() => {
-      toast(`📋 已复制【${t.side === "buy" ? "多单" : "空单"} ${rFmt(t.pnlR)}】前 150 根极简压缩数据！`);
+      toast(`📋 已复制【${t.side === "buy" ? "多单" : "空单"} ${rFmt(t.pnlR)}】前 150 根高保真时序数据！`);
     }).catch(() => fallbackCopy(text));
   } else {
     fallbackCopy(text);
@@ -1729,7 +1771,7 @@ function fallbackCopy(text){
   ta.select();
   try{
     document.execCommand("copy");
-    toast(`📋 已复制前 150 根极简压缩数据到剪贴板！`);
+    toast(`📋 已复制前 150 根高保真时序数据到剪贴板！`);
   }catch(e){
     prompt("请手动复制以下 AI 压缩数据：", text);
   }
@@ -2684,7 +2726,7 @@ function initLabData(){
       let p = 2450.0;
       const now = Date.now() - 150 * 5 * 60 * 1000;
       for(let i = 0; i < 150; i++){
-        const delta = (Math.random() - 0.49) * 8 + (Math.sin(i / 12) * 5);
+        const delta = (Math.random() - 0.49) * 8 + (Math.sin(i / 8) * 5.5);
         const o = p, c = o + delta;
         const h = Math.max(o, c) + Math.random() * 3.5;
         const l = Math.min(o, c) - Math.random() * 3.5;
@@ -2706,73 +2748,36 @@ function updateLabView(){
     const slider = $("#labSlCompress");
     if(!slider) return;
     const level = +slider.value;
-    const labels = [
-      "等级 1 (高保真 · 35~45点)",
-      "等级 2 (微观细腻 · 25~35点)",
-      "等级 3 (🔥 推荐波段精简 · 15~22点)",
-      "等级 4 (紧凑波段 · 12~18点)",
-      "等级 5 (中度压缩 · 10~15点)",
-      "等级 6 (强力过滤 · 8~12点)",
-      "等级 7 (大波段拐点 · 7~10点)",
-      "等级 8 (极简骨架 · 6~8点)",
-      "等级 9 (极度浓缩 · 5~7点)",
-      "等级 10 (极限压缩 · 4~5点)"
-    ];
-    $("#labValSlider").textContent = labels[level - 1] || `等级 ${level}`;
+    const cfg = getLevelEpsilon(level);
+    $("#labValSlider").textContent = cfg.label;
 
     const n = labKlines.length;
     if(n < 2) return;
     const closes = labKlines.map(k => k.c);
-    const minP = Math.min(...closes), maxP = Math.max(...closes);
-    const priceRange = (maxP - minP) || 1;
-    const epsilon = priceRange * (0.008 + (level - 1) * 0.012);
-
-    const critical = new Set();
-    for(let off = -2; off <= 2; off++){
-      const k = labEntryIdx + off;
-      if(k >= 1 && k <= n) critical.add(k);
-    }
-    critical.add(labExitIdx);
-    critical.add(1);
-
-    const pts = closes.map((c, i) => ({ x: i + 1, y: c }));
-    const simplified = rdpSimplifyPoints(pts, epsilon);
-    const retainedSet = new Set(critical);
-    simplified.forEach(p => retainedSet.add(p.x));
-    const sortedIdxs = Array.from(retainedSet).sort((a, b) => a - b);
+    const comp = compressKlineSequence(closes, level, labEntryIdx, labExitIdx);
+    const sortedIdxs = comp.indices;
 
     const sideStr = labIsLong ? "做多" : "做空";
     const header = `${sideStr} 入场#${labEntryIdx} 出场#${labExitIdx}`;
     const lines = [header];
-    let k = 0;
-    while(k < sortedIdxs.length){
-      const curIdx = sortedIdxs[k];
-      const curPrice = (closes[curIdx - 1] || 0).toFixed(2);
-      if(k < sortedIdxs.length - 1){
-        const nextIdx = sortedIdxs[k + 1];
-        if(nextIdx > curIdx + 1 && closes[nextIdx - 1] != null){
-          lines.push(`#${curIdx}~#${nextIdx}: ${curPrice} -> ${closes[nextIdx - 1].toFixed(2)}`);
-          k += 2;
-          continue;
-        }
-      }
+    sortedIdxs.forEach(idx => {
+      const p = (closes[idx - 1] || 0).toFixed(2);
       let note = "";
-      if(curIdx === labEntryIdx) note = " (入场)";
-      else if(curIdx === labExitIdx) note = " (出场)";
-      lines.push(`#${curIdx}: ${curPrice}${note}`);
-      k += 1;
-    }
+      if(idx === labEntryIdx) note = " (入场)";
+      else if(idx === labExitIdx) note = " (出场)";
+      lines.push(`#${idx}: ${p}${note}`);
+    });
     const promptText = lines.join("\n");
 
     const origChars = n * 12;
     const compChars = promptText.length;
-    const savedPct = Math.max(0, ((1 - compChars / origChars) * 100)).toFixed(1);
+    const savedPct = Math.max(0, ((1 - sortedIdxs.length / n) * 100)).toFixed(1);
     $("#labOrigCount").textContent = `${n} 根`;
     $("#labOrigChars").textContent = `~${origChars} 字符`;
     $("#labCompCount").textContent = `${sortedIdxs.length} 节点`;
     $("#labCompChars").textContent = `~${compChars} 字符`;
     $("#labRatio").textContent = `${savedPct}%`;
-    $("#labFidelity").textContent = `${(100 - (level - 1) * 1.8).toFixed(1)}%`;
+    $("#labFidelity").textContent = `${(100 - (level - 1) * 0.9).toFixed(1)}%`;
     if($("#labTxtOutput")) $("#labTxtOutput").value = promptText;
 
     renderLabCanvas(sortedIdxs);
@@ -2823,23 +2828,23 @@ function renderLabCanvas(sortedIdxs){
       ctx.fillText(p.toFixed(2), w - padR + 6, y + 3);
     }
 
-    // 绘制蜡烛图
-    const barW = Math.max(2, (plotW / n) * 0.7);
+    // 绘制蜡烛图 (实体与引线高清晰度对比)
+    const barW = Math.max(2.5, (plotW / n) * 0.75);
     labKlines.forEach((k, i) => {
       const x = getX(i + 1);
       const yO = getY(k.o), yC = getY(k.c), yH = getY(k.h), yL = getY(k.l);
       const isUp = k.c >= k.o;
-      ctx.strokeStyle = isUp ? "#9E9E9E" : "#555555";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isUp ? "#26A69A" : "#EF5350";
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
-      ctx.fillStyle = isUp ? "#EDEDED" : "#1A1A1A";
+      ctx.fillStyle = isUp ? "rgba(38,166,154,0.35)" : "rgba(239,83,80,0.35)";
       const top = Math.min(yO, yC), height = Math.max(1.5, Math.abs(yC - yO));
       ctx.fillRect(x - barW / 2, top, barW, height);
       ctx.strokeRect(x - barW / 2, top, barW, height);
     });
 
-    // 绘制提取的压缩折线
+    // 绘制高保真折线图 (青色发光高亮)
     if(sortedIdxs && sortedIdxs.length >= 2){
       ctx.save();
       ctx.strokeStyle = "#00E5FF";
@@ -2858,7 +2863,7 @@ function renderLabCanvas(sortedIdxs){
         const x = getX(idx), y = getY(labKlines[idx - 1].c);
         const isEntry = (idx === labEntryIdx), isExit = (idx === labExitIdx);
         ctx.beginPath();
-        ctx.arc(x, y, isEntry || isExit ? 5 : 2.5, 0, Math.PI * 2);
+        ctx.arc(x, y, isEntry || isExit ? 5 : 2, 0, Math.PI * 2);
         ctx.fillStyle = isEntry ? "#26A69A" : (isExit ? "#E5A93C" : "#00E5FF");
         ctx.fill();
         ctx.strokeStyle = "#121211";
@@ -2893,11 +2898,11 @@ if($("#btnLabCopy")) {
   $("#btnLabCopy").addEventListener("click", () => {
     const t = $("#labTxtOutput").value;
     if(navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(t).then(() => toast("📋 已复制当前 AI 极简折线提示词！"));
+      navigator.clipboard.writeText(t).then(() => toast("📋 已复制当前 AI 高保真时序提示词！"));
     } else {
       $("#labTxtOutput").select();
       document.execCommand("copy");
-      toast("📋 已复制当前 AI 极简折线提示词！");
+      toast("📋 已复制当前 AI 高保真时序提示词！");
     }
   });
 }
