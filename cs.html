@@ -1611,12 +1611,6 @@ function renderStatsView(){
 }
 
 /* ================= 生成 AI 极简时序压缩复盘数据 (出场前 150 根) ================= */
-function generateCompressedAIChartText(t){
-  let closes = [];
-  if(t.klineSnapshot && t.klineSnapshot.length){
-    closes = t.klineSnapshot.map(x => typeof x === "number" ? x : (x.c || x.close || 0));
-  } else if(S.fullK && S.fullK.length){
-/* ================= 生成 AI 极简时序压缩复盘数据 (出场前 150 根) ================= */
 function rdpSimplifyPoints(pts, epsilon){
   if(pts.length <= 2) return pts;
   let dmax = 0, index = 0;
