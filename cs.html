@@ -42,7 +42,7 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none}
 .up{color:var(--up);font-weight:600}.down{color:var(--down);font-weight:600}
 
 /* ---- 全屏 TradingView 图表容器 ---- */
-#tv_chart{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none;overscroll-behavior:none;user-select:none}
+#tv_chart{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior:none;user-select:none}
 
 /* ---- 右侧 20% 推进触控区域 ---- */
 #step_tap_zone{
@@ -913,8 +913,8 @@ function initTradingViewChart(){
       barSpacing: 10,
       minBarSpacing: 1
     },
-    handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false },
-    handleScale: { axisPressedMouseMove: false, mouseWheel: false, pinch: false }
+    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+    handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
   });
 
   createMainSeries(currentChartType);
@@ -2445,6 +2445,7 @@ function repositionHandles(){
 /* ================= 统一 Pointer 手势交互系统 ================= */
 let aim = false, aimPrice = null, isAimDragging = false, pX = 0, pY = 0, pTime = 0;
 let activePointerId = null;
+let longPressTimer = null, isLongPressed = false;
 
 function guide(clientY){
   const p = y2p(clientY), l = $("#pline");
@@ -2472,8 +2473,10 @@ function guide(clientY){
 function hideGuide(){ $("#pline").style.display="none"; aimPrice=null; }
 
 function resetPress(){
+  clearTimeout(longPressTimer);
   aim = false;
   isAimDragging = false;
+  isLongPressed = false;
   hideGuide();
   $("#pline").classList.remove("aim");
 }
@@ -2497,13 +2500,26 @@ function bindFlowGrip(hd, key){
   };
   const up = () => {
     on = false;
-    setTimeout(() => { isGripDragging = false; }, 120);
+    setTimeout(() => { 
+      isGripDragging = false; 
+      if(tvChart && !F.on){
+        tvChart.applyOptions({
+          handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+          handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
+        });
+      }
+    }, 120);
     removeEventListener("pointermove", mv); removeEventListener("pointerup", up);
     removeEventListener("pointercancel", up);
   };
   grip.addEventListener("pointerdown", ev => {
     on = true;
     isGripDragging = true;
+    if(tvChart){
+      tvChart.applyOptions({
+        handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false }
+      });
+    }
     addEventListener("pointermove", mv, { passive: false });
     addEventListener("pointerup", up);
     addEventListener("pointercancel", up);
@@ -2513,7 +2529,7 @@ function bindFlowGrip(hd, key){
 }
 bindFlowGrip("#hEn","e"); bindFlowGrip("#hSl","sl"); bindFlowGrip("#hTp","tp");
 
-// 核心 Pointer 事件监听器（单一事件源，彻底杜绝触摸和鼠标重叠双发问题）
+// 核心 Pointer 事件监听器：完美区分左右平移与长按下单
 window.addEventListener("pointerdown", e => {
   if(!e.isPrimary) return;
   if(isGripDragging) return;
@@ -2521,36 +2537,67 @@ window.addEventListener("pointerdown", e => {
   if(!onChart(e.target)) return;
 
   const isRight20 = e.clientX >= window.innerWidth * 0.80;
-  if(isRight20){
-    // 右侧 20% 点击直接推进 K 线
-    return;
-  }
+  if(isRight20) return;
 
   activePointerId = e.pointerId;
   aim = false;
   aimPrice = null;
   isAimDragging = false;
+  isLongPressed = false;
   pX = e.clientX;
   pY = e.clientY;
   pTime = Date.now();
+
+  clearTimeout(longPressTimer);
+
+  // 如果当前已经在下单选点流程中 (F.on === true)，直接允许拖拽选价
+  if(F.on){
+    isAimDragging = true;
+    aim = true;
+    $("#pline").classList.add("aim");
+    guide(e.clientY);
+  } else {
+    // 常规状态下：必须按住保持 280ms 触发长按下单；若直接移动则自动判定为平移图表
+    longPressTimer = setTimeout(() => {
+      if(activePointerId === e.pointerId && !isAimDragging){
+        isLongPressed = true;
+        isAimDragging = true;
+        aim = true;
+        $("#pline").classList.add("aim");
+        guide(pY);
+        // 长按触发成功时，临时锁住横向平移，以便垂直微调价格
+        if(tvChart){
+          tvChart.applyOptions({
+            handleScroll: { mouseWheel: false, pressedMouseMove: false, horzTouchDrag: false, vertTouchDrag: false }
+          });
+        }
+        if(navigator.vibrate) try{ navigator.vibrate(25); }catch(err){}
+      }
+    }, 280);
+  }
 });
 
 window.addEventListener("pointermove", e => {
   if(activePointerId == null || e.pointerId !== activePointerId) return;
   const dy = Math.abs(e.clientY - pY), dx = Math.abs(e.clientX - pX);
   
-  if(!isAimDragging && (dy > 6 || dx > 6)){
-    isAimDragging = true;
-    aim = true;
-    $("#pline").classList.add("aim");
+  if(!isLongPressed && !F.on){
+    // 在未触发长按之前发生位移 (dx > 5 或 dy > 5)，立即清除长按定时器，让位给 TradingView 原生左右拖拽平移
+    if(dx > 5 || dy > 5){
+      clearTimeout(longPressTimer);
+    }
+    return;
   }
 
   if(aim){
     guide(e.clientY);
+    if(e.cancelable) e.preventDefault();
   }
 });
 
 window.addEventListener("pointerup", e => {
+  clearTimeout(longPressTimer);
+
   const isRight20 = e.clientX >= window.innerWidth * 0.80;
   if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn") && !e.target.closest(".tv-cover-btn")){
     stepNextBar();
@@ -2570,15 +2617,30 @@ window.addEventListener("pointerup", e => {
 
   resetPress();
 
+  // 恢复图表平移与缩放能力
+  if(tvChart && !F.on){
+    tvChart.applyOptions({
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
+    });
+  }
+
   if(wasAim && p != null && isFinite(p) && p > 0){
     pickPrice(p);
   }
 });
 
 window.addEventListener("pointercancel", e => {
+  clearTimeout(longPressTimer);
   if(activePointerId != null && e.pointerId === activePointerId){
     activePointerId = null;
     resetPress();
+    if(tvChart && !F.on){
+      tvChart.applyOptions({
+        handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+        handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
+      });
+    }
   }
 });
 
