@@ -5,8 +5,6 @@
 <title>Redirecting...</title>
 <script>
 (function(){
-  var pathname = window.location.pathname.toLowerCase();
-  if (pathname.indexOf("compress_lab") !== -1) return;
   var host = window.location.hostname.toLowerCase();
   var v = Date.now();
   if (host.startsWith("cs.") || host.indexOf("cs") !== -1) {
