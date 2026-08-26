@@ -298,13 +298,20 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
     </div>
   </div>
   <div class="sbody">
-    <!-- 图表视图模式切换 (蜡烛图 / 美国线 / 折线图) -->
-    <div style="background:var(--raised);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <span style="font-size:12px;font-weight:600;color:var(--faint)">图表视图模式</span>
+    <!-- 图表视图与配色切换 -->
+    <div style="background:var(--raised);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <span style="font-size:12px;font-weight:600;color:var(--faint)">图表视图</span>
       <div style="display:flex;gap:5px" id="viewModeGroup">
         <button class="btn-sub active" id="btnViewCandle" title="切换为经典日本蜡烛图(K线)">🕯️ 蜡烛图</button>
         <button class="btn-sub" id="btnViewBar" title="切换为美国线(Bar Chart)">📊 美国线</button>
         <button class="btn-sub" id="btnViewLine" title="切换为收盘价折线图(Line Chart)">📈 折线图</button>
+      </div>
+    </div>
+    <div style="background:var(--raised);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:12px;font-weight:600;color:var(--faint)">K线色彩</span>
+      <div style="display:flex;gap:5px" id="colorModeGroup">
+        <button class="btn-sub active" id="btnColorMono" title="经典黑白极简配色">⚪ 黑白极简</button>
+        <button class="btn-sub" id="btnColorGreenRed" title="绿涨红跌经典彩色配色">🟢 红绿彩色</button>
       </div>
     </div>
     <div class="stats-grid">
@@ -810,60 +817,94 @@ let tvChart = null, mainSeries = null, candleSeries = null, emaSeries = null;
 let currentChartType = "candle"; // "candle" | "bar" | "line"
 try{ currentChartType = localStorage.getItem("chart_type") || "candle"; }catch(e){}
 
+let klineColorMode = "mono"; // "mono" | "color"
+try{ klineColorMode = localStorage.getItem("kline_color_mode") || "mono"; }catch(e){}
+
 let tradeLines = { entry: null, sl: null, tp: null, posLines: [], ordLines: [] };
 
 function getCandleThemeOptions(isDark){
   const bg = isDark ? "#121212" : "#F5F2EB";
   const text = isDark ? "#E0E0E0" : "#1C1917";
-  
-  if(isDark){
+  const isColor = (klineColorMode === "color");
+
+  if(isColor){
+    // 经典高对比度专业红绿彩色配色 (TradingView 经典)
+    const upColor = "#089981";   // 阳线翠绿
+    const downColor = "#F23645"; // 阴线亮红
     return {
       bg, text,
       candle: {
-        upColor: "#FFFFFF",        // 阳线亮白实心
-        downColor: "#121212",      // 阴线暗黑空心
+        upColor: upColor,
+        downColor: downColor,
         borderVisible: true,
-        borderUpColor: "#FFFFFF",  // 阳线边框纯白
-        borderDownColor: "#888888",// 阴线边框中灰
-        wickUpColor: "#FFFFFF",    // 阳线影线纯白
-        wickDownColor: "#888888"   // 阴线影线中灰
+        borderUpColor: upColor,
+        borderDownColor: downColor,
+        wickUpColor: upColor,
+        wickDownColor: downColor
       },
       bar: {
-        upColor: "#FFFFFF",        // 美国线上涨纯白
-        downColor: "#888888",      // 美国线下跌中灰
+        upColor: upColor,
+        downColor: downColor,
         openVisible: true,
         thinBars: false
       },
       line: {
-        color: "#FFFFFF",          // 折线纯白
+        color: isDark ? "#2962FF" : "#1E53E5",
         lineWidth: 2
       },
-      emaColor: "#888888"          // 经典极简中灰均线
+      emaColor: isDark ? "#E5A93C" : "#8A651E"
     };
   } else {
-    return {
-      bg, text,
-      candle: {
-        upColor: "#FFFFFF",        // 柔和白身（在温润羊皮纸背景上立体凸显）
-        downColor: "#1C1917",      // 经典深石墨黑身
-        borderVisible: true,
-        borderUpColor: "#1C1917",
-        borderDownColor: "#1C1917",
-        wickUpColor: "#1C1917",
-        wickDownColor: "#1C1917"
-      },
-      bar: {
-        upColor: "#1C1917",        // 美国线上涨深黑
-        downColor: "#57534E",      // 美国线下跌深灰
-        openVisible: true,
-        thinBars: false
-      },
-      line: {
-        color: "#1C1917",          // 折线深黑
-        lineWidth: 2
-      },
-      emaColor: "#57534E"          // 柔和中灰均线
-    };
+    // 经典黑白极简配色 (Monochrome)
+    if(isDark){
+      return {
+        bg, text,
+        candle: {
+          upColor: "#FFFFFF",        // 阳线亮白实心
+          downColor: "#121212",      // 阴线暗黑空心
+          borderVisible: true,
+          borderUpColor: "#FFFFFF",  // 阳线边框纯白
+          borderDownColor: "#888888",// 阴线边框中灰
+          wickUpColor: "#FFFFFF",    // 阳线影线纯白
+          wickDownColor: "#888888"   // 阴线影线中灰
+        },
+        bar: {
+          upColor: "#FFFFFF",        // 美国线上涨纯白
+          downColor: "#888888",      // 美国线下跌中灰
+          openVisible: true,
+          thinBars: false
+        },
+        line: {
+          color: "#FFFFFF",          // 折线纯白
+          lineWidth: 2
+        },
+        emaColor: "#888888"          // 经典极简中灰均线
+      };
+    } else {
+      return {
+        bg, text,
+        candle: {
+          upColor: "#FFFFFF",        // 柔和白身（在温润羊皮纸背景上立体凸显）
+          downColor: "#1C1917",      // 经典深石墨黑身
+          borderVisible: true,
+          borderUpColor: "#1C1917",
+          borderDownColor: "#1C1917",
+          wickUpColor: "#1C1917",
+          wickDownColor: "#1C1917"
+        },
+        bar: {
+          upColor: "#1C1917",        // 美国线上涨深黑
+          downColor: "#57534E",      // 美国线下跌深灰
+          openVisible: true,
+          thinBars: false
+        },
+        line: {
+          color: "#1C1917",          // 折线深黑
+          lineWidth: 2
+        },
+        emaColor: "#57534E"          // 柔和中灰均线
+      };
+    }
   }
 }
 
@@ -940,6 +981,7 @@ function initTradingViewChart(){
   });
 
   updateViewModeButtons();
+  updateColorModeButtons();
 }
 
 function createMainSeries(type){
@@ -992,6 +1034,21 @@ function setChartType(type){
   syncTradeLines();
   repositionHandles();
   toast(`已切换图表视图为【${type === "candle" ? "蜡烛图" : (type === "bar" ? "美国线" : "折线图")}】`);
+}
+
+function setKlineColorMode(mode){
+  if(mode !== "mono" && mode !== "color") mode = "mono";
+  klineColorMode = mode;
+  try{ localStorage.setItem("kline_color_mode", mode); }catch(e){}
+
+  updateColorModeButtons();
+  updateChartTheme();
+  toast(`已切换 K 线色彩为【${mode === "color" ? "🟢 红绿彩色" : "⚪ 黑白极简"}】`);
+}
+
+function updateColorModeButtons(){
+  $("#btnColorMono")?.classList.toggle("active", klineColorMode === "mono");
+  $("#btnColorGreenRed")?.classList.toggle("active", klineColorMode === "color");
 }
 
 function updateViewModeButtons(){
@@ -2768,6 +2825,8 @@ function cycleTheme(){
 $("#btnViewCandle")?.addEventListener("click", () => setChartType("candle"));
   $("#btnViewBar")?.addEventListener("click", () => setChartType("bar"));
   $("#btnViewLine")?.addEventListener("click", () => setChartType("line"));
+  $("#btnColorMono")?.addEventListener("click", () => setKlineColorMode("mono"));
+  $("#btnColorGreenRed")?.addEventListener("click", () => setKlineColorMode("color"));
 
 /* ================= 启动系统 ================= */
 async function boot(){
