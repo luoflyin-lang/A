@@ -824,13 +824,13 @@ let tradeLines = { entry: null, sl: null, tp: null, posLines: [], ordLines: [] }
 
 function getCandleThemeOptions(isDark){
   const bg = isDark ? "#121212" : "#F5F2EB";
-  const text = isDark ? "#E0E0E0" : "#1C1917";
+  const text = isDark ? "#D6D3D1" : "#1C1917";
   const isColor = (klineColorMode === "color");
 
   if(isColor){
-    // 经典高对比度专业红绿彩色配色 (TradingView 经典)
-    const upColor = "#089981";   // 阳线翠绿
-    const downColor = "#F23645"; // 阴线亮红
+    // 沉稳哑光、低饱和度专业护眼红绿配色（降亮度、防刺眼、舒适耐看）
+    const upColor = isDark ? "#2E7D5B" : "#26734D";    // 沉稳雅致森林绿（不刺眼）
+    const downColor = isDark ? "#9E3E3E" : "#943434";  // 柔和哑光复古砖红（无荧光感）
     return {
       bg, text,
       candle: {
@@ -849,42 +849,42 @@ function getCandleThemeOptions(isDark){
         thinBars: false
       },
       line: {
-        color: isDark ? "#2962FF" : "#1E53E5",
+        color: isDark ? "#4A7BB0" : "#3B6998", // 柔和牛仔蓝收盘折线
         lineWidth: 2
       },
-      emaColor: isDark ? "#E5A93C" : "#8A651E"
+      emaColor: isDark ? "#78756E" : "#716B61" // 低调温润中灰均线（弱化视觉干扰）
     };
   } else {
-    // 经典黑白极简配色 (Monochrome)
+    // 经典黑白极简护眼配色 (柔和米白/碳黑，避免 100% 纯白刺目)
     if(isDark){
       return {
         bg, text,
         candle: {
-          upColor: "#FFFFFF",        // 阳线亮白实心
+          upColor: "#CCCCCC",        // 柔和柔白实心（舒适不刺眼）
           downColor: "#121212",      // 阴线暗黑空心
           borderVisible: true,
-          borderUpColor: "#FFFFFF",  // 阳线边框纯白
-          borderDownColor: "#888888",// 阴线边框中灰
-          wickUpColor: "#FFFFFF",    // 阳线影线纯白
-          wickDownColor: "#888888"   // 阴线影线中灰
+          borderUpColor: "#CCCCCC",  // 边框柔白
+          borderDownColor: "#737373",// 边框暖灰
+          wickUpColor: "#CCCCCC",    // 影线柔白
+          wickDownColor: "#737373"   // 影线暖灰
         },
         bar: {
-          upColor: "#FFFFFF",        // 美国线上涨纯白
-          downColor: "#888888",      // 美国线下跌中灰
+          upColor: "#CCCCCC",        // 上涨柔白
+          downColor: "#737373",      // 下跌暖灰
           openVisible: true,
           thinBars: false
         },
         line: {
-          color: "#FFFFFF",          // 折线纯白
+          color: "#CCCCCC",          // 折线柔白
           lineWidth: 2
         },
-        emaColor: "#888888"          // 经典极简中灰均线
+        emaColor: "#666666"          // 低调极简均线
       };
     } else {
       return {
         bg, text,
         candle: {
-          upColor: "#FFFFFF",        // 柔和白身（在温润羊皮纸背景上立体凸显）
+          upColor: "#FBF9F5",        // 羊皮纸柔白身
           downColor: "#1C1917",      // 经典深石墨黑身
           borderVisible: true,
           borderUpColor: "#1C1917",
@@ -902,7 +902,7 @@ function getCandleThemeOptions(isDark){
           color: "#1C1917",          // 折线深黑
           lineWidth: 2
         },
-        emaColor: "#57534E"          // 柔和中灰均线
+        emaColor: "#6B665E"          // 柔和中灰均线
       };
     }
   }
