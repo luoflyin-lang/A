@@ -1121,7 +1121,7 @@ function updateChartCandles(rawBars){
     emaSeries.setData([]);
   }
 }
-/* ================= ETH 5m 真实交易所历史行情抽取 (100% 真实数据，绝无仿真模拟) ================= */
+/* ================= ETH 5m 真实交易所历史行情抽取 (100% 真实数据，免翻墙国内直连加速) ================= */
 async function loadRandomMarket(){
   const tfMs = 300000; // 5m = 300,000 ms
   const now = Date.now();
@@ -1129,10 +1129,14 @@ async function loadRandomMarket(){
   const minTime = new Date("2020-03-01T00:00:00Z").getTime();
   const maxTime = now - (TOTAL_BARS * tfMs);
 
+  // 优先同源与 Cloudflare 边缘反向代理（国内直连免翻墙加速），再备选官方各公共数据源
   const HOSTS = [
+    window.location.origin,
+    "https://cs.124568.xyz",
+    "https://data-api.binance.vision",
+    "https://api.binance.com",
     "https://fapi.binance.com",
-    "https://fapi1.binance.com",
-    window.location.origin
+    "https://fapi1.binance.com"
   ];
   const uniqueHosts = [...new Set(HOSTS.filter(Boolean))];
 
@@ -1149,7 +1153,7 @@ async function loadRandomMarket(){
   if(sh) sh.classList.remove("on");
   if(mk) mk.classList.remove("on");
 
-  while(!success && attempts < 10){
+  while(!success && attempts < 12){
     attempts++;
     const randomEndTime = Math.floor(minTime + Math.random() * (maxTime - minTime));
     const host = uniqueHosts[(attempts - 1) % uniqueHosts.length];
@@ -1158,9 +1162,18 @@ async function loadRandomMarket(){
 
     try{
       const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 3500);
+      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4000);
       
-      const url = `${host}/fapi/v1/klines?symbol=ETHUSDT&interval=5m&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
+      let url = "";
+      if(host.includes("data-api.binance.vision") || host.includes("api.binance.com")){
+        url = `${host}/api/v3/klines?symbol=ETHUSDT&interval=5m&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
+      } else if(host.includes("fapi.binance.com") || host.includes("fapi1.binance.com")){
+        url = `${host}/fapi/v1/klines?symbol=ETHUSDT&interval=5m&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
+      } else {
+        // 同源与 Cloudflare 边缘高速免翻墙接口
+        url = `${host}/api/kline?symbol=ETHUSDT&interval=5m&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
+      }
+
       const r = await fetch(url, { signal: ctl ? ctl.signal : undefined });
       clearTimeout(tm);
 
