@@ -180,6 +180,134 @@ tbody tr:hover{background:var(--tint)}
   visibility: hidden !important;
 }
 
+/* ---- 最左侧快捷做多/做空悬浮按钮组 ---- */
+#left_quick_actions {
+  position: fixed;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 18;
+  user-select: none;
+}
+
+.btn-quick {
+  width: 52px;
+  height: 50px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  padding: 0;
+}
+
+.btn-quick .tag {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.btn-quick .desc {
+  font-size: 8.5px;
+  font-family: var(--mono);
+  opacity: 0.75;
+  margin-top: 2px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.btn-quick.buy {
+  border-color: rgba(46, 125, 91, 0.45);
+  background: rgba(46, 125, 91, 0.08);
+  color: #2E7D5B;
+}
+.btn-quick.buy .tag {
+  color: #2E7D5B;
+}
+.btn-quick.buy:hover {
+  background: rgba(46, 125, 91, 0.22);
+  border-color: #2E7D5B;
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px rgba(46, 125, 91, 0.3);
+}
+.btn-quick.buy:active {
+  transform: scale(0.95);
+}
+
+.btn-quick.sell {
+  border-color: rgba(158, 62, 62, 0.45);
+  background: rgba(158, 62, 62, 0.08);
+  color: #9E3E3E;
+}
+.btn-quick.sell .tag {
+  color: #9E3E3E;
+}
+.btn-quick.sell:hover {
+  background: rgba(158, 62, 62, 0.22);
+  border-color: #9E3E3E;
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px rgba(158, 62, 62, 0.3);
+}
+.btn-quick.sell:active {
+  transform: scale(0.95);
+}
+
+html[data-theme="dark"] .btn-quick {
+  background: #1C1C1C;
+}
+html[data-theme="dark"] .btn-quick.buy {
+  background: #15241C;
+  border-color: rgba(52, 211, 153, 0.4);
+  color: #34D399;
+}
+html[data-theme="dark"] .btn-quick.buy .tag {
+  color: #34D399;
+}
+html[data-theme="dark"] .btn-quick.buy:hover {
+  background: #1C3627;
+  border-color: #34D399;
+  box-shadow: 0 4px 16px rgba(52, 211, 153, 0.25);
+}
+
+html[data-theme="dark"] .btn-quick.sell {
+  background: #261616;
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #F87171;
+}
+html[data-theme="dark"] .btn-quick.sell .tag {
+  color: #F87171;
+}
+html[data-theme="dark"] .btn-quick.sell:hover {
+  background: #381D1D;
+  border-color: #F87171;
+  box-shadow: 0 4px 16px rgba(248, 113, 113, 0.25);
+}
+
+@media(max-width:640px){
+  #left_quick_actions {
+    left: 6px;
+    top: 45%;
+    gap: 6px;
+  }
+  .btn-quick {
+    width: 44px;
+    height: 44px;
+    border-radius: 7px;
+  }
+  .btn-quick .tag { font-size: 13.5px; }
+  .btn-quick .desc { font-size: 7.5px; }
+}
+
 /* 左下角白色训练数据按钮，精准覆盖在 TV 插件区域 */
 .tv-cover-btn {
   position: fixed;
@@ -281,6 +409,19 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <div id="step_tap_zone"></div>
 
 <!-- 左下角覆盖 TV 插件的水印 Logo，并作为训练数据主入口的白色按钮 -->
+<!-- 最左侧快捷做多/做空按钮组 (最新K线 High/Low 挂单，相反止损，2R止盈) -->
+<div id="left_quick_actions">
+  <button class="btn-quick buy" id="btnQuickBuy" title="快捷做多：最新K线最高点入场 · 最低点止损 · 2R止盈 (快捷键 B)">
+    <span class="tag">🟢 多</span>
+    <span class="desc">High · 2R</span>
+  </button>
+  <button class="btn-quick sell" id="btnQuickSell" title="快捷做空：最新K线最低点入场 · 最高点止损 · 2R止盈 (快捷键 S)">
+    <span class="tag">🔴 空</span>
+    <span class="desc">Low · 2R</span>
+  </button>
+</div>
+
+<!-- 左下角覆盖 TV 插件的水印 Logo，并作为训练数据主入口的白色按钮 -->
 <button class="tv-cover-btn" id="bStats" title="查看训练数据与历史战绩">📊 训练数据</button>
 
 <div id="mask"></div>
@@ -307,12 +448,17 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
         <button class="btn-sub" id="btnViewLine" title="切换为收盘价折线图(Line Chart)">📈 折线图</button>
       </div>
     </div>
-    <div style="background:var(--raised);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="background:var(--raised);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <span style="font-size:12px;font-weight:600;color:var(--faint)">K线色彩</span>
       <div style="display:flex;gap:5px" id="colorModeGroup">
         <button class="btn-sub active" id="btnColorMono" title="经典黑白极简配色">⚪ 黑白极简</button>
         <button class="btn-sub" id="btnColorGreenRed" title="绿涨红跌经典彩色配色">🟢 红绿彩色</button>
       </div>
+    </div>
+    <!-- 2R 自动减半平仓提示 -->
+    <div style="background:var(--raised);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <span style="font-size:12px;font-weight:600;color:var(--faint)">2R 自动平半 (>2R止盈)</span>
+      <span style="font-size:11px;font-weight:600;color:#27AE60;background:rgba(39,174,96,0.15);padding:2px 8px;border-radius:6px">⚡ 已默认开启</span>
     </div>
     <div class="stats-grid">
       <div class="stat-card">
@@ -1299,19 +1445,21 @@ function matchBar(bar){
         holdingBars: 0,
         maxFavR: 0,
         maxAdvR: 0,
+        partialClosed: false,
+        partialPnlR: 0,
         barsSinceLastLoss: o.barsSinceLastLoss != null ? o.barsSinceLastLoss : 999,
         justOpened: true
       };
       justFilledPositions.push(newPos);
       toast(`🎯 挂单成交入场！${isLong ? "做多" : "做空"} (${newPos.riskR}R) @ ${px(newPos.entry)}`);
     } else {
-      // 未触及入场价：绝不入场，绝不计算任何亏损！
+      // 未触及入场价：绝不入场
       remainingOrders.push(o);
     }
   }
   S.orders = remainingOrders;
 
-  // 2. 检查所有已真实成交持仓（历史持仓 + 本根新入场持仓）是否命中止损 / 止盈
+  // 2. 检查所有已真实成交持仓（历史持仓 + 本根新入场持仓）
   const allActivePositions = [...S.positions, ...justFilledPositions];
   const remainingPositions = [];
 
@@ -1333,6 +1481,42 @@ function matchBar(bar){
     }
   }
 
+  // 3. 核心功能二：如果拉的止盈是 2R 以上，到了 2R 时自动减半平仓 (50%)
+  for(const p of allActivePositions){
+    const isLong = p.side === "buy";
+    const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
+    const curRr = p.tp != null ? (Math.abs(p.tp - p.entry) / rDist) : 0;
+    const isTpAbove2R = (curRr >= 2.001); // 止盈目标设在 2R 以上
+    const tp2RPx = isLong ? (p.entry + 2.0 * rDist) : (p.entry - 2.0 * rDist);
+
+    if(isTpAbove2R && !p.partialClosed && p.riskR > 0){
+      const reached2R = isLong ? (bar.h >= tp2RPx) : (bar.l <= tp2RPx);
+      if(reached2R){
+        let slFirst = false;
+        const reachedSL = isLong ? (bar.l <= p.sl) : (bar.h >= p.sl);
+        if(reachedSL){
+          const distToSL = Math.abs(bar.o - p.sl);
+          const distTo2R = Math.abs(bar.o - tp2RPx);
+          if(distToSL < distTo2R) slFirst = true;
+        }
+
+        if(!slFirst){
+          p.partialClosed = true;
+          const closedRiskR = Number((p.riskR * 0.5).toFixed(2));
+          const partialPnlR = Number((closedRiskR * 2.0).toFixed(2)); // 锁定 +1.0R (基于 50% 仓位的 2R)
+
+          p.riskR = Number((p.riskR - closedRiskR).toFixed(2));
+          p.partialPnlR = (p.partialPnlR || 0) + partialPnlR;
+
+          S.balanceR = Number((S.balanceR + partialPnlR).toFixed(2));
+          recordPartialTrade(p, "2R自动平半", tp2RPx, partialPnlR, closedRiskR);
+          toast(`🎯 触及 2R！已自动分批平仓 50% (+${partialPnlR.toFixed(2)}R)，剩余 ${p.riskR}R 仓位继续冲刺最终止盈 (${px(p.tp)})`);
+        }
+      }
+    }
+  }
+
+  // 4. 检查持仓是否触发最终止盈或止损
   for(const p of allActivePositions){
     const isLong = p.side === "buy";
     const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
@@ -1365,6 +1549,53 @@ function matchBar(bar){
     }
   }
   S.positions = remainingPositions;
+}
+
+// 记录 2R 自动分批平仓明细
+function recordPartialTrade(p, reason, exitPx, pnlR, riskR){
+  const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
+  const now = new Date();
+  const timeStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+
+  const exitIdx = S.visibleCount - 1;
+  const startIdx = Math.max(0, exitIdx - 149);
+  const snapshotCloses = S.fullK.slice(startIdx, exitIdx + 1).map(b => b.c);
+
+  const record = {
+    id: Date.now() * 1000 + Math.floor(Math.random() * 1000),
+    sym: "ETHUSDT",
+    tf: "5m",
+    blindId: S.blindId,
+    side: p.side,
+    entry: p.entry,
+    exit: exitPx,
+    sl: p.sl,
+    tp: p.tp,
+    rr: 2.0,
+    riskPct: riskR,
+    riskR: riskR,
+    pnlR: pnlR,
+    reason: reason,
+    holdingBars: p.holdingBars || 1,
+    exitBarIndex: exitIdx,
+    klineSnapshot: snapshotCloses,
+    maxFavR: 2.0 * riskR,
+    maxAdvR: 0,
+    futureMfeR: 2.0 * riskR,
+    sweepLoss: false,
+    planBenchR: pnlR,
+    fixed21BenchR: pnlR,
+    isRevengeTrade: false,
+    isManualClose: false,
+    isPartial: true,
+    time: Date.now(),
+    timeStr: timeStr,
+    marketTime: S.realTimeStr,
+    note: "2R自动分批平仓50%"
+  };
+
+  S.trades.unshift(record);
+  saveStats();
 }
 
 // 内部平仓结算核心函数
@@ -1491,11 +1722,17 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
     note: ""
   };
 
+  if(p.partialClosed){
+    record.reason = `${reason} (余仓50%)`;
+    record.note = `前期已于2R平半(+${(p.partialPnlR || 0).toFixed(2)}R)`;
+  }
+
   S.trades.unshift(record);
   saveStats();
 
   const isWin = pnlR >= 0;
-  toast(`${isWin ? "🎉 达成止盈" : "🛑 触碰止损"} · ${reason}：${rFmt(pnlR)}（余额: ${S.balanceR.toFixed(2)} R）`);
+  const displayReason = p.partialClosed ? `${reason} (余仓50%)` : reason;
+  toast(`${isWin ? "🎉 达成止盈" : "🛑 触碰止损"} · ${displayReason}：${rFmt(pnlR)}（余额: ${S.balanceR.toFixed(2)} R）`);
 }
 
 // 根据 ID 手动平仓单个持仓
@@ -1515,6 +1752,50 @@ function cancelSimOrderById(ordId){
   S.orders.splice(idx, 1);
   syncTradeLines();
   toast("已撤销模拟挂单");
+}
+
+/* ================= 快捷一键挂单 (做多 / 做空) ================= */
+function quickOrder(side){
+  const curBar = getCurKBar();
+  if(!curBar){
+    toast("⚠️ 暂无当前K线数据");
+    return;
+  }
+
+  const isBuy = (side === "buy");
+  const entry = isBuy ? curBar.h : curBar.l;
+  const sl = isBuy ? curBar.l : curBar.h;
+  const dist = Math.max(Math.abs(entry - sl), (entry || 1) * 0.0005);
+  const tp = isBuy ? Number((entry + 2.0 * dist).toFixed(2)) : Number((entry - 2.0 * dist).toFixed(2));
+  const riskR = 1.0;
+  const rr = 2.0;
+
+  const barsSinceLoss = S.lastLossIndex != null ? (S.visibleCount - 1 - S.lastLossIndex) : 999;
+
+  const newOrd = {
+    id: genId("ord"),
+    side: isBuy ? "buy" : "sell",
+    entry: entry,
+    sl: sl,
+    tp: tp,
+    initialSl: sl,
+    initialTp: tp,
+    initialRiskDist: dist,
+    riskPct: riskR,
+    riskR: riskR,
+    rr: rr,
+    createTime: Date.now(),
+    barsSinceLastLoss: barsSinceLoss
+  };
+
+  S.orders.push(newOrd);
+  if(F.on) endFlow();
+
+  syncTradeLines();
+  repositionHandles();
+
+  toast(`⚡ 已快捷${isBuy ? "做多" : "做空"}挂单：入场 ${px(entry)} · 止损 ${px(sl)} · 止盈 2R (${px(tp)})`);
+  cloudSyncPushProgress();
 }
 
 /* ================= 深度交易员统计分析（最大回撤 / 连亏连胜 / 仓位矩阵） ================= */
@@ -2425,7 +2706,8 @@ function repositionHandles(){
         if(g){
           g.style.background = theme.bg;
           g.style.left = offsetLeft + "px";
-          g.innerHTML = `<span class="badge">${labelNum}</span> <span>持仓${isLong ? "多" : "空"} (${p.riskR}R) @ ${px(p.entry)}</span> <span class="xbtn" title="点击市价平仓">✕</span>`;
+          const partialTag = p.partialClosed ? ` <span style="background:rgba(39,174,96,0.3);color:#2ECC71;padding:1px 4px;border-radius:3px;font-size:10px">已平50%@2R</span>` : "";
+          g.innerHTML = `<span class="badge">${labelNum}</span> <span>持仓${isLong ? "多" : "空"} (${p.riskR}R)${partialTag} @ ${px(p.entry)}</span> <span class="xbtn" title="点击市价平仓">✕</span>`;
           g.querySelector(".xbtn")?.addEventListener("click", ev => { ev.stopPropagation(); closeSimPositionById(p.id, "市价平仓"); });
         }
       }else{ dE.style.display = "none"; }
@@ -2603,7 +2885,7 @@ bindFlowGrip("#hEn","e"); bindFlowGrip("#hSl","sl"); bindFlowGrip("#hTp","tp");
 window.addEventListener("pointerdown", e => {
   if(!e.isPrimary) return;
   if(isGripDragging) return;
-  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet") || e.target.closest(".tv-cover-btn")) return;
+  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet") || e.target.closest(".tv-cover-btn") || e.target.closest("#left_quick_actions") || e.target.closest(".btn-quick")) return;
   if(!onChart(e.target)) return;
 
   const isRight20 = e.clientX >= window.innerWidth * 0.80;
@@ -2669,7 +2951,7 @@ window.addEventListener("pointerup", e => {
   clearTimeout(longPressTimer);
 
   const isRight20 = e.clientX >= window.innerWidth * 0.80;
-  if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn") && !e.target.closest(".tv-cover-btn")){
+  if(isRight20 && !e.target.closest("#brr") && !e.target.closest("#ohud") && !e.target.closest(".sheet") && !e.target.closest(".grip") && !e.target.closest(".xbtn") && !e.target.closest(".tv-cover-btn") && !e.target.closest("#left_quick_actions") && !e.target.closest(".btn-quick")){
     stepNextBar();
     activePointerId = null;
     resetPress();
@@ -2814,6 +3096,12 @@ addEventListener("keydown", e => {
     F.on ? endFlow() : startFlow();
   }else if(e.key === "t" || e.key === "T"){
     cycleTheme();
+  }else if(e.key === "b" || e.key === "B"){
+    e.preventDefault();
+    quickOrder("buy");
+  }else if(e.key === "s" || e.key === "S"){
+    e.preventDefault();
+    quickOrder("sell");
   }
 });
 
@@ -2840,6 +3128,8 @@ $("#btnViewCandle")?.addEventListener("click", () => setChartType("candle"));
   $("#btnViewLine")?.addEventListener("click", () => setChartType("line"));
   $("#btnColorMono")?.addEventListener("click", () => setKlineColorMode("mono"));
   $("#btnColorGreenRed")?.addEventListener("click", () => setKlineColorMode("color"));
+  $("#btnQuickBuy")?.addEventListener("click", () => quickOrder("buy"));
+  $("#btnQuickSell")?.addEventListener("click", () => quickOrder("sell"));
 
 /* ================= 启动系统 ================= */
 async function boot(){
