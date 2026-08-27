@@ -262,6 +262,27 @@ tbody tr:hover{background:var(--tint)}
   transform: scale(0.95);
 }
 
+.btn-quick.rand {
+  border-color: var(--line);
+  color: var(--text);
+}
+.btn-quick.rand:hover {
+  background: var(--raised);
+  transform: scale(1.06);
+}
+.btn-quick.rand:active {
+  transform: scale(0.95);
+}
+
+html[data-theme="dark"] .btn-quick.rand {
+  background: #242424;
+  border-color: rgba(255,255,255,.15);
+  color: #E0E0E0;
+}
+html[data-theme="dark"] .btn-quick.rand:hover {
+  background: #2E2E2E;
+}
+
 html[data-theme="dark"] .btn-quick {
   background: #1C1C1C;
 }
@@ -409,7 +430,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <div id="step_tap_zone"></div>
 
 <!-- 左下角覆盖 TV 插件的水印 Logo，并作为训练数据主入口的白色按钮 -->
-<!-- 最左侧快捷做多/做空按钮组 (最新K线 High/Low 挂单，相反止损，2R止盈) -->
+<!-- 最左侧快捷交易与换K线按钮组 (最新K线 High/Low 挂单，相反止损，2R止盈) -->
 <div id="left_quick_actions">
   <button class="btn-quick buy" id="btnQuickBuy" title="快捷做多：最新K线最高点入场 · 最低点止损 · 2R止盈 (快捷键 B)">
     <span class="tag">🟢 多</span>
@@ -419,10 +440,17 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
     <span class="tag">🔴 空</span>
     <span class="desc">Low · 2R</span>
   </button>
+  <button class="btn-quick rand" id="btnQuickRand" title="随机抽取新的 ETH 5m 真实历史K线切片 (快捷键 R / N)">
+    <span class="tag">🎲 换</span>
+    <span class="desc">换行情</span>
+  </button>
 </div>
 
-<!-- 左下角覆盖 TV 插件的水印 Logo，并作为训练数据主入口的白色按钮 -->
-<button class="tv-cover-btn" id="bStats" title="查看训练数据与历史战绩">📊 训练数据</button>
+<!-- 左下角覆盖 TV 插件的水印 Logo，主数据入口与换K线按钮 -->
+<div style="position:fixed;left:8px;bottom:8px;z-index:18;display:flex;gap:6px">
+  <button class="tv-cover-btn" id="bStats" title="查看训练数据与历史战绩">📊 训练数据</button>
+  <button class="tv-cover-btn" id="btnMainRand" title="随机抽取新的 ETH 5m 真实历史K线切片 (快捷键 R / N)">🎲 换行情</button>
+</div>
 
 <div id="mask"></div>
 
@@ -2885,7 +2913,7 @@ bindFlowGrip("#hEn","e"); bindFlowGrip("#hSl","sl"); bindFlowGrip("#hTp","tp");
 window.addEventListener("pointerdown", e => {
   if(!e.isPrimary) return;
   if(isGripDragging) return;
-  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet") || e.target.closest(".tv-cover-btn") || e.target.closest("#left_quick_actions") || e.target.closest(".btn-quick")) return;
+  if(e.target.closest(".grip") || e.target.closest(".xbtn") || e.target.closest("#brr") || e.target.closest("#ohud") || e.target.closest(".sheet") || e.target.closest(".tv-cover-btn") || e.target.closest("#left_quick_actions") || e.target.closest(".btn-quick") || e.target.closest("#btnMainRand") || e.target.closest(".btn-rand")) return;
   if(!onChart(e.target)) return;
 
   const isRight20 = e.clientX >= window.innerWidth * 0.80;
@@ -3054,8 +3082,12 @@ $("#ohGo").addEventListener("click", () => {
 });
 
 // 交互事件监听
-if($("#btnSyncCloud")) 
-if($("#bRand")) $("#bRand").addEventListener("click", loadRandomMarket);
+$$(".btn-rand, #bRand, #btnMainRand, #btnQuickRand").forEach(btn => {
+  btn.addEventListener("click", ev => {
+    ev.stopPropagation();
+    loadRandomMarket();
+  });
+});
 if($("#btnExportCSV")) $("#btnExportCSV").addEventListener("click", exportTradesToCSV);
 $("#bStats").addEventListener("click", () => {
   renderStatsView();
