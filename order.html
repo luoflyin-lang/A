@@ -1245,7 +1245,7 @@ async function cancelOrder(sym,oid,isAlgo,algoId){
   }
 }
 
-/* 拖拽直接修改已挂出的订单价格（撤旧挂新） */
+/* 拖拽直接修改已挂出的订单价格（先保单、安全撤挂、绝不丢止损） */
 async function modifyOrderPrice(oldOrder, newPrice){
   if(!oldOrder || !newPrice || !(newPrice > 0)) return;
   const sym = oldOrder.symbol || S.sym;
@@ -1254,60 +1254,115 @@ async function modifyOrderPrice(oldOrder, newPrice){
   if(!(alignedPx > 0) || Math.abs(alignedPx - oi.price) < 1e-8) return;
 
   const curM = mid(sym);
-  // 止损单防穿透校验：避免误拖导致交易所拒单 -2021
+  const isBuy = oldOrder.side === "BUY";
+  const isSell = oldOrder.side === "SELL";
+
+  // 止损单防穿透校验：
+  // 1) 多头平仓止损是 SELL 单，触发价必须严格低于当前市价
+  // 2) 空头平仓止损是 BUY 单，触发价必须严格高于当前市价
   if(oi.sl && curM > 0){
-    const isLong = oldOrder.side === "SELL"; // 多头平仓止损是 SELL
-    if(isLong && alignedPx >= curM){
-      toast("⚠ 多仓止损价必须低于当前市价 " + px(curM, sym));
+    if(isSell && alignedPx >= curM){
+      toast("⚠ 多仓止损价 (" + px(alignedPx, sym) + ") 必须低于当前市价 " + px(curM, sym));
       liveLines(true);
       return;
-    } else if(!isLong && alignedPx <= curM){
-      toast("⚠ 空仓止损价必须高于当前市价 " + px(curM, sym));
+    } else if(isBuy && alignedPx <= curM){
+      toast("⚠ 空仓止损价 (" + px(alignedPx, sym) + ") 必须高于当前市价 " + px(curM, sym));
+      liveLines(true);
+      return;
+    }
+  }
+
+  // 止盈单防穿透校验：
+  // 1) 多头平仓止盈是 SELL 单，限价/触发价必须高于当前市价
+  // 2) 空头平仓止盈是 BUY 单，限价/触发价必须低于当前市价
+  if(oi.tp && curM > 0){
+    if(isSell && alignedPx <= curM){
+      toast("⚠ 多仓止盈价 (" + px(alignedPx, sym) + ") 必须高于当前市价 " + px(curM, sym));
+      liveLines(true);
+      return;
+    } else if(isBuy && alignedPx >= curM){
+      toast("⚠ 空仓止盈价 (" + px(alignedPx, sym) + ") 必须低于当前市价 " + px(curM, sym));
       liveLines(true);
       return;
     }
   }
 
   toast("正在修改 " + disp(sym) + " " + oi.kind + " 价格至 " + px(alignedPx, sym) + "…");
-  
-  // 1. 撤销旧单
-  await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo);
-  
-  // 2. 构造新单
+
+  // 构造新单参数
   const isTrig = oi.trig;
   const pxStr = fmtPx(alignedPx, sym);
-  const orderType = oldOrder.orderType || oldOrder.type || (isTrig ? "STOP_MARKET" : "LIMIT");
+  const orderType = oldOrder.type || (isTrig ? "STOP_MARKET" : "LIMIT");
   const newOrd = {
     symbol: sym,
     side: oldOrder.side,
-    type: orderType,
-    orderType: orderType
+    type: orderType
   };
 
-  if(oldOrder.closePosition || (isTrig && !oldOrder.origQty)){
-    newOrd.closePosition = "true";
-  } else if(oldOrder.origQty){
-    newOrd.quantity = fmtSz(oldOrder.origQty, sym);
+  // 确定数量与减仓属性
+  let q = +oldOrder.origQty || +oldOrder.quantity || +oldOrder.totalQty || 0;
+  if(!(q > 0)){
+    const p = posOf(sym).find(x => oldOrder.side === (x.amt > 0 ? "SELL" : "BUY"));
+    if(p && Math.abs(p.amt) > 0) q = Math.abs(p.amt);
   }
 
   if(oldOrder.positionSide) newOrd.positionSide = oldOrder.positionSide;
-  if(oldOrder.reduceOnly && !newOrd.closePosition) newOrd.reduceOnly = "true";
+  
+  if(oldOrder.closePosition && !q){
+    newOrd.closePosition = "true";
+  } else if(q > 0){
+    newOrd.quantity = fmtSz(alignSz(q, sym), sym);
+    if(!S.dual) newOrd.reduceOnly = "true";
+  } else if(isTrig){
+    newOrd.closePosition = "true";
+  }
 
   if(isTrig){
     newOrd.stopPrice = pxStr;
-    newOrd.triggerPrice = pxStr;
-    newOrd.workingType = WORK;
+    newOrd.workingType = oldOrder.workingType || WORK;
     newOrd.priceProtect = "true";
-    if(/LIMIT|TAKE_PROFIT|STOP$/.test(orderType)) newOrd.price = pxStr;
+    if(/LIMIT|TAKE_PROFIT$|STOP$/.test(orderType)) newOrd.price = pxStr;
   } else {
     newOrd.price = pxStr;
     newOrd.timeInForce = oldOrder.timeInForce || TIF;
   }
 
-  const res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym));
-  if(okAll(res)){
+  // 安全修改流程：
+  // 策略 A: 先尝试直接提交新单（保证止损单不会因为先撤单而瞬间失保）
+  let res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym));
+  const isGood = res && (res.orderId != null || res.algoId != null) && !(res.code != null && +res.code < 0);
+
+  if(isGood){
+    // 新单成功挂入，安全撤销旧单
+    await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo);
     toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
+  } else {
+    // 若因 closePosition 重复限制或 ReduceOnly 冲突被拒（例如 -2022），则切换为安全撤旧挂新
+    const errCode = (LAST_ERR && +LAST_ERR.code) || (res && +res.code) || 0;
+    if(errCode === -2022 || errCode === -4013 || errCode === -1013){
+      log("modifyOrderPrice: retry cancel-and-replace for " + sym);
+      await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo);
+      res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym));
+      const retryGood = res && (res.orderId != null || res.algoId != null) && !(res.code != null && +res.code < 0);
+      if(retryGood){
+        toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
+      } else {
+        // 兜底：若新单仍然失败，立即把原止损单重新挂回，坚决不丢止损！
+        toast("⚠ 新单挂入被拒，正在恢复原止损单…");
+        const restoreOrd = Object.assign({}, newOrd, {
+          stopPrice: fmtPx(oi.price, sym),
+          price: (/LIMIT|TAKE_PROFIT$|STOP$/.test(orderType)) ? fmtPx(oi.price, sym) : undefined
+        });
+        await placeOrder(restoreOrd, "恢复原止损 " + disp(sym));
+      }
+    } else {
+      // 其它拒绝原因（如价格不符合要求等），旧单完全保留在交易所
+      const errMsg = (LAST_ERR && (LAST_ERR.msg || LAST_ERR.message)) || "交易所拒绝新单";
+      toast("⚠ 修改失败：" + errMsg + "，已保留原止损单 @" + px(oi.price, sym));
+      liveLines(true);
+    }
   }
+
   load(true);
 }
 
@@ -1415,34 +1470,19 @@ async function send(method,path,params,msg,silent){
 }
 
 async function placeOrder(ord, label, silent){
-  const isAlgo = /STOP|TAKE_PROFIT|TRAILING/.test(ord.type) || ord.algoType === "CONDITIONAL" || ord.isAlgo;
-  if(isAlgo){
-    const trig = ord.triggerPrice || ord.stopPrice;
-    const p = Object.assign({}, ord, { 
-      algoType: "CONDITIONAL", 
-      triggerPrice: trig,
-      stopPrice: trig,
-      orderType: ord.orderType || ord.type
-    });
-    let res = await send("POST", "/fapi/v1/algoOrder", p, label, silent);
-    if(res && (res.code === -4120 || res.code === -1102)){
-      res = await send("POST", "/fapi/v1/order", ord, label, silent);
-    }
-    return res;
-  } else {
-    let res = await send("POST", "/fapi/v1/order", ord, label, silent);
-    if(res && res.code === -4120){
-      const trig = ord.triggerPrice || ord.stopPrice;
-      const p = Object.assign({}, ord, { 
-        algoType: "CONDITIONAL", 
-        triggerPrice: trig,
-        stopPrice: trig,
-        orderType: ord.type
-      });
-      res = await send("POST", "/fapi/v1/algoOrder", p, label, silent);
-    }
-    return res;
+  // 币安官方标准合约下单接口为 POST /fapi/v1/order（支持 LIMIT, MARKET, STOP, STOP_MARKET, TAKE_PROFIT 等）
+  const cleanOrd = Object.assign({}, ord);
+  delete cleanOrd.isAlgo;
+  delete cleanOrd.algoType;
+  delete cleanOrd.orderType;
+
+  if(cleanOrd.stopPrice || cleanOrd.triggerPrice){
+    cleanOrd.stopPrice = cleanOrd.stopPrice || cleanOrd.triggerPrice;
+    delete cleanOrd.triggerPrice;
   }
+
+  let res = await send("POST", "/fapi/v1/order", cleanOrd, label, silent);
+  return res;
 }
 
 async function reconcile(sinceMs){
@@ -1655,7 +1695,7 @@ async function firePendingBracket(sym){
     }
     if(b.tp!=null&&PREATTACH_TP&&!b.tpFbDone&&!hasLiveTp){
       iFb=orders.length;
-      orders.push(tpFallbackOrder(sym,lg,b.tp,ps,tpQty||Math.abs(p.amt)));
+      orders.push(tpPostOnlyOrder(sym,lg,b.tp,ps,tpQty||Math.abs(p.amt)));
     }
     const done=()=>!left&&(b.sl==null||b.slDone)&&(b.tp==null||!!b.tpOid)&&(b.tp==null||!PREATTACH_TP||!!b.tpFbDone);
     if(!orders.length){if(done()){delete PENDBR[sym];savePendBr();}return;}
