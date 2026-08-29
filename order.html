@@ -1430,7 +1430,7 @@ async function cleanDuplicateOrders(){
 
 /* ================= 提交层与订单路由 ================= */
 let LAST_ERR=null;
-const ERRH={"-5022":"只挂单（GTX）会立刻成交，被交易所拒单：价格往盘口外挪一点再试",
+const ERRH={"-5022":"只挂单（GTX）会立刻成交被拒（已自动调整至盘口价重试）",
   "-2021":"触发价已被行情穿透，交易所拒挂",
   "-1111":"价格或数量精度不对（tick / stepSize）",
   "-1013":"不满足交易所的最小下单量或价格过滤器",
@@ -1439,7 +1439,11 @@ const ERRH={"-5022":"只挂单（GTX）会立刻成交，被交易所拒单：�
   "-4131":"对手价太远，撮合保护拒单",
   "-2011":"撤单失败：这张单已经不在了",
   "-2027":"超出该杠杆档位下的最大可开名义价值",
-  "-4061":"持仓模式不匹配（单向 / 双向）",
+  "-4061":"持仓模式不匹配（请在币安设置单向/双向持仓）",
+  "-1115":"订单有效方式（timeInForce）不合法",
+  "-1102":"缺少必要参数或参数格式不符",
+  "-2022":"ReduceOnly 减仓单冲突被拒",
+  "-4028":"所选杠杆倍数超过该币种允许的最大上限",
   "-4120":"请使用 Algo Order API 接口提交条件单"};
 function errText(e){const c=e&&e.code!=null?String(e.code):"";
   return ERRH[c]?ERRH[c]+"（"+c+"）":((e&&(e.msg||e.message))||("错误 "+c));}
@@ -1639,8 +1643,7 @@ function tpPostOnlyOrder(sym,lg,tp,ps,qty){
     type:"TAKE_PROFIT",
     price:pxStr,
     stopPrice:pxStr,
-    triggerPrice:pxStr,
-    timeInForce:TIF, // "GTX" 只挂单
+    timeInForce:"GTC",
     workingType:WORK,
     priceProtect:"true"
   };
@@ -2749,12 +2752,34 @@ $("#ohGo").addEventListener("click",async()=>{
   const buy=S.side==="buy",m=mid(sym);
   if(!isFinite(m)||m<=0){toast("无法获取市价，已阻止下单");return;}
   const side=buy?"BUY":"SELL",ps=buy?"LONG":"SHORT";
-  const stopEntry=buy?(m<r.e):(m>r.e);
+  
+  // 判断是做多突破/做空跌破（Stop Entry）还是正常限价回踩挂单（Limit Entry）
+  const stopEntry=buy?(r.e>m):(r.e<m);
   const ePx=fmtPx(alignPx(r.e,sym,buy?-1:1),sym);
-  const entry=stopEntry
-    ?{symbol:sym,side,type:"STOP",stopPrice:ePx,price:ePx,timeInForce:TIF,quantity:qty,
-      workingType:WORK,priceProtect:"true"}
-    :{symbol:sym,side,type:"LIMIT",timeInForce:TIF,quantity:qty,price:ePx};
+  
+  let entry;
+  if(stopEntry){
+    // 突破单：使用 STOP_MARKET 市价突破触发单（保证突破瞬间成交）
+    entry={
+      symbol:sym,
+      side:side,
+      type:"STOP_MARKET",
+      stopPrice:ePx,
+      quantity:qty,
+      workingType:WORK,
+      priceProtect:"true"
+    };
+  } else {
+    // 回踩限价单：使用 LIMIT GTX 只挂单（保证 Maker 低手续费）
+    entry={
+      symbol:sym,
+      side:side,
+      type:"LIMIT",
+      price:ePx,
+      quantity:qty,
+      timeInForce:TIF // "GTX"
+    };
+  }
   if(S.dual)entry.positionSide=ps;
   if(LOCK){toast("行情异常，交易已锁定："+LOCK);return;}
   SUBMITTING=true;try{render();}catch(e){}
@@ -2769,18 +2794,20 @@ $("#ohGo").addEventListener("click",async()=>{
 
     let eRes=null,slRes=null,tpRes=null;
     
-    // 1. 提交入场只挂单（LIMIT GTX）
+    // 1. 提交入场单
     eRes=await placeOrder(entry,label);
     
+    // 若限价只挂单（GTX）遇 -5022 盘口穿透，智能向盘口外微调并重试
     if(!good(eRes)&&!stopEntry){
       const code=eRes&&eRes.code!=null?+eRes.code:(LAST_ERR&&LAST_ERR.code!=null?+LAST_ERR.code:0);
       if(code===-5022){
-        const tk=(fOf(sym).tick||0)*NUDGE_TICKS;
-        if(tk>0){
-          const np=alignPx(buy?(+entry.price-tk):(+entry.price+tk),sym,buy?-1:1);
+        const curM=mid(sym);
+        const tk=(fOf(sym).tick||0);
+        if(tk>0&&curM>0){
+          const safePx=buy?Math.min(+entry.price,curM-tk):Math.max(+entry.price,curM+tk);
+          const np=alignPx(safePx,sym,buy?-1:1);
           entry.price=fmtPx(np,sym);
-          if(entry.stopPrice)entry.stopPrice=entry.price;
-          toast("只挂单会立刻成交，已把价格挪到 "+px(np,sym)+" 重试");
+          toast("只挂单会立刻成交，已将价格微调至 "+px(np,sym)+" 重试");
           eRes=await placeOrder(entry,label);
         }
       }
@@ -2788,11 +2815,11 @@ $("#ohGo").addEventListener("click",async()=>{
     
     const eOk=good(eRes);
     if(eOk){
-      // 2. 瞬间在币安后台立刻挂上市价止损单
+      // 2. 预挂市价止损单
       slRes=await placeOrder(slOrd,"预挂止损(市价)",true).catch(()=>null);
-      // 3. 瞬间在币安后台立刻挂上限价只挂单止盈单
+      // 3. 预挂止盈单
       if(tpOrd){
-        tpRes=await placeOrder(tpOrd,"预挂止盈(只挂单)",true).catch(()=>null);
+        tpRes=await placeOrder(tpOrd,"预挂止盈",true).catch(()=>null);
       }
     }else{
       toast("⚠ 入场单提交失败："+errText(LAST_ERR||eRes));
@@ -2801,7 +2828,7 @@ $("#ohGo").addEventListener("click",async()=>{
     
     const slOk=good(slRes),tpOk=tpOrd?good(tpRes):true;
     if(slOk && tpOk){
-      toast("【3单已全部挂入币安】入场(只挂单) + 止损(市价) " + (tpOrd ? "+ 止盈(只挂单)" : ""));
+      toast("【3单已全部挂入币安】入场 + 止损(市价)" + (tpOrd ? " + 止盈" : ""));
     } else {
       if(!slOk) toast("⚠ 止损单未能立刻挂入，成交后会自动补挂");
       if(!tpOk) toast("⚠ 止盈单未能立刻挂入，成交后会自动补挂");
