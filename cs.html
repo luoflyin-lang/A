@@ -816,38 +816,12 @@ function mergeTradesWithCloud(remoteData){
 
 // 同步云端漫游的 K 线行情切片与推演进度
 async function syncMarketProgressFromCloud(prog){
-  if(!prog || !prog.marketEndTime) return;
+  if(!prog || !prog.updated) return;
   if(prog.updated <= (S.progressUpdated || 0)) return;
   S.progressUpdated = prog.updated;
 
-  // 1. 如果云端切换了新的行情切片
-  if(S.marketEndTime !== prog.marketEndTime){
-    try{
-      const url = `https://fapi.binance.com/fapi/v1/klines?symbol=ETHUSDT&interval=5m&endTime=${prog.marketEndTime}&limit=${TOTAL_BARS}`;
-      const r = await fetch(url);
-      const j = await r.json();
-      if(Array.isArray(j) && j.length >= INITIAL_VISIBLE_BARS){
-        S.fullK = j.map(x => ({ t: +x[0], o: +x[1], h: +x[2], l: +x[3], c: +x[4] }));
-        S.marketEndTime = prog.marketEndTime;
-        S.blindId = prog.blindId || S.blindId;
-        S.visibleCount = Math.min(prog.visibleCount || INITIAL_VISIBLE_BARS, S.fullK.length);
-        S.curK = S.fullK.slice(0, S.visibleCount);
-        S.realTimeStr = prog.realTimeStr || S.realTimeStr;
-        S.orders = prog.orders || [];
-        S.positions = prog.positions || [];
-        updateBlindBoxUI();
-        updateChartCandles(S.curK);
-        syncTradeLines();
-        toast(`☁️ 漫游同步：已对齐切片 #${S.blindId} (第 ${S.visibleCount} 根 K 线)`);
-        return;
-      }
-    }catch(e){
-      console.warn("Market progress slice sync error:", e);
-    }
-  }
-
-  // 2. 如果是同一个切片，自动漫游推进
-  if(prog.visibleCount > S.visibleCount && S.fullK && S.fullK.length){
+  // 如果是同一个切片，自动漫游推进
+  if(prog.blindId === S.blindId && prog.visibleCount > S.visibleCount && S.fullK && S.fullK.length){
     S.visibleCount = Math.min(prog.visibleCount, S.fullK.length);
     S.curK = S.fullK.slice(0, S.visibleCount);
     S.orders = prog.orders || [];
