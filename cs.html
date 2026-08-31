@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>ETH 5m 模拟回测训练 · 经典黑白极简版</title>
+<title>K线复盘训练 · 标普500期货 (ES · 5m)</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
 <script>
@@ -432,7 +432,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <!-- 训练数据抽屉面板 -->
 <aside class="sheet" id="shStats">
   <div class="sh">
-    <b>训练统计数据 (ETH · 5m)</b>
+    <b>训练统计数据 (标普500期货 ES · 5m)</b>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="x" data-close>✕</button>
     </div>
@@ -616,7 +616,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 "use strict";
 
 /* ================= 训练活跃品种池 (限定 ETH 5m) ================= */
-const SYMBOL_POOL = ["ETHUSDT"];
+const SYMBOL_POOL = ["ES_F"];
 
 const INITIAL_BALANCE_R = 100.0;
 const INITIAL_VISIBLE_BARS = 500;
@@ -624,7 +624,7 @@ const TOTAL_BARS = 1000;
 
 /* ================= 状态数据 ================= */
 const S = window.S = {
-  sym: "ETHUSDT",
+  sym: "ES_F",
   tf: "5m", // 限定 5 分钟
   blindId: 101,   // 盲盒伪随机编号
   isRevealed: false, // 是否已揭晓真实品种
@@ -687,7 +687,7 @@ function updateBlindBoxUI(){
       tag.textContent = `ETHUSDT (${S.realTimeStr})`;
       tag.style.color = "var(--amber)";
     } else {
-      tag.textContent = `ETH #${S.blindId} · 5m`;
+      tag.textContent = `ES #${S.blindId} · 5m`;
       tag.style.color = "var(--text)";
     }
   }
@@ -696,7 +696,7 @@ function updateBlindBoxUI(){
   }
   const ohT = $("#ohT");
   if(ohT){
-    ohT.textContent = S.isRevealed ? "ETHUSDT · 5m" : `ETH #${S.blindId} · 5m`;
+    ohT.textContent = S.isRevealed ? "ES · 5m" : `ES #${S.blindId} · 5m`;
   }
 }
 
@@ -1266,111 +1266,129 @@ function updateChartCandles(rawBars){
     emaSeries.setData([]);
   }
 }
-/* ================= ETH 5m 真实交易所历史行情抽取 (100% 真实数据，免翻墙国内直连加速) ================= */
-async function loadRandomMarket(){
-  const tfMs = 300000; // 5m = 300,000 ms
-  const now = Date.now();
-  // 币安 ETHUSDT 永续合约从 2020 年初至今，拥有海量 5m 真实历史切片
-  const minTime = new Date("2020-03-01T00:00:00Z").getTime();
-  const maxTime = now - (TOTAL_BARS * tfMs);
+/* ================= 标普500期货 (ES 5m) 真实历史行情抽取 (100% 真实 CME 数据，国内直连免翻墙) ================= */
+let _CACHED_ES_BARS = null;
 
-  // 优先同源与 Cloudflare 边缘反向代理（国内直连免翻墙加速），再备选官方各公共数据源
+async function loadRandomMarket(){
   const HOSTS = [
     window.location.origin,
     "https://cs.124568.xyz",
-    "https://data-api.binance.vision",
-    "https://api.binance.com",
-    "https://fapi.binance.com",
-    "https://fapi1.binance.com"
+    "https://query1.finance.yahoo.com",
+    "https://query2.finance.yahoo.com"
   ];
   const uniqueHosts = [...new Set(HOSTS.filter(Boolean))];
 
-  let success = false;
-  let attempts = 0;
-
-  S.sym = "ETHUSDT";
+  S.sym = "ES_F";
   S.tf = "5m";
   S.blindId = Math.floor(100 + Math.random() * 900);
   S.isRevealed = false;
 
-  // 点击换行情时自动关闭抽屉并切回主图
+  // 点击换行情时自动关闭抽屉
   const sh = $("#shStats"), mk = $("#mask");
   if(sh) sh.classList.remove("on");
   if(mk) mk.classList.remove("on");
 
-  while(!success && attempts < 12){
-    attempts++;
-    const randomEndTime = Math.floor(minTime + Math.random() * (maxTime - minTime));
-    const host = uniqueHosts[(attempts - 1) % uniqueHosts.length];
-    
-    toast(`🎲 正在抽取 ETH 5m 真实历史切片 #${S.blindId}…`);
+  toast(`🎲 正在抽取标普500期货 (ES 5m) 真实历史切片 #${S.blindId}…`);
 
-    try{
-      const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4000);
-      
-      let url = "";
-      if(host.includes("data-api.binance.vision") || host.includes("api.binance.com")){
-        url = `${host}/api/v3/klines?symbol=ETHUSDT&interval=5m&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
-      } else if(host.includes("fapi.binance.com") || host.includes("fapi1.binance.com")){
-        url = `${host}/fapi/v1/klines?symbol=ETHUSDT&interval=5m&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
-      } else {
-        // 同源与 Cloudflare 边缘高速免翻墙接口
-        url = `${host}/api/kline?symbol=ETHUSDT&interval=5m&endTime=${randomEndTime}&limit=${TOTAL_BARS}`;
+  try {
+    let allBars = _CACHED_ES_BARS;
+
+    if(!allBars || allBars.length < TOTAL_BARS){
+      for(const host of uniqueHosts){
+        try {
+          const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+          const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4500);
+
+          let url = "";
+          if(host.includes("query1.finance.yahoo.com") || host.includes("query2.finance.yahoo.com")){
+            url = `${host}/v8/finance/chart/ES=F?range=60d&interval=5m`;
+          } else {
+            url = `${host}/api/kline?symbol=ES&interval=5m&_t=${Date.now()}`;
+          }
+
+          const resp = await fetch(url, { signal: ctl ? ctl.signal : undefined });
+          clearTimeout(tm);
+
+          if(resp.ok){
+            const raw = await resp.json();
+            let parsed = [];
+            if(Array.isArray(raw)){
+              parsed = raw;
+            } else if(raw?.chart?.result?.[0]?.timestamp){
+              const res = raw.chart.result[0];
+              const ts = res.timestamp;
+              const q = res.indicators?.quote?.[0];
+              if(ts && q){
+                for(let i=0; i<ts.length; i++){
+                  const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
+                  if(o != null && h != null && l != null && c != null && isFinite(o) && isFinite(h) && isFinite(l) && isFinite(c)){
+                    const normO = Math.round(o / 0.25) * 0.25;
+                    const normC = Math.round(c / 0.25) * 0.25;
+                    const normH = Math.max(Math.round(h / 0.25) * 0.25, normO, normC);
+                    const normL = Math.min(Math.round(l / 0.25) * 0.25, normO, normC);
+                    parsed.push([ts[i]*1000, Number(normO.toFixed(2)), Number(normH.toFixed(2)), Number(normL.toFixed(2)), Number(normC.toFixed(2))]);
+                  }
+                }
+              }
+            }
+
+            if(parsed.length >= TOTAL_BARS){
+              allBars = parsed;
+              _CACHED_ES_BARS = parsed;
+              break;
+            }
+          }
+        } catch(err){
+          console.warn("ES fetch host attempt error:", host, err);
+        }
       }
-
-      const r = await fetch(url, { signal: ctl ? ctl.signal : undefined });
-      clearTimeout(tm);
-
-      const j = await r.json();
-      if(Array.isArray(j) && j.length >= INITIAL_VISIBLE_BARS){
-        // 100% 真实币安历史数据: [时间, 开, 高, 低, 收, 成交量, ...]
-        S.fullK = j.map(x => ({ t: +x[0], o: +x[1], h: +x[2], l: +x[3], c: +x[4] }));
-        S.marketEndTime = randomEndTime;
-        S.visibleCount = Math.min(INITIAL_VISIBLE_BARS, S.fullK.length);
-        S.curK = S.fullK.slice(0, S.visibleCount);
-        
-        // 格式化真实日期与时间
-        const d1 = new Date(S.curK[0].t);
-        const d2 = new Date(S.curK[S.curK.length - 1].t);
-        const fmt = d => `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-        S.realTimeStr = `${fmt(d1)} ~ ${fmt(d2)}`;
-
-        // ETH 价格精度统一为 0.01 (2位小数)
-        S.tickSize = 0.01;
-
-        // 清空所有旧的挂单和持仓
-        S.orders = [];
-        S.positions = [];
-        if(F.on) endFlow();
-
-        updateBlindBoxUI();
-        updateChartCandles(S.curK);
-        
-        // 默认显示最新 100 根 K 线（舒适视距，清晰不拥挤），左侧历史数据完整保留，可随时向左拖动查看
-        const totalBars = S.curK.length;
-        const defaultBars = 100;
-        tvChart.timeScale().setVisibleLogicalRange({
-          from: Math.max(0, totalBars - defaultBars),
-          to: totalBars + 4
-        });
-        
-        syncTradeLines();
-
-        toast(`已就绪：ETH 5m 真实切片 #${S.blindId} (${S.curK.length} / 1000根真实K线)`);
-        success = true;
-        cloudSyncPushProgress();
-        return;
-      }
-    }catch(e){
-      console.warn("Retrying real ETH 5m market load:", e);
     }
+
+    if(allBars && allBars.length >= TOTAL_BARS){
+      // 从海量 13,000+ 根 CME 真实 5m 数据中随机选取一个完整的 1000 根切片
+      const maxStart = allBars.length - TOTAL_BARS;
+      const startIdx = Math.floor(Math.random() * (maxStart + 1));
+      const selectedRaw = allBars.slice(startIdx, startIdx + TOTAL_BARS);
+
+      S.fullK = selectedRaw.map(b => ({
+        t: b[0],
+        o: Number(b[1]),
+        h: Number(b[2]),
+        l: Number(b[3]),
+        c: Number(b[4])
+      }));
+
+      S.visibleCount = Math.min(INITIAL_VISIBLE_BARS, S.fullK.length);
+      S.curK = S.fullK.slice(0, S.visibleCount);
+      S.orders = [];
+      S.positions = [];
+
+      const startTime = new Date(S.fullK[0].t);
+      const endTime = new Date(S.fullK[S.fullK.length - 1].t);
+      S.realTimeStr = `${startTime.getFullYear()}/${startTime.getMonth()+1}/${startTime.getDate()} ${String(startTime.getHours()).padStart(2,"0")}:${String(startTime.getMinutes()).padStart(2,"0")} ~ ${endTime.getFullYear()}/${endTime.getMonth()+1}/${endTime.getDate()} ${String(endTime.getHours()).padStart(2,"0")}:${String(endTime.getMinutes()).padStart(2,"0")}`;
+
+      updateBlindBoxUI();
+      updateChartCandles(S.curK);
+
+      if(chart && chart.timeScale && S.curK.length > 0){
+        const total = S.curK.length;
+        chart.timeScale().setVisibleLogicalRange({
+          from: Math.max(0, total - 120),
+          to: total + 10
+        });
+      }
+
+      syncTradeLines();
+      toast(`已就绪：标普500期货 ES 5m 真实切片 #${S.blindId} (${S.visibleCount} / ${TOTAL_BARS} 根真实K线)`);
+      cloudSyncPushProgress();
+      return;
+    }
+  } catch(e){
+    console.error("loadRandomMarket exception:", e);
   }
 
-  if(!success){
-    toast("ETH 5m 行情拉取中，正在重试…");
-    setTimeout(loadRandomMarket, 1000);
-  }
+  toast("标普500 ES 行情拉取中，正在重试…");
+  setTimeout(loadRandomMarket, 1200);
 }
 
 /* ================= 模拟撮合与推进（支持多挂单 & 多持仓并发） ================= */
@@ -1562,7 +1580,7 @@ function recordPartialTrade(p, reason, exitPx, pnlR, riskR){
 
   const record = {
     id: Date.now() * 1000 + Math.floor(Math.random() * 1000),
-    sym: "ETHUSDT",
+    sym: "ES_F",
     tf: "5m",
     blindId: S.blindId,
     side: p.side,
@@ -1691,7 +1709,7 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
 
   const record = {
     id: Date.now() * 1000 + Math.floor(Math.random() * 1000),
-    sym: "ETHUSDT",
+    sym: "ES_F",
     tf: "5m",
     blindId: S.blindId,
     side: p.side,
@@ -1764,7 +1782,7 @@ function quickOrder(side){
   const isBuy = (side === "buy");
   const entry = isBuy ? curBar.h : curBar.l;
   const sl = isBuy ? curBar.l : curBar.h;
-  const dist = Math.max(Math.abs(entry - sl), (entry || 1) * 0.0005);
+  const dist = Math.max(Math.abs(entry - sl), 0.50);
   const tp = isBuy ? Number((entry + 2.0 * dist).toFixed(2)) : Number((entry - 2.0 * dist).toFixed(2));
   const riskR = 1.0;
   const rr = 2.0;
@@ -2226,7 +2244,7 @@ function sizing(){
 function renderFlow(){
   if(!F.on){ syncTradeLines(); return; }
   const isBuy = (F.tp != null && F.e != null) ? (F.tp > F.e) : (F.sl != null && F.e != null ? F.sl < F.e : true);
-  const displaySym = S.isRevealed ? "ETHUSDT · 5m" : `ETH #${S.blindId} · 5m`;
+  const displaySym = S.isRevealed ? "ES · 5m" : `ES #${S.blindId} · 5m`;
   $("#ohT").textContent = displaySym + " · 模拟下单";
   
   if(F.step <= 1){
