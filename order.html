@@ -1236,9 +1236,16 @@ function posView(){
 
 async function cancelOrder(sym,oid,isAlgo,algoId){
   const useAlgo = isAlgo || algoId != null;
-  const path = useAlgo ? "/fapi/v1/algoOrder" : "/fapi/v1/order";
-  const params = useAlgo ? { symbol: sym, algoId: algoId || oid } : { symbol: sym, orderId: oid };
-  const res = await send("DELETE", path, params, "撤单 " + disp(sym));
+  let path = useAlgo ? "/fapi/v1/algoOrder" : "/fapi/v1/order";
+  let params = useAlgo ? { symbol: sym, algoId: algoId || oid } : { symbol: sym, orderId: oid };
+  let res = await send("DELETE", path, params, "撤单 " + disp(sym), true);
+  
+  if(!okAll(res) && LAST_ERR && (LAST_ERR.code === -2011 || LAST_ERR.code === -4120 || LAST_ERR.code === -1102)){
+    path = useAlgo ? "/fapi/v1/order" : "/fapi/v1/algoOrder";
+    params = useAlgo ? { symbol: sym, orderId: oid } : { symbol: sym, algoId: algoId || oid };
+    res = await send("DELETE", path, params, "撤单 " + disp(sym));
+  }
+  
   if(okAll(res)){
     if(S.ords[sym]) S.ords[sym] = S.ords[sym].filter(o => String(o.orderId || o.algoId) !== String(oid));
     posView(); syncTradeLines(); updateTvBtn();
@@ -1474,19 +1481,79 @@ async function send(method,path,params,msg,silent){
 }
 
 async function placeOrder(ord, label, silent){
-  // 币安官方标准合约下单接口为 POST /fapi/v1/order（支持 LIMIT, MARKET, STOP, STOP_MARKET, TAKE_PROFIT 等）
-  const cleanOrd = Object.assign({}, ord);
-  delete cleanOrd.isAlgo;
-  delete cleanOrd.algoType;
-  delete cleanOrd.orderType;
+  // 1. 判断是否为条件单（止损/止盈/突破单）
+  // 币安新规：所有条件单必须通过 POST /fapi/v1/algoOrder (algoType="CONDITIONAL", triggerPrice)
+  const isAlgo = /STOP|TAKE_PROFIT|TRAILING/.test(ord.type) || ord.algoType === "CONDITIONAL" || ord.isAlgo;
+  
+  if(isAlgo){
+    const trig = ord.triggerPrice || ord.stopPrice;
+    const cleanType = ord.type || ord.orderType || "STOP_MARKET";
+    const p = {
+      algoType: "CONDITIONAL",
+      symbol: ord.symbol,
+      side: ord.side,
+      type: cleanType,
+      triggerPrice: String(trig)
+    };
+    if(ord.positionSide) p.positionSide = ord.positionSide;
+    
+    if(ord.closePosition === true || ord.closePosition === "true"){
+      p.closePosition = "true";
+    } else if(ord.quantity){
+      p.quantity = String(ord.quantity);
+      if(ord.reduceOnly === true || ord.reduceOnly === "true") p.reduceOnly = "true";
+    } else {
+      p.closePosition = "true";
+    }
 
-  if(cleanOrd.stopPrice || cleanOrd.triggerPrice){
-    cleanOrd.stopPrice = cleanOrd.stopPrice || cleanOrd.triggerPrice;
+    if(ord.price && /LIMIT|TAKE_PROFIT$|STOP$/.test(cleanType)){
+      p.price = String(ord.price);
+    }
+    if(ord.workingType) p.workingType = ord.workingType;
+    if(ord.priceProtect) p.priceProtect = String(ord.priceProtect).toUpperCase();
+
+    let res = await send("POST", "/fapi/v1/algoOrder", p, label, silent);
+    
+    // 双向兼容：如果报不支持 algoOrder，则回退到传统 /fapi/v1/order
+    if(!okAll(res) && LAST_ERR && (LAST_ERR.code === -4120 || LAST_ERR.code === -1102 || LAST_ERR.code === -4003)){
+      log("placeOrder fallback to /fapi/v1/order for " + ord.symbol);
+      const cleanOrd = Object.assign({}, ord);
+      delete cleanOrd.isAlgo;
+      delete cleanOrd.algoType;
+      delete cleanOrd.orderType;
+      cleanOrd.stopPrice = trig;
+      delete cleanOrd.triggerPrice;
+      res = await send("POST", "/fapi/v1/order", cleanOrd, label, silent);
+    }
+    return res;
+  } else {
+    // 2. 普通限价单/市价单：通过官方标准 POST /fapi/v1/order
+    const cleanOrd = Object.assign({}, ord);
+    delete cleanOrd.isAlgo;
+    delete cleanOrd.algoType;
+    delete cleanOrd.orderType;
     delete cleanOrd.triggerPrice;
-  }
 
-  let res = await send("POST", "/fapi/v1/order", cleanOrd, label, silent);
-  return res;
+    let res = await send("POST", "/fapi/v1/order", cleanOrd, label, silent);
+    
+    // 双向兼容：若报 -4120 则自动切换到 algoOrder 重试
+    if(!okAll(res) && LAST_ERR && LAST_ERR.code === -4120){
+      log("placeOrder retry on /fapi/v1/algoOrder for " + ord.symbol);
+      const trig = ord.triggerPrice || ord.stopPrice || ord.price;
+      const p = {
+        algoType: "CONDITIONAL",
+        symbol: ord.symbol,
+        side: ord.side,
+        type: ord.type || "STOP_MARKET",
+        triggerPrice: String(trig)
+      };
+      if(ord.positionSide) p.positionSide = ord.positionSide;
+      if(ord.quantity) p.quantity = String(ord.quantity);
+      if(ord.price) p.price = String(ord.price);
+      res = await send("POST", "/fapi/v1/algoOrder", p, label, silent);
+    }
+    return res;
+  }
 }
 
 async function reconcile(sinceMs){
