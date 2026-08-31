@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>K线复盘训练 · 标普500期货 (ES · 5m)</title>
+<title>K线复盘训练 · 标普500期货 (ES 5m · RTH常规盘 78根/天)</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
 <script src="./es_data.js"></script>
@@ -433,7 +433,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <!-- 训练数据抽屉面板 -->
 <aside class="sheet" id="shStats">
   <div class="sh">
-    <b>训练统计数据 (标普500期货 ES · 5m)</b>
+    <b>训练统计数据 (标普500 ES · RTH 78根/天)</b>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="x" data-close>✕</button>
     </div>
@@ -620,8 +620,9 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 const SYMBOL_POOL = ["ES_F"];
 
 const INITIAL_BALANCE_R = 100.0;
-const INITIAL_VISIBLE_BARS = 500;
-const TOTAL_BARS = 1000;
+const BARS_PER_DAY = 78; // 美东 RTH 常规盘 09:30~16:00 每天精准 78 根
+const INITIAL_VISIBLE_BARS = 156; // 初始展示前 2 个完整交易日 (156 根)
+const TOTAL_BARS = 390; // 完整切片包含 5 个连续交易日 (390 根)
 
 /* ================= 状态数据 ================= */
 const S = window.S = {
@@ -1347,9 +1348,12 @@ async function loadRandomMarket(){
 
   if(allBars && allBars.length >= TOTAL_BARS){
     _CACHED_ES_BARS = allBars;
-    // 从 13,645 根真实数据中随机抽取 1000 根切片
-    const maxStart = allBars.length - TOTAL_BARS;
-    const startIdx = Math.floor(Math.random() * (maxStart + 1));
+    // 从纯 RTH 历史数据中按交易日精准对齐（从某天 09:30 开盘 Bar 1 开始抽取 5 天 390 根切片）
+    const totalDays = Math.floor(allBars.length / BARS_PER_DAY);
+    const sliceDays = Math.floor(TOTAL_BARS / BARS_PER_DAY); // 5天
+    const maxStartDay = Math.max(0, totalDays - sliceDays);
+    const startDay = Math.floor(Math.random() * (maxStartDay + 1));
+    const startIdx = startDay * BARS_PER_DAY;
     const selectedRaw = allBars.slice(startIdx, startIdx + TOTAL_BARS);
 
     S.fullK = selectedRaw.map(b => ({
@@ -1381,7 +1385,7 @@ async function loadRandomMarket(){
     }
 
     syncTradeLines();
-    toast(`已就绪：标普500期货 ES 5m 真实切片 #${S.blindId} (${S.visibleCount} / ${TOTAL_BARS} 根真实K线)`);
+    toast(`已就绪：标普500期货 ES 5m (RTH 常规盘 · 78根/天) 切片 #${S.blindId} (前2天已展开 · 共5天)`);
     cloudSyncPushProgress();
     return;
   }
