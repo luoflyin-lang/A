@@ -10,6 +10,7 @@
 <title>K线复盘训练 · 标普500期货 (ES · 5m)</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
+<script src="./es_data.js"></script>
 <script>
 if (typeof LightweightCharts === "undefined") {
   document.write('<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/script>');
@@ -1266,18 +1267,10 @@ function updateChartCandles(rawBars){
     emaSeries.setData([]);
   }
 }
-/* ================= 标普500期货 (ES 5m) 真实历史行情抽取 (100% 真实 CME 数据，国内直连免翻墙) ================= */
+/* ================= 标普500期货 (ES 5m) 真实历史行情抽取 (100% 真实 CME 数据，零延迟秒开，免翻墙) ================= */
 let _CACHED_ES_BARS = null;
 
 async function loadRandomMarket(){
-  const HOSTS = [
-    window.location.origin,
-    "https://cs.124568.xyz",
-    "https://query1.finance.yahoo.com",
-    "https://query2.finance.yahoo.com"
-  ];
-  const uniqueHosts = [...new Set(HOSTS.filter(Boolean))];
-
   S.sym = "ES_F";
   S.tf = "5m";
   S.tickSize = 0.25;
@@ -1289,107 +1282,113 @@ async function loadRandomMarket(){
   if(sh) sh.classList.remove("on");
   if(mk) mk.classList.remove("on");
 
-  toast(`🎲 正在抽取标普500期货 (ES 5m) 真实历史切片 #${S.blindId}…`);
+  // 1. 优先使用本地预载的海量 13,645 根真实 CME 标普期货数据 (0ms 瞬间秒开，零网络依赖)
+  let allBars = _CACHED_ES_BARS || (typeof _ES_HISTORICAL_BARS !== "undefined" && _ES_HISTORICAL_BARS.length >= TOTAL_BARS ? _ES_HISTORICAL_BARS : (window._ES_HISTORICAL_BARS || null));
 
-  try {
-    let allBars = _CACHED_ES_BARS;
+  if(!allBars || allBars.length < TOTAL_BARS){
+    toast(`🎲 正在加载标普500期货 (ES 5m) 切片 #${S.blindId}…`);
+    const HOSTS = [
+      window.location.origin,
+      "https://cs.124568.xyz",
+      "https://query1.finance.yahoo.com",
+      "https://query2.finance.yahoo.com"
+    ];
+    const uniqueHosts = [...new Set(HOSTS.filter(Boolean))];
 
-    if(!allBars || allBars.length < TOTAL_BARS){
-      for(const host of uniqueHosts){
-        try {
-          const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-          const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4500);
+    for(const host of uniqueHosts){
+      try {
+        const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+        const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4000);
 
-          let url = "";
-          if(host.includes("query1.finance.yahoo.com") || host.includes("query2.finance.yahoo.com")){
-            url = `${host}/v8/finance/chart/ES=F?range=60d&interval=5m`;
-          } else {
-            url = `${host}/api/kline?symbol=ES&interval=5m&_t=${Date.now()}`;
-          }
+        let url = "";
+        if(host.includes("query1.finance.yahoo.com") || host.includes("query2.finance.yahoo.com")){
+          url = `${host}/v8/finance/chart/ES=F?range=60d&interval=5m`;
+        } else {
+          url = `${host}/api/kline?symbol=ES&interval=5m&_t=${Date.now()}`;
+        }
 
-          const resp = await fetch(url, { signal: ctl ? ctl.signal : undefined });
-          clearTimeout(tm);
+        const resp = await fetch(url, { signal: ctl ? ctl.signal : undefined });
+        clearTimeout(tm);
 
-          if(resp.ok){
-            const raw = await resp.json();
-            let parsed = [];
-            if(Array.isArray(raw)){
-              parsed = raw;
-            } else if(raw?.chart?.result?.[0]?.timestamp){
-              const res = raw.chart.result[0];
-              const ts = res.timestamp;
-              const q = res.indicators?.quote?.[0];
-              if(ts && q){
-                for(let i=0; i<ts.length; i++){
-                  const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
-                  if(o != null && h != null && l != null && c != null && isFinite(o) && isFinite(h) && isFinite(l) && isFinite(c)){
-                    const normO = Math.round(o / 0.25) * 0.25;
-                    const normC = Math.round(c / 0.25) * 0.25;
-                    const normH = Math.max(Math.round(h / 0.25) * 0.25, normO, normC);
-                    const normL = Math.min(Math.round(l / 0.25) * 0.25, normO, normC);
-                    parsed.push([ts[i]*1000, Number(normO.toFixed(2)), Number(normH.toFixed(2)), Number(normL.toFixed(2)), Number(normC.toFixed(2))]);
-                  }
+        if(resp.ok){
+          const raw = await resp.json();
+          let parsed = [];
+          if(Array.isArray(raw)){
+            parsed = raw;
+          } else if(raw?.chart?.result?.[0]?.timestamp){
+            const res = raw.chart.result[0];
+            const ts = res.timestamp;
+            const q = res.indicators?.quote?.[0];
+            if(ts && q){
+              for(let i=0; i<ts.length; i++){
+                const o = q.open?.[i], h = q.high?.[i], l = q.low?.[i], c = q.close?.[i];
+                if(o != null && h != null && l != null && c != null && isFinite(o) && isFinite(h) && isFinite(l) && isFinite(c)){
+                  const normO = Math.round(o / 0.25) * 0.25;
+                  const normC = Math.round(c / 0.25) * 0.25;
+                  const normH = Math.max(Math.round(h / 0.25) * 0.25, normO, normC);
+                  const normL = Math.min(Math.round(l / 0.25) * 0.25, normO, normC);
+                  parsed.push([ts[i]*1000, Number(normO.toFixed(2)), Number(normH.toFixed(2)), Number(normL.toFixed(2)), Number(normC.toFixed(2))]);
                 }
               }
             }
-
-            if(parsed.length >= TOTAL_BARS){
-              allBars = parsed;
-              _CACHED_ES_BARS = parsed;
-              break;
-            }
           }
-        } catch(err){
-          console.warn("ES fetch host attempt error:", host, err);
+
+          if(parsed.length >= TOTAL_BARS){
+            allBars = parsed;
+            _CACHED_ES_BARS = parsed;
+            break;
+          }
         }
+      } catch(err){
+        console.warn("ES fetch error:", host, err);
       }
     }
-
-    if(allBars && allBars.length >= TOTAL_BARS){
-      // 从海量 13,000+ 根 CME 真实 5m 数据中随机选取一个完整的 1000 根切片
-      const maxStart = allBars.length - TOTAL_BARS;
-      const startIdx = Math.floor(Math.random() * (maxStart + 1));
-      const selectedRaw = allBars.slice(startIdx, startIdx + TOTAL_BARS);
-
-      S.fullK = selectedRaw.map(b => ({
-        t: b[0],
-        o: Number(b[1]),
-        h: Number(b[2]),
-        l: Number(b[3]),
-        c: Number(b[4])
-      }));
-
-      S.visibleCount = Math.min(INITIAL_VISIBLE_BARS, S.fullK.length);
-      S.curK = S.fullK.slice(0, S.visibleCount);
-      S.orders = [];
-      S.positions = [];
-
-      const startTime = new Date(S.fullK[0].t);
-      const endTime = new Date(S.fullK[S.fullK.length - 1].t);
-      S.realTimeStr = `${startTime.getFullYear()}/${startTime.getMonth()+1}/${startTime.getDate()} ${String(startTime.getHours()).padStart(2,"0")}:${String(startTime.getMinutes()).padStart(2,"0")} ~ ${endTime.getFullYear()}/${endTime.getMonth()+1}/${endTime.getDate()} ${String(endTime.getHours()).padStart(2,"0")}:${String(endTime.getMinutes()).padStart(2,"0")}`;
-
-      updateBlindBoxUI();
-      updateChartCandles(S.curK);
-
-      if(chart && chart.timeScale && S.curK.length > 0){
-        const total = S.curK.length;
-        chart.timeScale().setVisibleLogicalRange({
-          from: Math.max(0, total - 120),
-          to: total + 10
-        });
-      }
-
-      syncTradeLines();
-      toast(`已就绪：标普500期货 ES 5m 真实切片 #${S.blindId} (${S.visibleCount} / ${TOTAL_BARS} 根真实K线)`);
-      cloudSyncPushProgress();
-      return;
-    }
-  } catch(e){
-    console.error("loadRandomMarket exception:", e);
   }
 
-  toast("标普500 ES 行情拉取中，正在重试…");
-  setTimeout(loadRandomMarket, 1200);
+  if(allBars && allBars.length >= TOTAL_BARS){
+    _CACHED_ES_BARS = allBars;
+    // 从 13,645 根真实数据中随机抽取 1000 根切片
+    const maxStart = allBars.length - TOTAL_BARS;
+    const startIdx = Math.floor(Math.random() * (maxStart + 1));
+    const selectedRaw = allBars.slice(startIdx, startIdx + TOTAL_BARS);
+
+    S.fullK = selectedRaw.map(b => ({
+      t: b[0],
+      o: Number(b[1]),
+      h: Number(b[2]),
+      l: Number(b[3]),
+      c: Number(b[4])
+    }));
+
+    S.visibleCount = Math.min(INITIAL_VISIBLE_BARS, S.fullK.length);
+    S.curK = S.fullK.slice(0, S.visibleCount);
+    S.orders = [];
+    S.positions = [];
+
+    const startTime = new Date(S.fullK[0].t);
+    const endTime = new Date(S.fullK[S.fullK.length - 1].t);
+    S.realTimeStr = `${startTime.getFullYear()}/${startTime.getMonth()+1}/${startTime.getDate()} ${String(startTime.getHours()).padStart(2,"0")}:${String(startTime.getMinutes()).padStart(2,"0")} ~ ${endTime.getFullYear()}/${endTime.getMonth()+1}/${endTime.getDate()} ${String(endTime.getHours()).padStart(2,"0")}:${String(endTime.getMinutes()).padStart(2,"0")}`;
+
+    updateBlindBoxUI();
+    updateChartCandles(S.curK);
+
+    if(chart && chart.timeScale && S.curK.length > 0){
+      const total = S.curK.length;
+      chart.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, total - 120),
+        to: total + 10
+      });
+    }
+
+    syncTradeLines();
+    toast(`已就绪：标普500期货 ES 5m 真实切片 #${S.blindId} (${S.visibleCount} / ${TOTAL_BARS} 根真实K线)`);
+    cloudSyncPushProgress();
+    return;
+  }
+
+  // 极罕见异常重试
+  toast("标普500 ES 行情准备中…");
+  setTimeout(loadRandomMarket, 1000);
 }
 
 /* ================= 模拟撮合与推进（支持多挂单 & 多持仓并发） ================= */
