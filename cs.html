@@ -634,7 +634,7 @@ const S = window.S = {
   curK: [],       // 当前可视 K 线切片
   orders: [],     // 多笔模拟挂单
   positions: [],  // 多笔模拟持仓
-  tickSize: 0.01,
+  tickSize: 0.25,
   balanceR: INITIAL_BALANCE_R,
   trades: [],      // 历史记录
   lastLossIndex: null // 最近一笔止损时的 K 线 index
@@ -684,7 +684,7 @@ function updateBlindBoxUI(){
   const btn = $("#btnReveal");
   if(tag){
     if(S.isRevealed){
-      tag.textContent = `ETHUSDT (${S.realTimeStr})`;
+      tag.textContent = `标普500期货 ES (${S.realTimeStr})`;
       tag.style.color = "var(--amber)";
     } else {
       tag.textContent = `ES #${S.blindId} · 5m`;
@@ -703,7 +703,7 @@ function updateBlindBoxUI(){
 function toggleReveal(){
   S.isRevealed = !S.isRevealed;
   updateBlindBoxUI();
-  toast(`🔍 真实标的：ETHUSDT · 时间：${S.realTimeStr}`);
+  toast(`🔍 真实标的：标普500期货 ES · 时间：${S.realTimeStr}`);
 }
 if($("#btnReveal")) $("#btnReveal").addEventListener("click", toggleReveal);
 
@@ -2347,7 +2347,10 @@ function p2y(p){
 }
 function y2p(y){
   if(!candleSeries) return null;
-  return candleSeries.coordinateToPrice(y);
+  const raw = candleSeries.coordinateToPrice(y);
+  if(raw == null || !isFinite(raw)) return null;
+  const tick = S.tickSize || 0.25;
+  return Number((Math.round(raw / tick) * tick).toFixed(2));
 }
 
 /* ================= 订单与持仓独立配色体系与错位排布 ================= */
