@@ -1010,9 +1010,8 @@ function getCandleThemeOptions(isDark){
   const isColor = (klineColorMode === "color");
 
   if(isColor){
-    // 沉稳哑光、低饱和度专业护眼红绿配色（降亮度、防刺眼、舒适耐看）
-    const upColor = isDark ? "#2E7D5B" : "#26734D";    // 沉稳雅致森林绿（不刺眼）
-    const downColor = isDark ? "#9E3E3E" : "#943434";  // 柔和哑光复古砖红（无荧光感）
+    const upColor = "#089981";    // 经典清爽绿
+    const downColor = "#F23645";  // 经典珊瑚红
     return {
       bg, text,
       candle: {
@@ -1031,43 +1030,43 @@ function getCandleThemeOptions(isDark){
         thinBars: false
       },
       line: {
-        color: isDark ? "#4A7BB0" : "#3B6998", // 柔和牛仔蓝收盘折线
+        color: "#2962FF",
         lineWidth: 2
       },
-      emaColor: isDark ? "#78756E" : "#716B61" // 低调温润中灰均线（弱化视觉干扰）
+      emaColor: isDark ? "#8CAECF" : "#2B5C8F"
     };
   } else {
-    // 经典黑白极简护眼配色 (柔和米白/碳黑，避免 100% 纯白刺目)
+    // 经典 Al Brooks 黑白高对比度盘面 (白阳 / 实心深灰阴，实体边界清晰锐利)
     if(isDark){
       return {
         bg, text,
         candle: {
-          upColor: "#CCCCCC",        // 柔和柔白实心（舒适不刺眼）
-          downColor: "#121212",      // 阴线暗黑空心
+          upColor: "#E0E3EB",        // 白身阳线 (饱满清晰)
+          downColor: "#2A2E39",      // 炭黑实心阴线 (对比鲜明)
           borderVisible: true,
-          borderUpColor: "#CCCCCC",  // 边框柔白
-          borderDownColor: "#737373",// 边框暖灰
-          wickUpColor: "#CCCCCC",    // 影线柔白
-          wickDownColor: "#737373"   // 影线暖灰
+          borderUpColor: "#E0E3EB",
+          borderDownColor: "#8E94A0",
+          wickUpColor: "#E0E3EB",
+          wickDownColor: "#8E94A0"
         },
         bar: {
-          upColor: "#CCCCCC",        // 上涨柔白
-          downColor: "#737373",      // 下跌暖灰
+          upColor: "#E0E3EB",
+          downColor: "#8E94A0",
           openVisible: true,
           thinBars: false
         },
         line: {
-          color: "#CCCCCC",          // 折线柔白
+          color: "#E0E3EB",
           lineWidth: 2
         },
-        emaColor: "#666666"          // 低调极简均线
+        emaColor: "#787B86"
       };
     } else {
       return {
         bg, text,
         candle: {
-          upColor: "#FBF9F5",        // 羊皮纸柔白身
-          downColor: "#1C1917",      // 经典深石墨黑身
+          upColor: "#FFFFFF",
+          downColor: "#1C1917",
           borderVisible: true,
           borderUpColor: "#1C1917",
           borderDownColor: "#1C1917",
@@ -1075,16 +1074,16 @@ function getCandleThemeOptions(isDark){
           wickDownColor: "#1C1917"
         },
         bar: {
-          upColor: "#1C1917",        // 美国线上涨深黑
-          downColor: "#57534E",      // 美国线下跌深灰
+          upColor: "#1C1917",
+          downColor: "#787B86",
           openVisible: true,
           thinBars: false
         },
         line: {
-          color: "#1C1917",          // 折线深黑
+          color: "#1C1917",
           lineWidth: 2
         },
-        emaColor: "#6B665E"          // 柔和中灰均线
+        emaColor: "#787B86"
       };
     }
   }
