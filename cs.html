@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>K线复盘训练 · 标普500期货 (ES 5m · 单日78根专项训练)</title>
+<title>K线复盘训练 · 标普500期货 (ES 5m · 500根历史背景 + 今日78根实战)</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
 <script src="./es_data.js"></script>
@@ -433,7 +433,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <!-- 训练数据抽屉面板 -->
 <aside class="sheet" id="shStats">
   <div class="sh">
-    <b>训练统计数据 (标普500 ES · 单日78根)</b>
+    <b>训练统计数据 (标普500 ES · 今日78根)</b>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="x" data-close>✕</button>
     </div>
@@ -621,8 +621,10 @@ const SYMBOL_POOL = ["ES_F"];
 
 const INITIAL_BALANCE_R = 100.0;
 const BARS_PER_DAY = 78; // 美东 RTH 常规盘 09:30~16:00 每天精准 78 根
-const INITIAL_VISIBLE_BARS = 1; // 每次刷新从当天第 1 根 (09:30 开盘) 开始
-const TOTAL_BARS = 78; // 单日完整交易日包含 78 根 5m K 线，满 78 根训练结束需刷新网页
+const HISTORICAL_CONTEXT_BARS = 500; // 初始展示前 500 根历史大背景 (约 6.5 个历史交易日)
+const TODAY_BARS = 78; // 今日实战交易日共 78 根 (09:30 ~ 16:00)
+const TOTAL_BARS = HISTORICAL_CONTEXT_BARS + TODAY_BARS; // 578 根
+const INITIAL_VISIBLE_BARS = HISTORICAL_CONTEXT_BARS; // 初始默认展示前 500 根历史背景
 
 /* ================= 状态数据 ================= */
 const S = window.S = {
@@ -1242,7 +1244,7 @@ function updateChartCandles(rawBars){
     emaSeries.setData([]);
   }
 }
-/* ================= 标普500期货 (ES 5m) 真实历史行情抽取 (单日 78 根专项训练，从第 1 根开始) ================= */
+/* ================= 标普500期货 (ES 5m) 真实历史行情抽取 (前 500 根历史大背景 + 今日 78 根实战) ================= */
 let _CACHED_ES_BARS = null;
 
 async function loadRandomMarket(){
@@ -1257,10 +1259,10 @@ async function loadRandomMarket(){
   if(sh) sh.classList.remove("on");
   if(mk) mk.classList.remove("on");
 
-  // 1. 优先使用本地预载的海量纯 RTH 标普期货数据 (每天精准 78 根)
-  let allBars = _CACHED_ES_BARS || (typeof _ES_HISTORICAL_BARS !== "undefined" && _ES_HISTORICAL_BARS.length >= BARS_PER_DAY ? _ES_HISTORICAL_BARS : (window._ES_HISTORICAL_BARS || null));
+  // 1. 优先使用本地预载的海量纯 RTH 标普期货数据 (每天 78 根)
+  let allBars = _CACHED_ES_BARS || (typeof _ES_HISTORICAL_BARS !== "undefined" && _ES_HISTORICAL_BARS.length >= TOTAL_BARS ? _ES_HISTORICAL_BARS : (window._ES_HISTORICAL_BARS || null));
 
-  if(!allBars || allBars.length < BARS_PER_DAY){
+  if(!allBars || allBars.length < TOTAL_BARS){
     toast(`🎲 正在加载标普500期货 (ES 5m) 切片 #${S.blindId}…`);
     const HOSTS = [
       window.location.origin,
@@ -1291,7 +1293,7 @@ async function loadRandomMarket(){
           if(Array.isArray(raw)){
             parsed = raw;
           }
-          if(parsed.length >= BARS_PER_DAY){
+          if(parsed.length >= TOTAL_BARS){
             allBars = parsed;
             _CACHED_ES_BARS = parsed;
             break;
@@ -1303,14 +1305,16 @@ async function loadRandomMarket(){
     }
   }
 
-  if(allBars && allBars.length >= BARS_PER_DAY){
+  if(allBars && allBars.length >= TOTAL_BARS){
     _CACHED_ES_BARS = allBars;
     
-    // 随机抽取一个完整的单日交易日 (09:30 ~ 16:00 共 78 根 K 线)
+    // 随机选择一个交易日作为「今天」，并向前截取 500 根作为历史大背景 (共 578 根)
     const totalDays = Math.floor(allBars.length / BARS_PER_DAY);
-    const startDay = Math.floor(Math.random() * totalDays);
+    const minDaysNeeded = Math.ceil(TOTAL_BARS / BARS_PER_DAY); // ~8天
+    const maxStartDay = Math.max(0, totalDays - minDaysNeeded);
+    const startDay = Math.floor(Math.random() * (maxStartDay + 1));
     const startIdx = startDay * BARS_PER_DAY;
-    const selectedRaw = allBars.slice(startIdx, startIdx + BARS_PER_DAY);
+    const selectedRaw = allBars.slice(startIdx, startIdx + TOTAL_BARS);
 
     S.fullK = selectedRaw.map(b => ({
       t: b[0],
@@ -1320,25 +1324,28 @@ async function loadRandomMarket(){
       c: Number(b[4])
     }));
 
-    // 每次刷新从当天第 1 根 (Bar 1 at 09:30) 开始
-    S.visibleCount = 1;
+    // 初始展示前 500 根历史大背景
+    S.visibleCount = HISTORICAL_CONTEXT_BARS;
     S.curK = S.fullK.slice(0, S.visibleCount);
     S.orders = [];
     S.positions = [];
 
-    const startTime = new Date(S.fullK[0].t);
-    const endTime = new Date(S.fullK[S.fullK.length - 1].t);
-    S.realTimeStr = `${startTime.getFullYear()}/${startTime.getMonth()+1}/${startTime.getDate()}`;
+    const todayStartTime = new Date(S.fullK[HISTORICAL_CONTEXT_BARS].t);
+    S.realTimeStr = `${todayStartTime.getFullYear()}/${todayStartTime.getMonth()+1}/${todayStartTime.getDate()}`;
 
     updateBlindBoxUI();
     updateChartCandles(S.curK);
 
-    if(tvChart && tvChart.timeScale){
-      tvChart.timeScale().fitContent();
+    if(tvChart && tvChart.timeScale && S.curK.length > 0){
+      const total = S.curK.length;
+      tvChart.timeScale().setVisibleLogicalRange({
+        from: Math.max(0, total - 120),
+        to: total + 12
+      });
     }
 
     syncTradeLines();
-    toast(`已就绪：标普500期货 ES 5m 日内训练 #${S.blindId} (第 1/78 根 · 09:30 开盘)`);
+    toast(`已就绪：标普500期货 ES 5m (前 500 根大背景已呈现 · 点下一根开启今日第 1 根)`);
     cloudSyncPushProgress();
     return;
   }
@@ -1354,10 +1361,10 @@ function curPrice(){
   return S.curK[S.curK.length - 1].c;
 }
 
-// 推进 1 根 K 线 (单日 78 根，满 78 根自动收盘结束)
+// 推进 1 根 K 线 (前 500 根为历史背景，点推进开启今日 78 根实战)
 function stepNextBar(silent = false){
   if(S.visibleCount >= S.fullK.length){
-    if(!silent) toast("🎉 本轮 78 根日内训练已圆满结束！请刷新网页开启新的交易日练习 (快捷键 F5 / ⌘R)");
+    if(!silent) toast("🎉 今日 78 根日内训练已圆满结束！请刷新网页开启新的交易日练习 (快捷键 F5 / ⌘R)");
     return false;
   }
   
@@ -1367,7 +1374,9 @@ function stepNextBar(silent = false){
   
   matchBar(nextBar);
 
-  // 如果推演到达第 78 根 (16:00 收盘最后一根)
+  const todayBarIdx = S.visibleCount - HISTORICAL_CONTEXT_BARS; // 今日第 1 ~ 78 根
+
+  // 如果推演到达今日最后一根 (第 78 根 · 16:00 收盘)
   if(S.visibleCount === S.fullK.length){
     // 收盘自动平仓未结头寸 (Market On Close)
     if(S.positions && S.positions.length > 0){
@@ -1377,7 +1386,9 @@ function stepNextBar(silent = false){
       }
       S.positions = [];
     }
-    toast("🔔 16:00 收盘 (第 78 根) · 本轮训练已结束！请刷新网页开启新交易日。");
+    toast("🔔 今日 16:00 收盘 (第 78 根) · 今日训练已结束！请刷新网页开启新交易日。");
+  } else if(todayBarIdx === 1 && !silent){
+    toast("🌅 今日开盘第 1 根 (Bar 1 · 09:30) 已展开！");
   }
   
   const timeSec = Math.floor(nextBar.t / 1000);
@@ -1388,11 +1399,7 @@ function stepNextBar(silent = false){
     }
   updateChartCandles(S.curK);
   if(tvChart && tvChart.timeScale){
-    if(S.visibleCount <= 10){
-      tvChart.timeScale().fitContent();
-    } else {
-      tvChart.timeScale().scrollToRealtime();
-    }
+    tvChart.timeScale().scrollToRealtime();
   }
   syncTradeLines();
   requestAnimationFrame(repositionHandles);
