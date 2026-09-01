@@ -621,10 +621,11 @@ const SYMBOL_POOL = ["ES_F"];
 
 const INITIAL_BALANCE_R = 100.0;
 const BARS_PER_DAY = 78; // 美东 RTH 常规盘 09:30~16:00 每天精准 78 根
-const HISTORICAL_CONTEXT_BARS = 500; // 初始展示前 500 根历史大背景 (约 6.5 个历史交易日)
-const TODAY_BARS = 78; // 今日实战交易日共 78 根 (09:30 ~ 16:00)
-const TOTAL_BARS = HISTORICAL_CONTEXT_BARS + TODAY_BARS; // 578 根
-const INITIAL_VISIBLE_BARS = HISTORICAL_CONTEXT_BARS; // 初始默认展示前 500 根历史背景
+const HISTORICAL_DAYS = 6; // 前置 6 个完整交易日作为大背景 (468 根，严格截止到昨日 15:55 收盘)
+const HISTORICAL_CONTEXT_BARS = HISTORICAL_DAYS * BARS_PER_DAY; // 468 根
+const TODAY_BARS = 78; // 今日实战交易日共 78 根 (从 09:30 开盘第一根到 15:55 收盘)
+const TOTAL_BARS = HISTORICAL_CONTEXT_BARS + TODAY_BARS; // 546 根 (7 个完整交易日)
+const INITIAL_VISIBLE_BARS = HISTORICAL_CONTEXT_BARS; // 初始默认展示前 6 个完整交易日大背景
 
 /* ================= 状态数据 ================= */
 const S = window.S = {
@@ -1362,7 +1363,7 @@ async function loadRandomMarket(){
     }
 
     syncTradeLines();
-    toast(`已就绪：标普500期货 ES 5m (前 500 根大背景已呈现 · 点下一根开启今日第 1 根)`);
+    toast(`已就绪：标普500期货 ES 5m (前6天大背景已就绪 · 点下一根开启今日 09:30 开盘第 1 根)`);
     cloudSyncPushProgress();
     return;
   }
@@ -1405,7 +1406,9 @@ function stepNextBar(silent = false){
     }
     toast("🔔 今日 16:00 收盘 (第 78 根) · 今日训练已结束！请刷新网页开启新交易日。");
   } else if(todayBarIdx === 1 && !silent){
-    toast("🌅 今日开盘第 1 根 (Bar 1 · 09:30) 已展开！");
+    const prevClose = S.fullK[HISTORICAL_CONTEXT_BARS - 1].c;
+    const gapVal = Number((nextBar.o - prevClose).toFixed(2));
+    toast(`🌅 今日开盘第 1 根 (Bar 1 · 09:30) 已展开！跳空缺口: ${gapVal >= 0 ? '+' : ''}${gapVal} pts`);
   }
   
   const timeSec = Math.floor(nextBar.t / 1000);
