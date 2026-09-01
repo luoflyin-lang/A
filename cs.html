@@ -1071,10 +1071,9 @@ function initTradingViewChart(){
     },
     timeScale: {
       visible: false,
-      rightOffset: 5,
+      rightOffset: 8,
       barSpacing: 12,
-      minBarSpacing: 1,
-      fixLeftEdge: true
+      minBarSpacing: 1
     },
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
     handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
@@ -1334,11 +1333,8 @@ async function loadRandomMarket(){
     updateBlindBoxUI();
     updateChartCandles(S.curK);
 
-    if(tvChart && tvChart.timeScale && S.curK.length > 0){
-      tvChart.timeScale().setVisibleLogicalRange({
-        from: -5,
-        to: 85
-      });
+    if(tvChart && tvChart.timeScale){
+      tvChart.timeScale().scrollToPosition(0, false);
     }
 
     syncTradeLines();
