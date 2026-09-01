@@ -1334,7 +1334,7 @@ async function loadRandomMarket(){
     updateChartCandles(S.curK);
 
     if(tvChart && tvChart.timeScale){
-      tvChart.timeScale().scrollToPosition(0, false);
+      tvChart.timeScale().fitContent();
     }
 
     syncTradeLines();
@@ -1387,6 +1387,13 @@ function stepNextBar(silent = false){
       mainSeries.update({ time: timeSec, open: nextBar.o, high: nextBar.h, low: nextBar.l, close: nextBar.c });
     }
   updateChartCandles(S.curK);
+  if(tvChart && tvChart.timeScale){
+    if(S.visibleCount <= 10){
+      tvChart.timeScale().fitContent();
+    } else {
+      tvChart.timeScale().scrollToRealtime();
+    }
+  }
   syncTradeLines();
   requestAnimationFrame(repositionHandles);
   cloudSyncPushProgress();
