@@ -10,13 +10,7 @@
 <title>K线复盘训练 · 标普500期货 (ES 5m · 单日78根专项训练)</title>
 <!-- 引入 TradingView 官方开源 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
-<script>
-(function(){
-  var s = document.createElement("script");
-  s.src = "./es_data.js?_v=" + Date.now();
-  document.head.appendChild(s);
-})();
-</script>
+<script src="./es_data.js"></script>
 <script>
 if (typeof LightweightCharts === "undefined") {
   document.write('<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/script>');
@@ -1340,8 +1334,8 @@ async function loadRandomMarket(){
     updateBlindBoxUI();
     updateChartCandles(S.curK);
 
-    if(chart && chart.timeScale && S.curK.length > 0){
-      chart.timeScale().setVisibleLogicalRange({
+    if(tvChart && tvChart.timeScale && S.curK.length > 0){
+      tvChart.timeScale().setVisibleLogicalRange({
         from: -5,
         to: 85
       });
