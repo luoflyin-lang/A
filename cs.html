@@ -27,12 +27,12 @@ if (typeof LightweightCharts === "undefined") {
   --tint:rgba(28,25,23,.06);--cgrid:transparent;--caim:rgba(28,25,23,.85);--chair:rgba(28,25,23,.25);
   color-scheme:light;--mono:"Menlo","Consolas",monospace}
 html[data-theme="dark"]{
-  --bg:#121212;--surface:#1A1A1A;--raised:#262626;--text:#E0E0E0;
-  --dim:rgba(224,224,224,.68);--faint:rgba(224,224,224,.45);--line:rgba(255,255,255,.10);
-  --up:#089981;--down:#F23645;--blue:#8CAECF;--amber:#D8B368;
-  --ink:#E0E0E0;--onink:#121212;--cline:rgba(255,255,255,.45);--cbody:#CCCCCC;
-  --pop:rgba(26,26,26,.98);--fabbg:rgba(26,26,26,.94);
-  --tint:rgba(255,255,255,.08);--cgrid:transparent;--caim:rgba(255,255,255,.80);
+  --bg:#131722;--surface:#1E222D;--raised:#2A2E39;--text:#D1D4DC;
+  --dim:#787B86;--faint:#50535E;--line:#2A2E39;
+  --up:#089981;--down:#F23645;--blue:#2962FF;--amber:#FF9800;
+  --ink:#D1D4DC;--onink:#131722;--cline:#787B86;--cbody:#D1D4DC;
+  --pop:rgba(30,34,45,.98);--fabbg:rgba(30,34,45,.92);
+  --tint:rgba(255,255,255,.06);--cgrid:rgba(240,243,250,0.05);--caim:#D1D4DC;
   --chair:rgba(255,255,255,.25);color-scheme:dark}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--bg);color:var(--text);height:100vh;overflow:hidden;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;
@@ -41,6 +41,20 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
 input{font:inherit;color:inherit;background:none;border:none;outline:none}
 .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .up{color:var(--up);font-weight:600}.down{color:var(--down);font-weight:600}
+
+
+/* ---- TradingView 原生顶部 OHLC 状态栏 ---- */
+#tv_legend{
+  position:fixed;top:14px;left:18px;z-index:10;display:flex;align-items:center;flex-wrap:wrap;gap:8px;
+  font-family:-apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,sans-serif;
+  font-size:12.5px;color:#787B86;pointer-events:none;user-select:none;
+}
+.tv-sym-badge{font-weight:700;color:var(--text);font-size:13.5px;display:flex;align-items:center;gap:6px}
+.tv-pill{padding:1px 5px;border-radius:4px;background:var(--raised);font-size:11px;color:var(--dim);font-weight:600}
+.tv-ohlc-block{display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;font-size:12px}
+.tv-ohlc-block .val{color:var(--text);font-weight:550}
+.tv-chg{font-weight:600;margin-left:2px}
+.tv-ema-tag{color:#2962FF;font-weight:600;display:flex;align-items:center;gap:4px;margin-left:4px;font-size:11.5px}
 
 /* ---- 全屏 TradingView 图表容器 ---- */
 #tv_chart{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior:none;user-select:none}
@@ -407,6 +421,22 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <body>
 <!-- TradingView 图表挂载节点 -->
 <div id="tv_chart"></div>
+<!-- TradingView 原生风格顶部状态信息栏 -->
+<div id="tv_legend">
+  <div class="tv-sym-badge">
+    <span>ES1!</span>
+    <span class="tv-pill">5m</span>
+    <span class="tv-pill">CME</span>
+  </div>
+  <div class="tv-ohlc-block" id="tv_ohlc">
+    <span>开</span><span class="val" id="ohlc_o">-</span>
+    <span>高</span><span class="val" id="ohlc_h">-</span>
+    <span>低</span><span class="val" id="ohlc_l">-</span>
+    <span>收</span><span class="val" id="ohlc_c">-</span>
+    <span class="tv-chg" id="ohlc_chg">-</span>
+  </div>
+  <div class="tv-ema-tag">EMA 20 <span id="ohlc_ema">-</span></div>
+</div>
 
 <!-- 右侧 20% 推进触控区域 -->
 <div id="step_tap_zone"></div>
@@ -947,16 +977,17 @@ try{ klineColorMode = localStorage.getItem("kline_color_mode") || "mono"; }catch
 let tradeLines = { entry: null, sl: null, tp: null, posLines: [], ordLines: [] };
 
 function getCandleThemeOptions(isDark){
-  const bg = isDark ? "#121212" : "#F5F2EB";
-  const text = isDark ? "#D6D3D1" : "#1C1917";
+  const bg = isDark ? "#131722" : "#FFFFFF";
+  const text = isDark ? "#D1D4DC" : "#131722";
+  const gridColor = isDark ? "rgba(240, 243, 250, 0.05)" : "rgba(42, 46, 57, 0.05)";
   const isColor = (klineColorMode === "color");
 
   if(isColor){
-    // 沉稳哑光、低饱和度专业护眼红绿配色（降亮度、防刺眼、舒适耐看）
-    const upColor = isDark ? "#2E7D5B" : "#26734D";    // 沉稳雅致森林绿（不刺眼）
-    const downColor = isDark ? "#9E3E3E" : "#943434";  // 柔和哑光复古砖红（无荧光感）
+    // TradingView 官方标准红绿配色
+    const upColor = "#089981";    // TradingView 经典青翠绿
+    const downColor = "#F23645";  // TradingView 经典珊瑚红
     return {
-      bg, text,
+      bg, text, gridColor,
       candle: {
         upColor: upColor,
         downColor: downColor,
@@ -973,60 +1004,60 @@ function getCandleThemeOptions(isDark){
         thinBars: false
       },
       line: {
-        color: isDark ? "#4A7BB0" : "#3B6998", // 柔和牛仔蓝收盘折线
+        color: "#2962FF",
         lineWidth: 2
       },
-      emaColor: isDark ? "#78756E" : "#716B61" // 低调温润中灰均线（弱化视觉干扰）
+      emaColor: "#2962FF" // TradingView 皇家蓝均线
     };
   } else {
-    // 经典黑白极简护眼配色 (柔和米白/碳黑，避免 100% 纯白刺目)
+    // 纯正黑白极简高级配色 (实心白身 / 空心暗身)
     if(isDark){
       return {
-        bg, text,
+        bg, text, gridColor,
         candle: {
-          upColor: "#CCCCCC",        // 柔和柔白实心（舒适不刺眼）
-          downColor: "#121212",      // 阴线暗黑空心
+          upColor: "#D1D4DC",
+          downColor: "#131722",
           borderVisible: true,
-          borderUpColor: "#CCCCCC",  // 边框柔白
-          borderDownColor: "#737373",// 边框暖灰
-          wickUpColor: "#CCCCCC",    // 影线柔白
-          wickDownColor: "#737373"   // 影线暖灰
+          borderUpColor: "#D1D4DC",
+          borderDownColor: "#787B86",
+          wickUpColor: "#D1D4DC",
+          wickDownColor: "#787B86"
         },
         bar: {
-          upColor: "#CCCCCC",        // 上涨柔白
-          downColor: "#737373",      // 下跌暖灰
+          upColor: "#D1D4DC",
+          downColor: "#787B86",
           openVisible: true,
           thinBars: false
         },
         line: {
-          color: "#CCCCCC",          // 折线柔白
+          color: "#D1D4DC",
           lineWidth: 2
         },
-        emaColor: "#666666"          // 低调极简均线
+        emaColor: "#787B86"
       };
     } else {
       return {
-        bg, text,
+        bg, text, gridColor,
         candle: {
-          upColor: "#FBF9F5",        // 羊皮纸柔白身
-          downColor: "#1C1917",      // 经典深石墨黑身
+          upColor: "#FFFFFF",
+          downColor: "#131722",
           borderVisible: true,
-          borderUpColor: "#1C1917",
-          borderDownColor: "#1C1917",
-          wickUpColor: "#1C1917",
-          wickDownColor: "#1C1917"
+          borderUpColor: "#131722",
+          borderDownColor: "#131722",
+          wickUpColor: "#131722",
+          wickDownColor: "#131722"
         },
         bar: {
-          upColor: "#1C1917",        // 美国线上涨深黑
-          downColor: "#57534E",      // 美国线下跌深灰
+          upColor: "#131722",
+          downColor: "#787B86",
           openVisible: true,
           thinBars: false
         },
         line: {
-          color: "#1C1917",          // 折线深黑
+          color: "#131722",
           lineWidth: 2
         },
-        emaColor: "#6B665E"          // 柔和中灰均线
+        emaColor: "#787B86"
       };
     }
   }
@@ -1055,31 +1086,51 @@ function initTradingViewChart(){
     height: window.innerHeight,
     layout: {
       background: { type: 'solid', color: theme.bg },
-      textColor: theme.text,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      fontSize: 12
+      textColor: "#787B86",
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif',
+      fontSize: 11
     },
     grid: {
-      vertLines: { visible: false },
-      horzLines: { visible: false }
+      vertLines: { color: theme.gridColor, style: LightweightCharts.LineStyle.Solid },
+      horzLines: { color: theme.gridColor, style: LightweightCharts.LineStyle.Solid }
     },
     crosshair: {
-      mode: LightweightCharts.CrosshairMode.Hidden,
-      vertLine: { visible: false, labelVisible: false },
-      horzLine: { visible: false, labelVisible: false }
+      mode: LightweightCharts.CrosshairMode.Normal,
+      vertLine: {
+        color: "rgba(240, 243, 250, 0.28)",
+        width: 1,
+        style: LightweightCharts.LineStyle.Dotted,
+        labelBackgroundColor: "#2B5C8F"
+      },
+      horzLine: {
+        color: "rgba(240, 243, 250, 0.28)",
+        width: 1,
+        style: LightweightCharts.LineStyle.Dotted,
+        labelBackgroundColor: "#2B5C8F"
+      }
     },
     rightPriceScale: {
-      visible: false,
-      scaleMargins: { top: 0.08, bottom: 0.08 }
+      visible: true,
+      borderColor: isDark ? "#2A2E39" : "#E0E3EB",
+      scaleMargins: { top: 0.12, bottom: 0.12 },
+      alignLabels: true
     },
     timeScale: {
-      visible: false,
-      rightOffset: 8,
-      barSpacing: 12,
-      minBarSpacing: 1
+      visible: true,
+      borderColor: isDark ? "#2A2E39" : "#E0E3EB",
+      timeVisible: true,
+      secondsVisible: false,
+      rightOffset: 12,
+      barSpacing: 9,
+      minBarSpacing: 2
     },
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
     handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
+  });
+
+  // 十字光标移动时动态刷新顶部 OHLC 信息
+  tvChart.subscribeCrosshairMove(param => {
+    updateLegendOHLC(param);
   });
 
   createMainSeries(currentChartType);
@@ -1173,6 +1224,43 @@ function setKlineColorMode(mode){
 function updateColorModeButtons(){
   $("#btnColorMono")?.classList.toggle("active", klineColorMode === "mono");
   $("#btnColorGreenRed")?.classList.toggle("active", klineColorMode === "color");
+}
+
+
+function updateLegendOHLC(param){
+  const ohlcEl = $("#tv_ohlc");
+  if(!ohlcEl) return;
+
+  let bar = null;
+  if(param && param.seriesData && mainSeries && param.seriesData.get(mainSeries)){
+    bar = param.seriesData.get(mainSeries);
+  } else if(S.curK && S.curK.length > 0){
+    const latest = S.curK[S.curK.length - 1];
+    bar = { open: latest.o, high: latest.h, low: latest.l, close: latest.c };
+  }
+
+  if(bar && bar.open != null){
+    const o = Number(bar.open).toFixed(2);
+    const h = Number(bar.high).toFixed(2);
+    const l = Number(bar.low).toFixed(2);
+    const c = Number(bar.close).toFixed(2);
+    const chg = Number(bar.close - bar.open);
+    const chgPct = (chg / bar.open * 100).toFixed(2);
+    const isUp = chg >= 0;
+
+    $("#ohlc_o").textContent = o;
+    $("#ohlc_h").textContent = h;
+    $("#ohlc_l").textContent = l;
+    $("#ohlc_c").textContent = c;
+    
+    const chgEl = $("#ohlc_chg");
+    chgEl.textContent = `${isUp ? '+' : ''}${chg.toFixed(2)} (${isUp ? '+' : ''}${chgPct}%)`;
+    chgEl.style.color = isUp ? "var(--up)" : "var(--down)";
+
+    if(_lastEmaValue != null){
+      $("#ohlc_ema").textContent = _lastEmaValue.toFixed(2);
+    }
+  }
 }
 
 function updateViewModeButtons(){
