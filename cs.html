@@ -462,40 +462,98 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
     </div>
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="title">当前总余额</div>
+        <div class="title">当前总余额 (R)</div>
         <div class="val" id="stBal">100.00 R</div>
         <div class="sub" id="stNet">净收益: +0.00 R (0.0%)</div>
       </div>
       <div class="stat-card">
-        <div class="title">综合胜率</div>
+        <div class="title">综合胜率 & 期望值</div>
         <div class="val" id="stWinRate">0.0%</div>
-        <div class="sub" id="stWinLoss">0 胜 / 0 负 (共 0 笔)</div>
+        <div class="sub" id="stWinLoss">EV: +0.00 R/笔 (共 0 笔)</div>
       </div>
       <div class="stat-card">
-        <div class="title">最大回撤 (Max DD)</div>
+        <div class="title">获利因子 (Profit Factor)</div>
+        <div class="val" id="stProfitFactor" style="color:var(--up)">0.00</div>
+        <div class="sub" id="stPFSub">总盈利 / 总亏损 (R)</div>
+      </div>
+      <div class="stat-card">
+        <div class="title">真实最大回撤 (含浮亏)</div>
         <div class="val" id="stMaxDD" style="color:var(--down)">0.00 R</div>
         <div class="sub" id="stMaxDDPct">峰值最大回撤率: 0.0%</div>
       </div>
-      <div class="stat-card">
-        <div class="title">连胜 / 连亏纪录</div>
-        <div class="val" id="stStreak">0 / 0</div>
-        <div class="sub" id="stCurStreak">当前状态: 暂无</div>
+    </div>
+
+    <!-- 多空方向与期望值拆分 -->
+    <div class="diag-block" style="margin-top:0">
+      <div class="diag-hdr">
+        <b>🎯 多空方向绩效拆分</b>
+        <span id="stStreakTag">连胜: 0 / 连损: 0</span>
+      </div>
+      <div class="diag-grid">
+        <div class="diag-card">
+          <div class="t">🟢 多头 (Long)</div>
+          <div class="v" id="stLongStats">0 笔 · 0.0%</div>
+          <div class="sub" id="stLongSub">PF: 0.00 · 净 +0.0R</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">🔴 空头 (Short)</div>
+          <div class="v" id="stShortStats">0 笔 · 0.0%</div>
+          <div class="sub" id="stShortSub">PF: 0.00 · 净 +0.0R</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">⚖️ 实际平均盈亏比</div>
+          <div class="v" id="stAvgRR">0.00</div>
+          <div class="sub" id="stAvgRRSub">均赢 / 均亏 (R)</div>
+        </div>
       </div>
     </div>
 
-    <!-- 仓位风险对比矩阵 (1% 仓位 vs 4% 仓位) -->
-    <div class="stat-row">
-      <div class="item">
-        <div class="t">1% 仓位 (1.0R)</div>
-        <div class="v" id="st1PctStats">0 笔 · +0.0R</div>
+    <!-- 日内 4 大时段绩效拆分 -->
+    <div class="diag-block">
+      <div class="diag-hdr">
+        <b>⏱️ 日内时段绩效拆分 (EST 09:30 - 16:00)</b>
+        <span>时段胜率与净收益</span>
       </div>
-      <div class="item">
-        <div class="t">4% 仓位 (4.0R)</div>
-        <div class="v" id="st4PctStats">0 笔 · +0.0R</div>
+      <div class="diag-grid" style="grid-template-columns: repeat(2, 1fr); gap: 8px;">
+        <div class="diag-card">
+          <div class="t">🌅 开盘前30分 (09:30-10:00)</div>
+          <div class="v" id="stPhaseOpen">0 笔 · 0%</div>
+          <div class="sub" id="stPhaseOpenSub">净收益: +0.00 R</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">🚀 早盘主趋势 (10:00-11:30)</div>
+          <div class="v" id="stPhaseMorning">0 笔 · 0%</div>
+          <div class="sub" id="stPhaseMorningSub">净收益: +0.00 R</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">🥪 午间震荡 (11:30-14:00)</div>
+          <div class="v" id="stPhaseLunch">0 笔 · 0%</div>
+          <div class="sub" id="stPhaseLunchSub">净收益: +0.00 R</div>
+        </div>
+        <div class="diag-card">
+          <div class="t">🔔 尾盘突破 (14:00-16:00)</div>
+          <div class="v" id="stPhaseLate">0 笔 · 0%</div>
+          <div class="sub" id="stPhaseLateSub">净收益: +0.00 R</div>
+        </div>
       </div>
-      <div class="item">
-        <div class="t">平均盈亏比</div>
-        <div class="v" id="stAvgRR">0.00</div>
+    </div>
+
+    <!-- 几何复利 vs 破产风险 (Risk of Ruin) 对比 -->
+    <div class="bench-card" style="margin-bottom:12px">
+      <div class="bench-title">
+        <span>⚡ 几何复利与破产风险 (Risk of Ruin)</span>
+        <span id="stRorBadge" style="font-weight:600;font-size:11px">基准本金 $10,000</span>
+      </div>
+      <div class="bench-row">
+        <span class="t">1% 仓位几何复利净值</span>
+        <span class="v" id="stCompound1Pct">$10,000 (最大回撤 0.0%)</span>
+      </div>
+      <div class="bench-row">
+        <span class="t">4% 仓位几何复利净值</span>
+        <span class="v" id="stCompound4Pct">$10,000 (最大回撤 0.0%)</span>
+      </div>
+      <div class="bench-diff">
+        <span id="stRorSummary">破产风险 (RoR): 1%仓位 0.0% vs 4%仓位 0.0%</span>
       </div>
     </div>
 
@@ -1373,13 +1431,20 @@ async function loadRandomMarket(){
   setTimeout(loadRandomMarket, 1000);
 }
 
-/* ================= 模拟撮合与推进（支持多挂单 & 多持仓并发） ================= */
+/* ================= 模拟撮合与推进（彻底消除前视偏差 · 微路径裁决 · 单实体生命周期） ================= */
 function curPrice(){
   if(!S.curK.length) return 0;
   return S.curK[S.curK.length - 1].c;
 }
 
-// 推进 1 根 K 线 (前 500 根为历史背景，点推进开启今日 78 根实战)
+function getSessionPhase(barIdx){
+  if(barIdx <= 6) return { key: "open30m", name: "🌅 开盘前30分" };
+  if(barIdx <= 24) return { key: "morningTrend", name: "🚀 早盘主趋势" };
+  if(barIdx <= 54) return { key: "lunchRange", name: "🥪 午间震荡" };
+  return { key: "lateClose", name: "🔔 尾盘突破/收盘" };
+}
+
+// 推进 1 根 K 线
 function stepNextBar(silent = false){
   if(S.visibleCount >= S.fullK.length){
     if(!silent) toast("🎉 今日 78 根日内训练已圆满结束！请刷新网页开启新的交易日练习 (快捷键 F5 / ⌘R)");
@@ -1392,11 +1457,10 @@ function stepNextBar(silent = false){
   
   matchBar(nextBar);
 
-  const todayBarIdx = S.visibleCount - HISTORICAL_CONTEXT_BARS; // 今日第 1 ~ 78 根
+  const todayBarIdx = S.visibleCount - HISTORICAL_CONTEXT_BARS;
 
-  // 如果推演到达今日最后一根 (第 78 根 · 16:00 收盘)
+  // 16:00 收盘自动结算 MOC
   if(S.visibleCount === S.fullK.length){
-    // 收盘自动平仓未结头寸 (Market On Close)
     if(S.positions && S.positions.length > 0){
       const openPosList = [...S.positions];
       for(const p of openPosList){
@@ -1419,296 +1483,289 @@ function stepNextBar(silent = false){
   }
   updateEmaIncremental(nextBar);
   
-  // 保持用户手动缩放与拖拽视口不变，绝不强制重置右对齐
   syncTradeLines();
   requestAnimationFrame(repositionHandles);
   cloudSyncPushProgress();
   return true;
 }
 
-// 撮合一根 K 线
+// 撮合一根 K 线 (严格物理微路径 + 消除前视偏差)
 function matchBar(bar){
   const prevBar = S.curK.length >= 2 ? S.curK[S.curK.length - 2] : null;
   const prevClose = prevBar ? prevBar.c : bar.o;
 
-  // 1. 检查所有待入场的挂单
+  // 1. 处理待成交挂单 (消除前视偏差)
   const remainingOrders = [];
   const justFilledPositions = [];
 
   for(const o of S.orders){
     const isLong = o.side === "buy";
+    const rDist = o.initialRiskDist || calcRiskDist(o.entry, o.sl);
     
-    // 判断该 K 线是否触及入场价（区间覆盖或跨 Bar 跳空穿越）
-    let reachedEntry = (bar.l <= o.entry && bar.h >= o.entry);
-    if(!reachedEntry){
-      if(prevClose > o.entry && bar.l <= o.entry) reachedEntry = true;
-      if(prevClose < o.entry && bar.h >= o.entry) reachedEntry = true;
+    let isFilled = false;
+    let fillPx = o.entry;
+    let isStopOrder = false;
+
+    if(isLong){
+      isStopOrder = o.entry >= prevClose;
+      if(isStopOrder){
+        if(bar.h >= o.entry){
+          isFilled = true;
+          fillPx = (bar.o > o.entry) ? bar.o : o.entry;
+        }
+      } else {
+        if(bar.l <= o.entry){
+          isFilled = true;
+          fillPx = (bar.o < o.entry) ? bar.o : o.entry;
+        }
+      }
+    } else {
+      isStopOrder = o.entry <= prevClose;
+      if(isStopOrder){
+        if(bar.l <= o.entry){
+          isFilled = true;
+          fillPx = (bar.o < o.entry) ? bar.o : o.entry;
+        }
+      } else {
+        if(bar.h >= o.entry){
+          isFilled = true;
+          fillPx = (bar.o > o.entry) ? bar.o : o.entry;
+        }
+      }
     }
 
-    if(reachedEntry){
-      // 触及入场价，入场成交！严格固化 1R 的初始风险价格距离
-      const rDist = o.initialRiskDist || Math.max(Math.abs(o.entry - (o.initialSl || o.sl)), o.entry * 0.0005);
+    if(isFilled){
+      const todayBarIdx = Math.max(1, S.visibleCount - HISTORICAL_CONTEXT_BARS);
+      const sessionPhase = getSessionPhase(todayBarIdx);
+      
       const newPos = {
         id: genId("pos"),
         side: o.side,
-        entry: o.entry,
+        entry: fillPx,
         sl: o.sl,
         tp: o.tp,
         initialSl: o.initialSl || o.sl,
         initialTp: o.initialTp || o.tp,
         initialRiskDist: rDist,
-        riskPct: o.riskPct,
-        riskR: o.riskR,
-        rr: o.rr,
+        riskR: o.riskR || 1.0,
+        riskPct: o.riskPct || 1.0,
         openIndex: S.visibleCount - 1,
         openTime: bar.t,
+        sessionPhase: sessionPhase,
         holdingBars: 0,
         maxFavR: 0,
         maxAdvR: 0,
+        closedParts: [],
         partialClosed: false,
-        partialPnlR: 0,
-        barsSinceLastLoss: o.barsSinceLastLoss != null ? o.barsSinceLastLoss : 999,
-        justOpened: true
+        barsSinceLastLoss: o.barsSinceLastLoss != null ? o.barsSinceLastLoss : 999
       };
+
+      // 消除前视偏差：突破单成交前的高低点不计入持仓浮动
+      if(isLong){
+        if(isStopOrder){
+          newPos.maxFavR = Math.max(0, (bar.h - fillPx) / rDist);
+          newPos.maxAdvR = Math.min(0, (Math.min(fillPx, bar.c) - fillPx) / rDist);
+        } else {
+          newPos.maxFavR = Math.max(0, (bar.h - fillPx) / rDist);
+          newPos.maxAdvR = Math.min(0, (bar.l - fillPx) / rDist);
+        }
+      } else {
+        if(isStopOrder){
+          newPos.maxFavR = Math.max(0, (fillPx - bar.l) / rDist);
+          newPos.maxAdvR = Math.min(0, (fillPx - Math.max(fillPx, bar.c)) / rDist);
+        } else {
+          newPos.maxFavR = Math.max(0, (fillPx - bar.l) / rDist);
+          newPos.maxAdvR = Math.min(0, (fillPx - bar.h) / rDist);
+        }
+      }
+
       justFilledPositions.push(newPos);
-      toast(`🎯 挂单成交入场！${isLong ? "做多" : "做空"} (${newPos.riskR}R) @ ${px(newPos.entry)}`);
+      toast(`🎯 挂单成交入场！${isLong ? "做多" : "做空"} (1.0R) @ ${px(newPos.entry)}`);
     } else {
-      // 未触及入场价：绝不入场
       remainingOrders.push(o);
     }
   }
   S.orders = remainingOrders;
 
-  // 2. 检查所有已真实成交持仓（历史持仓 + 本根新入场持仓）
-  const allActivePositions = [...S.positions, ...justFilledPositions];
+  // 2. 撮合前期已有持仓 (微路径裁决 SL / TP / 2R分批)
   const remainingPositions = [];
+  const isBullBar = (bar.o <= bar.c);
 
-  // 更新所有持仓在当前 K 线内的浮盈浮亏极值和持仓根数
-  for(const p of allActivePositions){
+  for(const p of S.positions){
     p.holdingBars = (p.holdingBars || 0) + 1;
-    const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
     const isLong = p.side === "buy";
-    if(isLong){
-      const barMaxR = ((bar.h - p.entry) / rDist) * p.riskR;
-      const barMinR = ((bar.l - p.entry) / rDist) * p.riskR;
-      p.maxFavR = Math.max(p.maxFavR ?? 0, barMaxR);
-      p.maxAdvR = Math.min(p.maxAdvR ?? 0, barMinR);
-    }else{
-      const barMaxR = ((p.entry - bar.l) / rDist) * p.riskR;
-      const barMinR = ((p.entry - bar.h) / rDist) * p.riskR;
-      p.maxFavR = Math.max(p.maxFavR ?? 0, barMaxR);
-      p.maxAdvR = Math.min(p.maxAdvR ?? 0, barMinR);
-    }
-  }
-
-  // 3. 核心功能二：如果拉的止盈是 2R 以上，到了 2R 时自动减半平仓 (50%)
-  for(const p of allActivePositions){
-    const isLong = p.side === "buy";
-    const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
-    const curRr = p.tp != null ? (Math.abs(p.tp - p.entry) / rDist) : 0;
-    const isTpAbove2R = (curRr >= 2.001); // 止盈目标设在 2R 以上
+    const rDist = p.initialRiskDist || calcRiskDist(p.entry, p.sl);
     const tp2RPx = isLong ? (p.entry + 2.0 * rDist) : (p.entry - 2.0 * rDist);
+    const isTpAbove2R = p.tp != null && (Math.abs(p.tp - p.entry) / rDist >= 2.0);
 
-    if(isTpAbove2R && !p.partialClosed && p.riskR > 0){
-      const reached2R = isLong ? (bar.h >= tp2RPx) : (bar.l <= tp2RPx);
-      if(reached2R){
-        let slFirst = false;
-        const reachedSL = isLong ? (bar.l <= p.sl) : (bar.h >= p.sl);
-        if(reachedSL){
-          const distToSL = Math.abs(bar.o - p.sl);
-          const distTo2R = Math.abs(bar.o - tp2RPx);
-          if(distToSL < distTo2R) slFirst = true;
+    let isClosed = false;
+
+    if(isLong){
+      if(isBullBar){
+        // 阳线: 先下探 Low -> 再冲高 High
+        if(bar.l <= p.sl){
+          finalizeClosePosition(p, "止损平仓", p.sl, -1.0 * p.riskR);
+          isClosed = true;
+        } else {
+          if(isTpAbove2R && !p.partialClosed && bar.h >= tp2RPx){
+            p.partialClosed = true;
+            p.closedParts.push({ r: 2.0, ratio: 0.5, price: tp2RPx, reason: "2R自动平半" });
+            toast(`🎯 触及 2R！已自动锁定 50% 仓位利润 (+1.00R)，余仓 50% 继续冲刺目标！`);
+          }
+          if(p.tp != null && bar.h >= p.tp){
+            const finalR = (p.tp - p.entry) / rDist;
+            finalizeClosePosition(p, "止盈平仓", p.tp, finalR);
+            isClosed = true;
+          }
         }
-
-        if(!slFirst){
+      } else {
+        // 阴线: 先冲高 High -> 再下杀 Low
+        if(isTpAbove2R && !p.partialClosed && bar.h >= tp2RPx){
           p.partialClosed = true;
-          const closedRiskR = Number((p.riskR * 0.5).toFixed(2));
-          const partialPnlR = Number((closedRiskR * 2.0).toFixed(2)); // 锁定 +1.0R (基于 50% 仓位的 2R)
-
-          p.riskR = Number((p.riskR - closedRiskR).toFixed(2));
-          p.partialPnlR = (p.partialPnlR || 0) + partialPnlR;
-
-          S.balanceR = Number((S.balanceR + partialPnlR).toFixed(2));
-          recordPartialTrade(p, "2R自动平半", tp2RPx, partialPnlR, closedRiskR);
-          toast(`🎯 触及 2R！已自动分批平仓 50% (+${partialPnlR.toFixed(2)}R)，剩余 ${p.riskR}R 仓位继续冲刺最终止盈 (${px(p.tp)})`);
+          p.closedParts.push({ r: 2.0, ratio: 0.5, price: tp2RPx, reason: "2R自动平半" });
+          toast(`🎯 触及 2R！已自动锁定 50% 仓位利润 (+1.00R)，余仓 50% 继续冲刺目标！`);
         }
+        if(p.tp != null && bar.h >= p.tp){
+          const finalR = (p.tp - p.entry) / rDist;
+          finalizeClosePosition(p, "止盈平仓", p.tp, finalR);
+          isClosed = true;
+        } else if(bar.l <= p.sl){
+          finalizeClosePosition(p, "止损平仓", p.sl, -1.0 * p.riskR);
+          isClosed = true;
+        }
+      }
+
+      if(!isClosed){
+        p.maxFavR = Math.max(p.maxFavR ?? 0, (bar.h - p.entry) / rDist);
+        p.maxAdvR = Math.min(p.maxAdvR ?? 0, (bar.l - p.entry) / rDist);
+        remainingPositions.push(p);
+      }
+    } else {
+      // 空头持仓
+      if(isBullBar){
+        // 阳线: 先下探 Low -> 再冲高 High
+        if(isTpAbove2R && !p.partialClosed && bar.l <= tp2RPx){
+          p.partialClosed = true;
+          p.closedParts.push({ r: 2.0, ratio: 0.5, price: tp2RPx, reason: "2R自动平半" });
+          toast(`🎯 触及 2R！已自动锁定 50% 仓位利润 (+1.00R)，余仓 50% 继续冲刺目标！`);
+        }
+        if(p.tp != null && bar.l <= p.tp){
+          const finalR = (p.entry - p.tp) / rDist;
+          finalizeClosePosition(p, "止盈平仓", p.tp, finalR);
+          isClosed = true;
+        } else if(bar.h >= p.sl){
+          finalizeClosePosition(p, "止损平仓", p.sl, -1.0 * p.riskR);
+          isClosed = true;
+        }
+      } else {
+        // 阴线: 先冲高 High -> 再下杀 Low
+        if(bar.h >= p.sl){
+          finalizeClosePosition(p, "止损平仓", p.sl, -1.0 * p.riskR);
+          isClosed = true;
+        } else {
+          if(isTpAbove2R && !p.partialClosed && bar.l <= tp2RPx){
+            p.partialClosed = true;
+            p.closedParts.push({ r: 2.0, ratio: 0.5, price: tp2RPx, reason: "2R自动平半" });
+            toast(`🎯 触及 2R！已自动锁定 50% 仓位利润 (+1.00R)，余仓 50% 继续冲刺目标！`);
+          }
+          if(p.tp != null && bar.l <= p.tp){
+            const finalR = (p.entry - p.tp) / rDist;
+            finalizeClosePosition(p, "止盈平仓", p.tp, finalR);
+            isClosed = true;
+          }
+        }
+      }
+
+      if(!isClosed){
+        p.maxFavR = Math.max(p.maxFavR ?? 0, (p.entry - bar.l) / rDist);
+        p.maxAdvR = Math.min(p.maxAdvR ?? 0, (p.entry - bar.h) / rDist);
+        remainingPositions.push(p);
       }
     }
   }
 
-  // 4. 检查持仓是否触发最终止盈或止损
-  for(const p of allActivePositions){
-    const isLong = p.side === "buy";
-    const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
-    
-    let hitSL = false, hitTP = false;
-    if(isLong){
-      if(bar.l <= p.sl) hitSL = true;
-      if(p.tp != null && bar.h >= p.tp) hitTP = true;
-    }else{
-      if(bar.h >= p.sl) hitSL = true;
-      if(p.tp != null && bar.l <= p.tp) hitTP = true;
-    }
-
-    if(hitSL && hitTP){
-      const distToSL = Math.abs(bar.o - p.sl);
-      const distToTP = Math.abs(bar.o - p.tp);
-      if(distToSL < distToTP) hitTP = false;
-      else hitSL = false;
-    }
-
-    if(hitSL){
-      const slPnlR = (isLong ? (p.sl - p.entry) : (p.entry - p.sl)) / rDist * p.riskR;
-      const slReason = Math.abs(slPnlR) < 0.05 ? "保本平仓" : (slPnlR > 0 ? "移动止损平仓" : "止损平仓");
-      finalizeClosePosition(p, slReason, p.sl, slPnlR);
-    }else if(hitTP){
-      const tpPnlR = (isLong ? (p.tp - p.entry) : (p.entry - p.tp)) / rDist * p.riskR;
-      finalizeClosePosition(p, "止盈平仓", p.tp, tpPnlR);
-    }else{
-      remainingPositions.push(p);
-    }
-  }
-  S.positions = remainingPositions;
+  S.positions = [...remainingPositions, ...justFilledPositions];
 }
 
-// 记录 2R 自动分批平仓明细
-function recordPartialTrade(p, reason, exitPx, pnlR, riskR){
-  const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
-  const now = new Date();
-  const timeStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-
-  const exitIdx = S.visibleCount - 1;
-  const startIdx = Math.max(0, exitIdx - 149);
-  const snapshotCloses = S.fullK.slice(startIdx, exitIdx + 1).map(b => b.c);
-
-  const record = {
-    id: Date.now() * 1000 + Math.floor(Math.random() * 1000),
-    sym: "ES_F",
-    tf: "5m",
-    blindId: S.blindId,
-    side: p.side,
-    entry: p.entry,
-    exit: exitPx,
-    sl: p.sl,
-    tp: p.tp,
-    rr: 2.0,
-    riskPct: riskR,
-    riskR: riskR,
-    pnlR: pnlR,
-    reason: reason,
-    holdingBars: p.holdingBars || 1,
-    exitBarIndex: exitIdx,
-    klineSnapshot: snapshotCloses,
-    maxFavR: 2.0 * riskR,
-    maxAdvR: 0,
-    futureMfeR: 2.0 * riskR,
-    sweepLoss: false,
-    planBenchR: pnlR,
-    fixed21BenchR: pnlR,
-    isRevengeTrade: false,
-    isManualClose: false,
-    isPartial: true,
-    time: Date.now(),
-    timeStr: timeStr,
-    marketTime: S.realTimeStr,
-    note: "2R自动分批平仓50%"
-  };
-
-  S.trades.unshift(record);
-  saveStats();
-}
-
-// 内部平仓结算核心函数
-function finalizeClosePosition(p, reason, exitPx, pnlR){
-  const rDist = p.initialRiskDist || Math.max(Math.abs(p.entry - (p.initialSl || p.sl)), p.entry * 0.0005);
+// 内部平仓结算核心函数 (单实体生命周期 · 绝不分裂伪记录)
+function finalizeClosePosition(p, reason, exitPx, pnlRPerUnit){
+  const rDist = p.initialRiskDist || calcRiskDist(p.entry, p.sl);
   const isLong = p.side === "buy";
   
-  if(pnlR == null){
-    const cp = curPrice();
-    exitPx = cp;
-    if(isLong){
-      pnlR = ((cp - p.entry) / rDist) * p.riskR;
-    }else{
-      pnlR = ((p.entry - cp) / rDist) * p.riskR;
-    }
+  if(exitPx == null) exitPx = curPrice();
+  if(pnlRPerUnit == null){
+    pnlRPerUnit = (isLong ? (exitPx - p.entry) : (p.entry - exitPx)) / rDist;
   }
 
-  S.balanceR += pnlR;
+  const closedRatio = (p.closedParts || []).reduce((acc, c) => acc + c.ratio, 0);
+  const remainingRatio = Math.max(0, 1.0 - closedRatio);
+  if(remainingRatio > 0){
+    p.closedParts = p.closedParts || [];
+    p.closedParts.push({ r: Number(pnlRPerUnit.toFixed(2)), ratio: remainingRatio, price: exitPx, reason: reason });
+  }
 
-  // 1. 计算未来 30 根 K 线的最大延展 MFE 与精准扫损反转判断
+  const totalNetPnlR = Number(p.closedParts.reduce((acc, c) => acc + c.r * c.ratio, 0).toFixed(2));
+  S.balanceR = Number((S.balanceR + totalNetPnlR).toFixed(2));
+
+  // 1. 未来 30 根 MFE 与扫损反转
   const curIdx = S.visibleCount;
   const futureBars = S.fullK.slice(curIdx, curIdx + 30);
-  let futureMfeR = pnlR;
+  let futureMfeR = totalNetPnlR;
   let sweepLoss = false;
 
   for(const fb of futureBars){
-    if(isLong){
-      const rVal = ((fb.h - p.entry) / rDist) * p.riskR;
-      if(rVal > futureMfeR) futureMfeR = rVal;
-      if(pnlR < 0 && p.initialTp != null && fb.h >= p.initialTp){
-        sweepLoss = true;
-      }
-    }else{
-      const rVal = ((p.entry - fb.l) / rDist) * p.riskR;
-      if(rVal > futureMfeR) futureMfeR = rVal;
-      if(pnlR < 0 && p.initialTp != null && fb.l <= p.initialTp){
-        sweepLoss = true;
-      }
+    const rVal = (isLong ? (fb.h - p.entry) : (p.entry - fb.l)) / rDist;
+    if(rVal > futureMfeR) futureMfeR = rVal;
+    if(totalNetPnlR < 0 && p.initialTp != null){
+      if(isLong && fb.h >= p.initialTp) sweepLoss = true;
+      if(!isLong && fb.l <= p.initialTp) sweepLoss = true;
     }
   }
 
-  // 2. 计算平行机械基准结果 (Benchmark A: 原计划严格持有; Benchmark B: 固定 2:1 机械基准)
+  // 2. 基准对照 (满仓 1.0 严格模拟)
   const openIdx = p.openIndex != null ? p.openIndex : Math.max(0, curIdx - (p.holdingBars || 1));
   const simBars = S.fullK.slice(openIdx);
-  let planBenchR = pnlR;
-  let fixed21BenchR = pnlR;
+  let planBenchR = totalNetPnlR;
+  let fixed21BenchR = totalNetPnlR;
 
-  // 模拟 Benchmark A: 原计划严格持有 (直到触及 initialTp 或 initialSl)
   const initTp = p.initialTp || p.tp;
   const initSl = p.initialSl || p.sl;
   for(const sb of simBars){
     let hSL = isLong ? (sb.l <= initSl) : (sb.h >= initSl);
     let hTP = initTp != null ? (isLong ? (sb.h >= initTp) : (sb.l <= initTp)) : false;
     if(hSL && hTP){
-      const dSL = Math.abs(sb.o - initSl);
-      const dTP = Math.abs(sb.o - initTp);
-      if(dSL < dTP) hTP = false; else hSL = false;
+      if(sb.o <= sb.c){ if(isLong) hTP = false; else hSL = false; }
+      else { if(isLong) hSL = false; else hTP = false; }
     }
-    if(hSL){ planBenchR = -p.riskR; break; }
-    if(hTP){
-      const planWinR = (isLong ? (initTp - p.entry) : (p.entry - initTp)) / rDist * p.riskR;
-      planBenchR = planWinR;
-      break;
-    }
+    if(hSL){ planBenchR = -1.0; break; }
+    if(hTP){ planBenchR = (isLong ? (initTp - p.entry) : (p.entry - initTp)) / rDist; break; }
   }
 
-  // 模拟 Benchmark B: 固定 2:1 机械基准 (1R 止损, 2R 止盈)
   const fixedTpPx = isLong ? (p.entry + 2.0 * rDist) : (p.entry - 2.0 * rDist);
   const fixedSlPx = isLong ? (p.entry - 1.0 * rDist) : (p.entry + 1.0 * rDist);
   for(const sb of simBars){
     let hSL = isLong ? (sb.l <= fixedSlPx) : (sb.h >= fixedSlPx);
     let hTP = isLong ? (sb.h >= fixedTpPx) : (sb.l <= fixedTpPx);
     if(hSL && hTP){
-      const dSL = Math.abs(sb.o - fixedSlPx);
-      const dTP = Math.abs(sb.o - fixedTpPx);
-      if(dSL < dTP) hTP = false; else hSL = false;
+      if(sb.o <= sb.c){ if(isLong) hTP = false; else hSL = false; }
+      else { if(isLong) hSL = false; else hTP = false; }
     }
-    if(hSL){ fixed21BenchR = -p.riskR; break; }
-    if(hTP){ fixed21BenchR = p.riskR * 2.0; break; }
+    if(hSL){ fixed21BenchR = -1.0; break; }
+    if(hTP){ fixed21BenchR = 2.0; break; }
   }
 
-  // 3. 急躁/报复性开仓判定
   const isRevengeTrade = (p.barsSinceLastLoss != null && p.barsSinceLastLoss <= 2);
-  if(pnlR < 0){
+  if(totalNetPnlR < 0){
     S.lastLossIndex = S.visibleCount - 1;
   }
 
   const now = new Date();
   const timeStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")} ${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-
   const exitIdx = S.visibleCount - 1;
   const startIdx = Math.max(0, exitIdx - 149);
   const snapshotCloses = S.fullK.slice(startIdx, exitIdx + 1).map(b => b.c);
+
+  const displayReason = p.closedParts.map(c => `${c.reason}(${(c.ratio*100).toFixed(0)}%@${c.r >= 0 ? '+' : ''}${c.r.toFixed(1)}R)`).join(" + ");
 
   const record = {
     id: Date.now() * 1000 + Math.floor(Math.random() * 1000),
@@ -1718,41 +1775,38 @@ function finalizeClosePosition(p, reason, exitPx, pnlR){
     side: p.side,
     entry: p.entry,
     exit: exitPx,
-    sl: p.sl,
-    tp: p.tp,
-    rr: (rDist > 0 ? (Math.abs(exitPx - p.entry) / rDist) : (p.rr || 1.0)),
-    riskPct: p.riskPct,
-    riskR: p.riskR,
-    pnlR: pnlR,
-    reason: reason,
+    sl: p.initialSl || p.sl,
+    tp: p.initialTp || p.tp,
+    riskDist: rDist,
+    riskPct: p.riskPct || 1.0,
+    riskR: 1.0,
+    pnlR: totalNetPnlR,
+    reason: displayReason,
     holdingBars: p.holdingBars || 1,
     exitBarIndex: exitIdx,
+    sessionPhase: p.sessionPhase ? p.sessionPhase.name : "常规交易",
+    sessionPhaseKey: p.sessionPhase ? p.sessionPhase.key : "morningTrend",
     klineSnapshot: snapshotCloses,
-    maxFavR: Math.max(p.maxFavR ?? 0, pnlR),
-    maxAdvR: Math.min(p.maxAdvR ?? 0, pnlR),
-    futureMfeR: futureMfeR,
+    maxFavR: Number((p.maxFavR || 0).toFixed(2)),
+    maxAdvR: Number((p.maxAdvR || 0).toFixed(2)),
+    futureMfeR: Number(futureMfeR.toFixed(2)),
     sweepLoss: sweepLoss,
-    planBenchR: planBenchR,
-    fixed21BenchR: fixed21BenchR,
+    planBenchR: Number(planBenchR.toFixed(2)),
+    fixed21BenchR: Number(fixed21BenchR.toFixed(2)),
     isRevengeTrade: isRevengeTrade,
     isManualClose: (reason === "市价平仓"),
+    closedParts: p.closedParts,
     time: Date.now(),
     timeStr: timeStr,
     marketTime: S.realTimeStr,
-    note: ""
+    note: p.closedParts.length > 1 ? "含2R分批平半" : ""
   };
-
-  if(p.partialClosed){
-    record.reason = `${reason} (余仓50%)`;
-    record.note = `前期已于2R平半(+${(p.partialPnlR || 0).toFixed(2)}R)`;
-  }
 
   S.trades.unshift(record);
   saveStats();
 
-  const isWin = pnlR >= 0;
-  const displayReason = p.partialClosed ? `${reason} (余仓50%)` : reason;
-  toast(`${isWin ? "🎉 达成止盈" : "🛑 触碰止损"} · ${displayReason}：${rFmt(pnlR)}（余额: ${S.balanceR.toFixed(2)} R）`);
+  const isWin = totalNetPnlR >= 0;
+  toast(`${isWin ? "🎉 达成平仓" : "🛑 触碰平仓"} · ${displayReason}：${rFmt(totalNetPnlR)}（余额: ${S.balanceR.toFixed(2)} R）`);
 }
 
 // 根据 ID 手动平仓单个持仓
@@ -1785,7 +1839,7 @@ function quickOrder(side){
   const isBuy = (side === "buy");
   const entry = isBuy ? curBar.h : curBar.l;
   const sl = isBuy ? curBar.l : curBar.h;
-  const dist = Math.max(Math.abs(entry - sl), 0.50);
+  const dist = calcRiskDist(entry, sl);
   const tp = isBuy ? Number((entry + 2.0 * dist).toFixed(2)) : Number((entry - 2.0 * dist).toFixed(2));
   const riskR = 1.0;
   const rr = 2.0;
@@ -1831,7 +1885,12 @@ function renderStatsView(){
   const avgLoss = losses > 0 ? sumLossR / losses : 1;
   const avgRR = avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : "0.00";
 
-  // 1. 计算最大回撤 (Max Drawdown R & %) 与 连胜 / 连亏
+  // 1. 核心指标：获利因子 (Profit Factor) 与 每笔期望值 (Expectancy EV)
+  const profitFactor = sumLossR > 0 ? (sumWinR / sumLossR).toFixed(2) : (sumWinR > 0 ? "∞" : "0.00");
+  const totalNetR = S.trades.reduce((a, b) => a + b.pnlR, 0);
+  const expectancy = total > 0 ? (totalNetR / total).toFixed(2) : "0.00";
+
+  // 2. 真实峰谷最大回撤 (包含持仓浮亏 Intra-trade MAE)
   let maxDrawdownR = 0;
   let maxDrawdownPct = 0;
   let maxConsecutiveWins = 0;
@@ -1839,53 +1898,118 @@ function renderStatsView(){
   let curWins = 0;
   let curLosses = 0;
 
-  let runningEquity = INITIAL_BALANCE_R;
+  let runningClosedEquity = INITIAL_BALANCE_R;
   let peakEquity = INITIAL_BALANCE_R;
 
-  // 按时间正序遍历统计
   const chronologicalTrades = S.trades.slice().reverse();
   chronologicalTrades.forEach(t => {
-    runningEquity += t.pnlR;
-    if(runningEquity > peakEquity) peakEquity = runningEquity;
-    const ddR = peakEquity - runningEquity;
-    if(ddR > maxDrawdownR) maxDrawdownR = ddR;
-    const ddPct = peakEquity > 0 ? (ddR / peakEquity * 100) : 0;
-    if(ddPct > maxDrawdownPct) maxDrawdownPct = ddPct;
+    const intraTrough = runningClosedEquity + (t.maxAdvR || 0);
+    if(runningClosedEquity > peakEquity) peakEquity = runningClosedEquity;
+    
+    const intraDDR = peakEquity - intraTrough;
+    if(intraDDR > maxDrawdownR) maxDrawdownR = intraDDR;
+    const intraDDPct = peakEquity > 0 ? (intraDDR / peakEquity * 100) : 0;
+    if(intraDDPct > maxDrawdownPct) maxDrawdownPct = intraDDPct;
+
+    runningClosedEquity += t.pnlR;
+    if(runningClosedEquity > peakEquity) peakEquity = runningClosedEquity;
+
+    const closedDDR = peakEquity - runningClosedEquity;
+    if(closedDDR > maxDrawdownR) maxDrawdownR = closedDDR;
+    const closedDDPct = peakEquity > 0 ? (closedDDR / peakEquity * 100) : 0;
+    if(closedDDPct > maxDrawdownPct) maxDrawdownPct = closedDDPct;
 
     if(t.pnlR > 0){
-      curWins++;
-      curLosses = 0;
+      curWins++; curLosses = 0;
       if(curWins > maxConsecutiveWins) maxConsecutiveWins = curWins;
     } else if(t.pnlR < 0){
-      curLosses++;
-      curWins = 0;
+      curLosses++; curWins = 0;
       if(curLosses > maxConsecutiveLosses) maxConsecutiveLosses = curLosses;
     }
   });
 
-  // 当前连胜/连亏状态
-  let currentStreakTxt = "暂无";
-  if(S.trades.length > 0){
-    const latestPnl = S.trades[0].pnlR;
-    let streakCount = 0;
-    for(const tr of S.trades){
-      if((latestPnl > 0 && tr.pnlR > 0) || (latestPnl < 0 && tr.pnlR < 0)){
-        streakCount++;
-      } else {
-        break;
-      }
-    }
-    currentStreakTxt = latestPnl > 0 ? `当前: ${streakCount} 连胜 🔥` : `当前: ${streakCount} 连亏 ⚠️`;
+  // 3. 多空方向绩效拆分
+  const longTrades = S.trades.filter(t => t.side === "buy");
+  const shortTrades = S.trades.filter(t => t.side === "sell");
+  
+  const lWins = longTrades.filter(t => t.pnlR > 0).length;
+  const lLosses = longTrades.filter(t => t.pnlR < 0).length;
+  const lWinR = longTrades.filter(t => t.pnlR > 0).reduce((a, b) => a + b.pnlR, 0);
+  const lLossR = Math.abs(longTrades.filter(t => t.pnlR < 0).reduce((a, b) => a + b.pnlR, 0));
+  const lNetR = longTrades.reduce((a, b) => a + b.pnlR, 0);
+  const lPF = lLossR > 0 ? (lWinR / lLossR).toFixed(2) : (lWinR > 0 ? "∞" : "0.00");
+  const lWinPct = longTrades.length > 0 ? (lWins / longTrades.length * 100).toFixed(1) : "0.0";
+
+  const sWins = shortTrades.filter(t => t.pnlR > 0).length;
+  const sLosses = shortTrades.filter(t => t.pnlR < 0).length;
+  const sWinR = shortTrades.filter(t => t.pnlR > 0).reduce((a, b) => a + b.pnlR, 0);
+  const sLossR = Math.abs(shortTrades.filter(t => t.pnlR < 0).reduce((a, b) => a + b.pnlR, 0));
+  const sNetR = shortTrades.reduce((a, b) => a + b.pnlR, 0);
+  const sPF = sLossR > 0 ? (sWinR / sLossR).toFixed(2) : (sWinR > 0 ? "∞" : "0.00");
+  const sWinPct = shortTrades.length > 0 ? (sWins / shortTrades.length * 100).toFixed(1) : "0.0";
+
+  // 4. 日内 4 大时段绩效拆分
+  const phases = {
+    open30m: { name: "开盘前30分", trades: [] },
+    morningTrend: { name: "早盘主趋势", trades: [] },
+    lunchRange: { name: "午间震荡", trades: [] },
+    lateClose: { name: "尾盘突破", trades: [] }
+  };
+  S.trades.forEach(t => {
+    const k = t.sessionPhaseKey || "morningTrend";
+    if(phases[k]) phases[k].trades.push(t);
+  });
+
+  const getPhaseSummary = key => {
+    const list = phases[key].trades;
+    const count = list.length;
+    const w = list.filter(t => t.pnlR > 0).length;
+    const netR = list.reduce((a, b) => a + b.pnlR, 0);
+    const wr = count > 0 ? (w / count * 100).toFixed(0) : "0";
+    return { count, wr, netR };
+  };
+
+  const phOpen = getPhaseSummary("open30m");
+  const phMorn = getPhaseSummary("morningTrend");
+  const phLunch = getPhaseSummary("lunchRange");
+  const phLate = getPhaseSummary("lateClose");
+
+  // 5. 几何复利与破产风险 (Risk of Ruin)
+  let eq1Pct = 10000;
+  let eq4Pct = 10000;
+  let maxEq1 = 10000, maxEq4 = 10000;
+  let maxDD1Pct = 0, maxDD4Pct = 0;
+
+  chronologicalTrades.forEach(t => {
+    eq1Pct *= (1 + 0.01 * t.pnlR);
+    if(eq1Pct > maxEq1) maxEq1 = eq1Pct;
+    const dd1 = (maxEq1 - eq1Pct) / maxEq1 * 100;
+    if(dd1 > maxDD1Pct) maxDD1Pct = dd1;
+
+    eq4Pct *= (1 + 0.04 * t.pnlR);
+    if(eq4Pct > maxEq4) maxEq4 = eq4Pct;
+    const dd4 = (maxEq4 - eq4Pct) / maxEq4 * 100;
+    if(dd4 > maxDD4Pct) maxDD4Pct = dd4;
+  });
+
+  let ror1Pct = "0.0%";
+  let ror4Pct = "0.0%";
+  const pWin = total > 0 ? wins / total : 0;
+  const pLoss = total > 0 ? losses / total : 0;
+  const edge = (pWin * avgWin) - (pLoss * avgLoss);
+
+  if(edge <= 0 && total >= 3){
+    ror1Pct = "100.0% ⚠️ (负期望)";
+    ror4Pct = "100.0% ⚠️ (极速穿仓)";
+  } else if(edge > 0 && total >= 3){
+    const b = avgLoss > 0 ? avgWin / avgLoss : 1;
+    const q = (1 - pWin) / (pWin * b);
+    const rorBase = Math.min(1.0, Math.max(0.0, q));
+    ror1Pct = (Math.pow(rorBase, 50) * 100).toFixed(1) + "%";
+    ror4Pct = (Math.pow(rorBase, 12.5) * 100).toFixed(1) + "%";
   }
 
-  // 2. 仓位矩阵 (1% vs 4%)
-  const t1 = S.trades.filter(t => t.riskPct === 1.0);
-  const t4 = S.trades.filter(t => t.riskPct === 4.0);
-  const sum1R = t1.reduce((a, b) => a + b.pnlR, 0);
-  const sum4R = t4.reduce((a, b) => a + b.pnlR, 0);
-  const win1Pct = t1.length > 0 ? (t1.filter(t=>t.pnlR>0).length / t1.length * 100).toFixed(0) : "0";
-  const win4Pct = t4.length > 0 ? (t4.filter(t=>t.pnlR>0).length / t4.length * 100).toFixed(0) : "0";
-
+  // DOM 赋值渲染
   $("#stBal").textContent = S.balanceR.toFixed(2) + " R";
   const net = S.balanceR - INITIAL_BALANCE_R;
   const pct = (net / INITIAL_BALANCE_R * 100).toFixed(1);
@@ -1893,135 +2017,129 @@ function renderStatsView(){
   $("#stNet").className = "sub " + (net >= 0 ? "up" : "down");
 
   $("#stWinRate").textContent = winRate + "%";
-  $("#stWinLoss").textContent = `${wins} 胜 / ${losses} 负 (共 ${total} 笔)`;
-  
+  $("#stWinLoss").textContent = `EV: ${expectancy >= 0 ? '+' : ''}${expectancy} R/笔 (${wins}胜/${losses}负)`;
+
+  $("#stProfitFactor").textContent = profitFactor;
+  $("#stProfitFactor").style.color = Number(profitFactor) >= 1.5 ? "var(--up)" : (Number(profitFactor) < 1.0 ? "var(--down)" : "var(--text)");
+  $("#stPFSub").textContent = `总盈利 +${sumWinR.toFixed(1)}R / 总亏损 -${sumLossR.toFixed(1)}R`;
+
   $("#stMaxDD").textContent = "-" + maxDrawdownR.toFixed(2) + " R";
   $("#stMaxDDPct").textContent = `峰值最大回撤率: -${maxDrawdownPct.toFixed(1)}%`;
 
-  $("#stStreak").textContent = `${maxConsecutiveWins} 胜 / ${maxConsecutiveLosses} 负`;
-  $("#stCurStreak").textContent = currentStreakTxt;
-  $("#stCurStreak").className = "sub " + (currentStreakTxt.includes("连胜") ? "up" : (currentStreakTxt.includes("连亏") ? "down" : ""));
+  $("#stStreakTag").textContent = `连胜: ${maxConsecutiveWins} / 连损: ${maxConsecutiveLosses}`;
 
-  $("#st1PctStats").textContent = `${t1.length} 笔 (胜率 ${win1Pct}%) · ${rFmt(sum1R)}`;
-  $("#st1PctStats").className = "v " + (sum1R >= 0 ? "up" : "down");
-  $("#st4PctStats").textContent = `${t4.length} 笔 (胜率 ${win4Pct}%) · ${rFmt(sum4R)}`;
-  $("#st4PctStats").className = "v " + (sum4R >= 0 ? "up" : "down");
+  // 多空拆分
+  $("#stLongStats").textContent = `${longTrades.length} 笔 · 胜率 ${lWinPct}%`;
+  $("#stLongSub").textContent = `PF: ${lPF} · 净 ${lNetR >= 0 ? '+' : ''}${lNetR.toFixed(2)}R`;
+  $("#stLongSub").className = "sub " + (lNetR >= 0 ? "up" : "down");
+
+  $("#stShortStats").textContent = `${shortTrades.length} 笔 · 胜率 ${sWinPct}%`;
+  $("#stShortSub").textContent = `PF: ${sPF} · 净 ${sNetR >= 0 ? '+' : ''}${sNetR.toFixed(2)}R`;
+  $("#stShortSub").className = "sub " + (sNetR >= 0 ? "up" : "down");
+
   $("#stAvgRR").textContent = avgRR;
+  $("#stAvgRRSub").textContent = `均赢 +${avgWin.toFixed(2)}R / 均损 -${avgLoss.toFixed(2)}R`;
 
-  // 3. 计算战力与行为诊断指标 (全自动后台计算)
+  // 时段拆分
+  $("#stPhaseOpen").textContent = `${phOpen.count} 笔 (胜率 ${phOpen.wr}%)`;
+  $("#stPhaseOpenSub").textContent = `净收益: ${phOpen.netR >= 0 ? '+' : ''}${phOpen.netR.toFixed(2)} R`;
+  $("#stPhaseOpenSub").className = "sub " + (phOpen.netR >= 0 ? "up" : "down");
+
+  $("#stPhaseMorning").textContent = `${phMorn.count} 笔 (胜率 ${phMorn.wr}%)`;
+  $("#stPhaseMorningSub").textContent = `净收益: ${phMorn.netR >= 0 ? '+' : ''}${phMorn.netR.toFixed(2)} R`;
+  $("#stPhaseMorningSub").className = "sub " + (phMorn.netR >= 0 ? "up" : "down");
+
+  $("#stPhaseLunch").textContent = `${phLunch.count} 笔 (胜率 ${phLunch.wr}%)`;
+  $("#stPhaseLunchSub").textContent = `净收益: ${phLunch.netR >= 0 ? '+' : ''}${phLunch.netR.toFixed(2)} R`;
+  $("#stPhaseLunchSub").className = "sub " + (phLunch.netR >= 0 ? "up" : "down");
+
+  $("#stPhaseLate").textContent = `${phLate.count} 笔 (胜率 ${phLate.wr}%)`;
+  $("#stPhaseLateSub").textContent = `净收益: ${phLate.netR >= 0 ? '+' : ''}${phLate.netR.toFixed(2)} R`;
+  $("#stPhaseLateSub").className = "sub " + (phLate.netR >= 0 ? "up" : "down");
+
+  // 几何复利对比
+  $("#stCompound1Pct").textContent = `$${Math.round(eq1Pct).toLocaleString()} (最大回撤 -${maxDD1Pct.toFixed(1)}%)`;
+  $("#stCompound1Pct").className = "v " + (eq1Pct >= 10000 ? "up" : "down");
+  $("#stCompound4Pct").textContent = `$${Math.round(eq4Pct).toLocaleString()} (最大回撤 -${maxDD4Pct.toFixed(1)}%)`;
+  $("#stCompound4Pct").className = "v " + (eq4Pct >= 10000 ? "up" : "down");
+  $("#stRorSummary").textContent = `50%本金回撤破产率: 1%仓位 ${ror1Pct} vs 4%仓位 ${ror4Pct}`;
+
+  // 6. 行为与心理纪律
   let totalMfeCapture = 0;
   let winTradesCount = 0;
   let sumMaeRatio = 0;
   let sweepLossCount = 0;
-
   let totalWinBars = 0;
   let totalLossBars = 0;
   let revengeTradesCount = 0;
   let manualInterveneCount = 0;
-
   let sumPlanBenchR = 0;
   let sumFixed21BenchR = 0;
 
   S.trades.forEach(t => {
-    // MFE Capture Ratio
     const peakPotential = Math.max(t.maxFavR || 0, t.futureMfeR || 0, t.pnlR);
     if(t.pnlR > 0){
       winTradesCount++;
       const cap = peakPotential > 0 ? Math.min(100, (t.pnlR / peakPotential) * 100) : 100;
       totalMfeCapture += cap;
     }
-    // MAE Ratio
     const maeRatio = Math.min(1.5, Math.abs(t.maxAdvR || 0) / (t.riskR || 1.0));
     sumMaeRatio += maeRatio;
 
-    // Sweep Loss
     if(t.sweepLoss) sweepLossCount++;
-
-    // Holding Bars
     if(t.pnlR > 0) totalWinBars += (t.holdingBars || 1);
     else if(t.pnlR < 0) totalLossBars += (t.holdingBars || 1);
 
-    // Psychology
     if(t.isRevengeTrade) revengeTradesCount++;
     if(t.isManualClose) manualInterveneCount++;
 
-    // Benchmarks
     sumPlanBenchR += (t.planBenchR != null ? t.planBenchR : t.pnlR);
     sumFixed21BenchR += (t.fixed21BenchR != null ? t.fixed21BenchR : t.pnlR);
   });
 
-  const avgMfeCap = winTradesCount > 0 ? (totalMfeCapture / winTradesCount).toFixed(1) : "—";
-  const avgMae = total > 0 ? (sumMaeRatio / total * 100).toFixed(0) : "0";
-  const avgWinBars = winTradesCount > 0 ? (totalWinBars / winTradesCount).toFixed(1) : "0";
-  const avgLossBars = losses > 0 ? (totalLossBars / losses).toFixed(1) : "0";
-  const planAdhereRate = total > 0 ? (((total - manualInterveneCount) / total) * 100).toFixed(0) : "100";
+  const mfeRetentionRate = winTradesCount > 0 ? (totalMfeCapture / winTradesCount).toFixed(0) : "—";
+  const avgMaeVal = total > 0 ? (sumMaeRatio / total).toFixed(2) : "—";
+  const holdRatio = (wins > 0 && losses > 0 && totalLossBars > 0) ? ( (totalWinBars / wins) / (totalLossBars / losses) ).toFixed(2) : "—";
+  const planAdherence = total > 0 ? ((total - manualInterveneCount) / total * 100).toFixed(0) : "100";
 
-  // 渲染诊断看板组件
-  if($("#dgMfeCap")){
-    $("#dgMfeCap").textContent = avgMfeCap === "—" ? "—" : avgMfeCap + "%";
-    $("#dgMfeCap").className = "v " + (avgMfeCap !== "—" && +avgMfeCap >= 70 ? "up" : (avgMfeCap !== "—" && +avgMfeCap < 45 ? "down" : ""));
-    $("#dgMfeSub").textContent = avgMfeCap !== "—" && +avgMfeCap < 50 ? "⚠️ 存在过早止盈/卖飞" : "平仓收益 / 潜在顶峰";
+  $("#dgMfeCap").textContent = mfeRetentionRate !== "—" ? mfeRetentionRate + "%" : "—";
+  $("#dgMae").textContent = avgMaeVal !== "—" ? avgMaeVal + " R" : "—";
+  $("#dgSweep").textContent = `${sweepLossCount} 笔`;
 
-    $("#dgMae").textContent = total > 0 ? `-${avgMae}%` : "—";
-    $("#dgMae").className = "v " + (+avgMae > 75 ? "down" : (+avgMae < 35 ? "up" : ""));
-    $("#dgMaeSub").textContent = +avgMae > 75 ? "⚠️ 入场偏急/回撤深" : "持仓期最大浮亏/止损";
+  $("#dgHoldRatio").textContent = holdRatio !== "—" ? `${holdRatio}x` : "—";
+  $("#dgRevenge").textContent = `${revengeTradesCount} 笔`;
+  $("#dgPlanAdhere").textContent = planAdherence + "%";
 
-    $("#dgSweep").textContent = `${sweepLossCount} 笔`;
-    $("#dgSweep").className = "v " + (sweepLossCount > 0 ? "down" : "");
+  // 基准对照
+  const actualReturn = S.trades.reduce((a, b) => a + b.pnlR, 0);
+  $("#dgActualReturn").textContent = (actualReturn >= 0 ? "+" : "") + actualReturn.toFixed(2) + " R";
+  $("#dgActualReturn").className = "v " + (actualReturn >= 0 ? "up" : "down");
 
-    const holdRatio = +avgWinBars > 0 ? (+avgLossBars / +avgWinBars).toFixed(1) : "1.0";
-    $("#dgHoldRatio").textContent = total > 0 ? `${avgWinBars} vs ${avgLossBars} 根` : "—";
-    $("#dgHoldRatio").className = "v " + (+holdRatio >= 2.2 ? "down" : "");
-    $("#dgHoldSub").textContent = +holdRatio >= 2.2 ? `⚠️ 死扛亏损倾向 (${holdRatio}x)` : "盈利持仓 vs 亏损持仓";
+  $("#dgPlanReturn").textContent = (sumPlanBenchR >= 0 ? "+" : "") + sumPlanBenchR.toFixed(2) + " R";
+  $("#dgPlanReturn").className = "v " + (sumPlanBenchR >= 0 ? "up" : "down");
 
-    $("#dgRevenge").textContent = `${revengeTradesCount} 笔`;
-    $("#dgRevenge").className = "v " + (revengeTradesCount > 0 ? "down" : "up");
-    $("#dgRevengeSub").textContent = revengeTradesCount > 0 ? "⚠️ 连损后急躁开仓" : "自律度 100%";
+  $("#dgFixedReturn").textContent = (sumFixed21BenchR >= 0 ? "+" : "") + sumFixed21BenchR.toFixed(2) + " R";
+  $("#dgFixedReturn").className = "v " + (sumFixed21BenchR >= 0 ? "up" : "down");
 
-    $("#dgPlanAdhere").textContent = total > 0 ? `${planAdhereRate}%` : "100%";
-    $("#dgPlanAdhere").className = "v " + (+planAdhereRate < 65 ? "down" : "up");
+  const interveneDiff = actualReturn - sumPlanBenchR;
+  const alphaDiff = actualReturn - sumFixed21BenchR;
 
-    // 机械基准对比
-    const actualR = net;
-    const planR = sumPlanBenchR;
-    const fixedR = sumFixed21BenchR;
-    const interveneDiff = actualR - planR;
-    const alphaDiff = actualR - fixedR;
+  $("#dgInterveneDiff").textContent = `中途干预损益: ${(interveneDiff >= 0 ? "+" : "") + interveneDiff.toFixed(2)} R`;
+  $("#dgInterveneDiff").style.color = interveneDiff >= 0 ? "var(--up)" : "var(--down)";
 
-    $("#dgActualReturn").textContent = (actualR >= 0 ? "+" : "") + actualR.toFixed(2) + " R";
-    $("#dgActualReturn").className = "v " + (actualR >= 0 ? "up" : "down");
+  $("#dgAlphaDiff").textContent = `主观选点溢价: ${(alphaDiff >= 0 ? "+" : "") + alphaDiff.toFixed(2)} R`;
+  $("#dgAlphaDiff").style.color = alphaDiff >= 0 ? "var(--up)" : "var(--down)";
 
-    $("#dgPlanReturn").textContent = (planR >= 0 ? "+" : "") + planR.toFixed(2) + " R";
-    $("#dgPlanReturn").className = "v " + (planR >= 0 ? "up" : "down");
-
-    $("#dgFixedReturn").textContent = (fixedR >= 0 ? "+" : "") + fixedR.toFixed(2) + " R";
-    $("#dgFixedReturn").className = "v " + (fixedR >= 0 ? "up" : "down");
-
-    $("#dgInterveneDiff").textContent = "中途干预损益: " + (interveneDiff >= 0 ? "+" : "") + interveneDiff.toFixed(2) + " R";
-    $("#dgInterveneDiff").className = interveneDiff >= 0 ? "up" : "down";
-
-    $("#dgAlphaDiff").textContent = "主观选点溢价: " + (alphaDiff >= 0 ? "+" : "") + alphaDiff.toFixed(2) + " R";
-    $("#dgAlphaDiff").className = alphaDiff >= 0 ? "up" : "down";
-
-    let alphaTagTxt = "Alpha 诊断中";
-    if(total >= 3){
-      if(alphaDiff > 1.0 && interveneDiff >= 0){
-        alphaTagTxt = "🔥 主观交易正收益 (Alpha 突出)";
-      }else if(interveneDiff < -1.5){
-        alphaTagTxt = "⚠️ 手动频繁干预造成明显磨损";
-      }else if(alphaDiff < -1.0){
-        alphaTagTxt = "📉 主观跑输机械 2:1 基准";
-      }else{
-        alphaTagTxt = "⚖️ 与机械基准基本持平";
-      }
-    }
-    $("#dgAlphaTag").textContent = alphaTagTxt;
-    $("#dgAlphaTag").className = (alphaDiff > 0 && interveneDiff >= 0) ? "up" : (interveneDiff < -1.0 || alphaDiff < -1.0 ? "down" : "");
+  if(total >= 3){
+    if(alphaDiff > 0.5) $("#dgAlphaTag").textContent = "🚀 主观高额正 Alpha";
+    else if(alphaDiff < -0.5) $("#dgAlphaTag").textContent = "⚠️ 跑输 2:1 机械基准";
+    else $("#dgAlphaTag").textContent = "⚖️ 与机械基准持平";
   }
 
+  // 渲染交易明细列表
   const list = $("#tradeListContainer");
   if(!total){
-    list.innerHTML = '<div class="none">暂无训练交易记录。<br>在图表上长按或右键选点下单，开启 ETH 5m 真实回测训练，点击右侧 20% 区域推进 K 线吧！</div>';
+    list.innerHTML = '<div class="none">暂无训练交易记录。<br>在图表上长按或右键选点下单，开启 标普500 ES 5m 真实回测训练，点击右侧 20% 区域推进 K 线吧！</div>';
     return;
   }
 
@@ -2029,7 +2147,7 @@ function renderStatsView(){
     <thead>
       <tr>
         <th>标的/方向</th>
-        <th>时间</th>
+        <th>时间/时段</th>
         <th>入场价</th>
         <th>出场价</th>
         <th>盈亏(R)</th>
@@ -2043,8 +2161,8 @@ function renderStatsView(){
       const isWin = t.pnlR >= 0;
       const timeDisplay = t.timeStr ? t.timeStr.slice(5) : (new Date(t.time || t.id).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
       return `<tr>
-        <td><b>ETH</b> <span class="${isLong ? "up" : "down"}">${isLong ? "多" : "空"}</span> <span style="font-size:10px;color:var(--faint)">${t.riskPct}%</span></td>
-        <td style="font-size:11px;color:var(--faint)" title="${t.timeStr || ''}">${timeDisplay}</td>
+        <td><b>ES</b> <span class="${isLong ? "up" : "down"}">${isLong ? "做多" : "做空"}</span> <span style="font-size:10px;color:var(--faint)">${t.riskPct}%</span></td>
+        <td style="font-size:11px;color:var(--faint)" title="${t.timeStr || ''}">${timeDisplay}<br><span style="font-size:9.5px;color:var(--dim)">${t.sessionPhase || '常规盘'}</span></td>
         <td>${px(t.entry)}</td>
         <td>${px(t.exit)}</td>
         <td class="${isWin ? "up" : "down"}"><b>${rFmt(t.pnlR)}</b></td>
@@ -2224,10 +2342,18 @@ function getCurKBar(){
   return S.fullK[S.visibleCount - 1] || null;
 }
 
+const MIN_RISK_FLOOR_PTS = 1.0; // 期货 ES 最小风控底线 4 跳 = 1.00 点 (绝不使用百分比放大)
+
+function calcRiskDist(entry, sl){
+  const raw = Math.abs(entry - sl);
+  const minFloor = (S.tickSize ? S.tickSize * 4 : 1.0);
+  return Math.max(raw, minFloor, MIN_RISK_FLOOR_PTS);
+}
+
 function sizing(){
   const res = { ok: false, e: F.e, sl: F.sl, tp: F.tp, riskPct: F.risk, riskR: F.risk, rr: null, dist: 0, err: "" };
   if(F.e == null || F.sl == null) return res;
-  const dist = Math.max(Math.abs(F.e - F.sl), (F.e || 1) * 0.0005);
+  const dist = calcRiskDist(F.e, F.sl);
   res.dist = dist;
   res.riskR = F.risk;
   
@@ -2833,7 +2959,7 @@ function guide(clientY){
     const isBuy = p > F.e;
     const curBar = getCurKBar();
     const tempSl = isBuy ? ((curBar && curBar.l < F.e) ? curBar.l : (F.e * 0.995)) : ((curBar && curBar.h > F.e) ? curBar.h : (F.e * 1.005));
-    const dist = Math.max(Math.abs(F.e - tempSl), F.e * 0.0005);
+    const dist = calcRiskDist(F.e, tempSl);
     if(dist > 0){
       const rr = Math.abs(p - F.e) / dist;
       extra = ` · ${isBuy ? "做多" : "做空"}预计盈亏比 1:${rr.toFixed(2)}`;
