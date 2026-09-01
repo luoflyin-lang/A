@@ -1200,6 +1200,8 @@ function updateChartTheme(){
   syncTradeLines();
 }
 
+let _lastEmaValue = null;
+
 function updateChartCandles(rawBars){
   if(!mainSeries || !rawBars.length) return;
   const map = new Map();
@@ -1239,10 +1241,25 @@ function updateChartCandles(rawBars){
         emaData.push({ time: b.time, value: ema });
       });
     }
+    _lastEmaValue = ema;
     emaSeries.setData(emaData);
   } else {
+    _lastEmaValue = null;
     emaSeries.setData([]);
   }
+}
+
+function updateEmaIncremental(nextBar){
+  if(!emaSeries || !nextBar) return;
+  const period = 20;
+  const k = 2 / (period + 1);
+  const timeSec = Math.floor(nextBar.t / 1000);
+  if(_lastEmaValue == null){
+    _lastEmaValue = nextBar.c;
+  } else {
+    _lastEmaValue = nextBar.c * k + _lastEmaValue * (1 - k);
+  }
+  emaSeries.update({ time: timeSec, value: _lastEmaValue });
 }
 /* ================= 标普500期货 (ES 5m) 真实历史行情抽取 (前 500 根历史大背景 + 今日 78 根实战) ================= */
 let _CACHED_ES_BARS = null;
@@ -1393,14 +1410,13 @@ function stepNextBar(silent = false){
   
   const timeSec = Math.floor(nextBar.t / 1000);
   if(currentChartType === "line"){
-      mainSeries.update({ time: timeSec, value: nextBar.c });
-    } else {
-      mainSeries.update({ time: timeSec, open: nextBar.o, high: nextBar.h, low: nextBar.l, close: nextBar.c });
-    }
-  updateChartCandles(S.curK);
-  if(tvChart && tvChart.timeScale){
-    tvChart.timeScale().scrollToPosition(0, false);
+    mainSeries.update({ time: timeSec, value: nextBar.c });
+  } else {
+    mainSeries.update({ time: timeSec, open: nextBar.o, high: nextBar.h, low: nextBar.l, close: nextBar.c });
   }
+  updateEmaIncremental(nextBar);
+  
+  // 保持用户手动缩放与拖拽视口不变，绝不强制重置右对齐
   syncTradeLines();
   requestAnimationFrame(repositionHandles);
   cloudSyncPushProgress();
