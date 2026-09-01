@@ -1275,10 +1275,23 @@ function updateChartTheme(){
   const theme = getCandleThemeOptions(isDark);
 
   tvChart.applyOptions({
-    layout: { background: { color: theme.bg }, textColor: theme.text },
-    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
-    rightPriceScale: { visible: false },
-    timeScale: { visible: false }
+    layout: { background: { color: theme.bg }, textColor: "#787B86" },
+    grid: {
+      vertLines: { color: theme.gridColor, visible: true },
+      horzLines: { color: theme.gridColor, visible: true }
+    },
+    rightPriceScale: {
+      visible: true,
+      borderColor: isDark ? "#2A2E39" : "#E0E3EB",
+      scaleMargins: { top: 0.12, bottom: 0.12 },
+      alignLabels: true
+    },
+    timeScale: {
+      visible: true,
+      borderColor: isDark ? "#2A2E39" : "#E0E3EB",
+      timeVisible: true,
+      secondsVisible: false
+    }
   });
 
   if(currentChartType === "candle") mainSeries.applyOptions(theme.candle);
@@ -1336,6 +1349,7 @@ function updateChartCandles(rawBars){
     _lastEmaValue = null;
     emaSeries.setData([]);
   }
+  updateLegendOHLC(null);
 }
 
 function updateEmaIncremental(nextBar){
@@ -1506,6 +1520,7 @@ function stepNextBar(silent = false){
     mainSeries.update({ time: timeSec, open: nextBar.o, high: nextBar.h, low: nextBar.l, close: nextBar.c });
   }
   updateEmaIncremental(nextBar);
+  updateLegendOHLC(null);
   
   // 保持用户手动缩放与拖拽视口不变，绝不强制重置右对齐
   syncTradeLines();
