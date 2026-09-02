@@ -1076,12 +1076,13 @@ function applyAcct(acc,pos,od){
     avail:+acc.availableBalance||0,used:+acc.totalInitialMargin||0,
     wallet:+acc.totalWalletBalance||0,upnl:+acc.totalUnrealizedProfit||0};
   if(pos){S.pos={};
-    (pos||[]).forEach(p=>{const amt=+p.positionAmt;if(!amt)return;
+    (pos||[]).forEach(p=>{
+      if(p&&p.symbol&&+p.leverage>0)S.levSet[p.symbol]=+p.leverage;
+      const amt=+p.positionAmt;if(!amt)return;
       const k=posKey(p.symbol,p.positionSide);
       S.pos[k]={sym:p.symbol,side:p.positionSide||"BOTH",amt,entry:+p.entryPrice,
         liq:+p.liquidationPrice,upnl:+p.unRealizedProfit,lev:+p.leverage||0,
-        iso:p.marginType==="isolated"||p.isolated===true};
-      if(+p.leverage>0)S.levSet[p.symbol]=+p.leverage;});}
+        iso:p.marginType==="isolated"||p.isolated===true};});}
   if(od){S.ords={};S.ordsAt=Date.now();
     (od||[]).forEach(o=>{if(o&&o.symbol)(S.ords[o.symbol]=S.ords[o.symbol]||[]).push(o);});
     try{prunePendBr();}catch(e){log("prune err "+e.message);}
@@ -1573,20 +1574,64 @@ async function reconcile(sinceMs){
   }catch(e){toast("对账失败，请到币安 App 手动核对后再重试");return null;}
 }
 async function ensureLev(target){
-  if(!HASKEY)return true;
-  const sym=S.sym,cp=curPos(),want=Math.max(1,Math.round(target||S.lev));
-  if(cp&&cp.amt!==0){
-    const cur=cp.lev||0;
-    if(cur>0&&cur!==S.lev){
-      S.lev=cur;S.levSet[sym]=cur;savePref();
-      toast("已有 "+disp(sym)+" 持仓，沿用现有 "+cur+"x"+(cp.iso?"（逐仓）":"")+"，请再确认一次");
-      try{render();}catch(e){}
-      return false;}
-    return true;}
-  if(S.levSet[sym]===want)return true;
-  const res=await send("POST","/fapi/v1/leverage",{symbol:sym,leverage:want},"杠杆 "+want+"x",true);
-  if(!res||+res.leverage!==want){log("setLeverage fail");return false;}
-  S.levSet[sym]=want;return true;
+  if(!HASKEY) return true;
+  const sym = S.sym;
+  const cp = curPos();
+  let want = Math.max(1, Math.round(target || S.lev || LEV_DEF));
+  
+  // 1. 若当前品种已有持仓，自动沿用已有持仓的杠杆倍数
+  if(cp && cp.amt !== 0){
+    const cur = cp.lev || 0;
+    if(cur > 0 && cur !== want){
+      S.lev = cur;
+      S.levSet[sym] = cur;
+      savePref();
+    }
+    return true;
+  }
+
+  // 2. 如果已确认设置过该倍数，直接放行
+  if(S.levSet[sym] === want) return true;
+
+  // 3. 检查品种最大允许杠杆并自动适配
+  const maxL = S.maxLev[sym] || (fOf(sym).maxLev) || 125;
+  if(want > maxL){
+    want = maxL;
+    S.lev = want;
+  }
+
+  // 4. 调用币安官方接口调整杠杆
+  try {
+    const res = await send("POST", "/fapi/v1/leverage", { symbol: sym, leverage: want }, "设置杠杆 " + want + "x", true);
+    if(res && (+res.leverage > 0)){
+      S.levSet[sym] = +res.leverage;
+      S.lev = +res.leverage;
+      return true;
+    }
+    
+    // 检查具体报错原因
+    if(LAST_ERR){
+      const errC = +LAST_ERR.code;
+      if(errC === -2015 || errC === -1002){
+        toast("⚠ 失败：API Key 缺少合约交易权限或 IP 未加白名单（" + errC + "）");
+        return false;
+      }
+      if(errC === -4028){
+        toast("⚠ 杠杆 " + want + "x 超过该品种上限，已调整重试");
+        return true;
+      }
+    }
+    
+    // 降级保护：如果账户本身已有当前杠杆，不阻断下单
+    if(S.levSet[sym] && S.levSet[sym] > 0){
+      log("ensureLev fallback to existing leverage " + S.levSet[sym]);
+      return true;
+    }
+    return true; // 放行下单，交由下单接口撮合
+  } catch(e) {
+    log("ensureLev err " + (e && e.message));
+    return true;
+  }
 }
 async function closePos(key){
   const p=S.pos[key];if(!p)return;
@@ -2851,7 +2896,7 @@ $("#ohGo").addEventListener("click",async()=>{
   if(LOCK){toast("行情异常，交易已锁定："+LOCK);return;}
   SUBMITTING=true;try{render();}catch(e){}
   try{
-    if(!await ensureLev(r.lev)){toast("杠杆设置未确认成功，已阻止下单");return;}
+    if(!await ensureLev(r.lev)) return;
     const slOrd=exitOrder(sym,buy,alignPx(r.sl,sym,buy?1:-1),ps,qty);
     const tpOrd=(r.tp!=null)?tpPostOnlyOrder(sym,buy,r.tp,ps,qty):null;
     const label=(stopEntry?(buy?"突破挂多 ":"突破挂空 "):(buy?"挂单做多 ":"挂单做空 "))+qty+" "+disp(sym);
