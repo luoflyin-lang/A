@@ -2170,7 +2170,7 @@ function liveLines(force){
     }
 
     d.querySelector(".xbtn").addEventListener("click",ev=>{ev.stopPropagation();
-      if(confirm("撤单 "+disp(o.symbol)+"（"+oi.kind+" "+oi.sizeTxt+" @ "+oi.priceTxt+"）？"))cancelOrder(o.symbol,o.orderId||o.algoId,o.isAlgo);
+      cancelOrder(o.symbol,o.orderId||o.algoId,o.isAlgo);
     });
   });
 
