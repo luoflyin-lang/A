@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#F2EFE9">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; connect-src 'self' https://fapi.binance.com wss://fstream.binance.com https://testnet.binancefuture.com wss://stream.binancefuture.com; img-src 'self' data:; font-src 'self';">
 <title>BN Chart</title>
-<!-- 引入 Lightweight Charts 图表库（优先同域本地/高速 CDN） -->
+<!-- 引入 Lightweight Charts 图表库（优先同域本地/安全 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
 <script>
 if (typeof LightweightCharts === "undefined") {
-  document.write('<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"><\/script>');
+  document.write('<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"><\/script>');
 }
 </script>
 <style>
@@ -277,8 +278,10 @@ th:first-child,td:first-child{text-align:left}
 <div class="edge-zone left"><span class="edge-hint">‹</span></div>
 <div class="edge-zone right"><span class="edge-hint">›</span></div>
 
+<div id="nakedAlert" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:100;background:#A85244;color:#FFF;padding:8px 16px;border-radius:10px;font-weight:600;font-size:12.5px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:center;pointer-events:none"></div>
+
 <div id="tl">
-  <div id="name" title="点击切换 15m / 30m 周期">
+  <div id="name" title="点击切换 15m / 1h 周期">
     <span class="s" id="nS">BTC</span>
     <span class="tf-badge" id="nTf">15m</span>
     <span class="natr-badge" id="nNatr" style="display:none">15m NATR --</span>
@@ -301,7 +304,7 @@ th:first-child,td:first-child{text-align:left}
     <b>免挂单费品种</b>
     <div class="tf-seg" id="listTfSeg" style="display:inline-flex;background:var(--raised);padding:2px;border-radius:8px;gap:2px;margin-left:6px">
       <button class="tf-btn" data-tf="15m" style="border:none;background:transparent;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--faint);cursor:pointer;transition:all .15s">15m</button>
-      <button class="tf-btn" data-tf="30m" style="border:none;background:transparent;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--faint);cursor:pointer;transition:all .15s">30m</button>
+      <button class="tf-btn" data-tf="1h" style="border:none;background:transparent;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--faint);cursor:pointer;transition:all .15s">1h</button>
     </div>
     <span class="num" style="font-size:11.5px;color:var(--faint);margin-left:auto" id="cnt"></span>
     <button class="x" data-close>✕</button>
@@ -332,7 +335,7 @@ th:first-child,td:first-child{text-align:left}
 <div id="lockbar"></div>
 <div id="dlayer">
   <div class="dl en" id="hEn"><span class="grip">入场</span></div>
-  <div class="dl sl" id="hSl"><span class="grip">止损</span></div>
+  <div class="dl sl" id="hSl"><span class="grip">止损 (MARK)</span></div>
   <div class="dl tp" id="hTp"><span class="grip">止盈</span></div>
 </div>
 <div id="pline"><span id="pbub"></span></div>
@@ -340,7 +343,7 @@ th:first-child,td:first-child{text-align:left}
 <div id="ohud">
   <div class="t"><b id="ohT">BTC</b><span id="ohS">在图表上点击选入场价</span><button class="x" id="ohX">✕</button></div>
   <div class="ol" id="lE"><i class="e"></i>入场<span class="v">—</span></div>
-  <div class="ol" id="lS"><i class="s"></i>止损<span class="v">—</span></div>
+  <div class="ol" id="lS"><i class="s"></i>止损 (MARK)<span class="v">—</span></div>
   <div class="ol" id="lT"><i class="t"></i>止盈<span class="v">—</span></div>
   <div id="ohC"></div>
   <div class="obar"><button id="ohR">风险1%</button><button id="ohSkip">跳过止盈</button></div>
@@ -370,7 +373,7 @@ try{const _px=JSON.parse(localStorage.getItem("bn_proxy")||"null");
   if(_px&&_px.ws)WSU=_px.ws+"/ws";}catch(e){}
 const QUOTE="USDC";             // 默认基准报价资产
 const VOL_MIN=50e6;             // 品种筛选：24h 成交额阈值 = 50M (5000 万美元)
-const NATR_MIN=0.5;             // 品种筛选：当前活跃周期 (15m/30m) NATR 阈值 = 0.5%
+const NATR_MIN=0.5;             // 品种筛选：当前活跃周期 (15m/1h) NATR 阈值 = 0.5%
 const NATR_LEN=14;              // NATR 计算周期 (过去 14 根 K 线)
 /* ---- 交易参数 ---- */
 const TIF="GTX";                        // 只挂单（Post Only）
@@ -386,7 +389,7 @@ const AWAY_TTL=0;                       // 已设为 0：关闭离线超时自�
 const ALIVE_MS=15000;                   // 心跳落盘间隔
 const WATCH_KEEP=36e5;                  // 机会标记保留 1 小时
 const WATCH_MAX=20;                     // 最多 20 条
-const TFMS={"15m":9e5,"30m":18e5};
+const TFMS={"15m":9e5,"1h":36e5};
 const LOCK_CANCEL_ENTRY=false;          // 断线/锁定时不自动撤销挂单
 const LOCK_CANCEL_COLDSTART=false;
 const NUDGE_TICKS=2;
@@ -397,7 +400,13 @@ const MID_BACK=8000;
 const TOAST_DEDUP=60000;
 const PREATTACH_TP=true;
 const TP_FB_OFF=0.001;
-const VER="v10.0";
+const VER="v11.0";
+let DRY_RUN=false;                      // 演练模式（开启后只记录请求，不真实下单）
+let IS_TESTNET=false;                   // 测试网开关
+const BC_CH = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("bn_leader_election") : null;
+let IS_LEADER = false;
+let LEADER_HEARTBEAT = 0;
+const TAB_ID = Math.random().toString(36).slice(2, 9);
 const RECV=5000;
 const WORK="MARK_PRICE";
 const LEV_DEF=20;
@@ -539,8 +548,9 @@ function qs(o){return Object.keys(o).filter(k=>o[k]!==undefined&&o[k]!==null&&o[
   .map(k=>encodeURIComponent(k)+"="+encodeURIComponent(o[k])).join("&");}
 function bnErr(j){
   const e=new Error((j&&j.msg)||("code "+((j&&j.code)||"?")));e.code=+((j||{}).code||0);return e;}
-async function req(method,path,query,headers,ms){
-  if(Date.now()<backoffUntil)throw new Error("backoff");
+async function req(method,path,query,headers,ms,opt={}){
+  const isEscape = !!opt.escapeLock || opt.isExit || method === "DELETE";
+  if(!isEscape && Date.now()<backoffUntil)throw new Error("backoff");
   const ctl=typeof AbortController!=="undefined"?new AbortController():null;
   const tm=setTimeout(()=>{try{ctl&&ctl.abort();}catch(e){}},ms||15000);
   try{
@@ -562,12 +572,12 @@ async function req(method,path,query,headers,ms){
     throw e;
   }finally{clearTimeout(tm);}
 }
-const pub=(path,params,ms)=>req("GET",path,params?qs(params):"",{},ms);
-async function priv(method,path,params,ms){
+const pub=(path,params,ms,opt)=>req("GET",path,params?qs(params):"",{},ms,opt);
+async function priv(method,path,params,ms,opt){
   if(!HASKEY)throw new Error("未配置 API Key / Secret");
   const p=Object.assign({},params||{},{recvWindow:RECV,timestamp:Math.floor(now())});
   const q=qs(p);
-  return req(method,path,q+"&signature="+BNCrypto.hmacHex(API_SECRET,q),{"X-MBX-APIKEY":API_KEY},ms);
+  return req(method,path,q+"&signature="+BNCrypto.hmacHex(API_SECRET,q),{"X-MBX-APIKEY":API_KEY},ms,opt);
 }
 
 /* ================= API 密钥安全存储 ================= */
@@ -580,7 +590,7 @@ const b64=u=>btoa(String.fromCharCode.apply(null,new Uint8Array(u)));
 const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
 async function passKey(pass,salt){
   const raw=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);
-  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:210000,hash:"SHA-256"},
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:600000,hash:"SHA-256"},
     raw,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
 }
 async function encKeys(k,s,pass){
@@ -596,8 +606,6 @@ async function decKeys(rec,pass){
 }
 async function bootKeys(){
   if(API_KEY&&API_SECRET){HASKEY=true;return;}
-  try{const c=JSON.parse(sessionStorage.getItem(KKEY)||"null");
-    if(c&&c.k&&c.s){setKeys(c.k,c.s);return;}}catch(e){}
   const rec=readRec();if(!rec)return;
   if(rec.mode==="plain"&&rec.k&&rec.s){setKeys(rec.k,rec.s);return;}
   if(rec.mode==="aes")openKey("unlock");
@@ -611,14 +619,13 @@ async function startPrivate(){
     await load(false);
     startUserStream();
     clearInterval(acctPollT);
-    acctPollT=setInterval(()=>{if(NET.acct&&Date.now()-NET.acct<45000)return;load(true);},20000);
+    acctPollT=setInterval(()=>{if(NET.acct&&Date.now()-NET.acct<45000)return;load(true);},25000);
   }catch(e){log("startPrivate err "+(e&&e.message));}
   ACCT_LOADING=false;try{posView();render();}catch(e){}
 }
 function wipeKeys(){
   if(!confirm("清除本机保存的 API 密钥并断开账户连接？\n交易所上的持仓和挂单不受影响。"))return;
   try{localStorage.removeItem(KKEY);}catch(e){}
-  try{sessionStorage.removeItem(KKEY);}catch(e){}
   setKeys("","");
   try{if(uws)uws.close();}catch(e){}
   uws=null;LKEY="";clearInterval(lkT);lkT=null;
@@ -659,7 +666,6 @@ async function submitKey(){
     if(!CANCRYPT){toast("当前打开方式没有浏览器解密能力，解不开加密密钥");return;}
     try{
       const o=await decKeys(rec,pass);setKeys(o.k,o.s);
-      try{sessionStorage.setItem(KKEY,JSON.stringify({k:o.k,s:o.s}));}catch(e){}
       closeKey();toast("已解锁，正在读账户");await startPrivate();
     }catch(e){toast("口令不对，解不开");}
     return;
@@ -669,7 +675,6 @@ async function submitKey(){
   try{
     if(pass&&CANCRYPT){
       localStorage.setItem(KKEY,JSON.stringify(await encKeys(k,s,pass)));
-      try{sessionStorage.setItem(KKEY,JSON.stringify({k,s}));}catch(e){}
     }else localStorage.setItem(KKEY,JSON.stringify({v:1,mode:"plain",k,s}));
   }catch(e){toast("存不进去："+((e&&e.message)||e));return;}
   setKeys(k,s);closeKey();toast(pass&&CANCRYPT?"已加密保存，正在读账户":"已保存到本机，正在读账户");
@@ -763,28 +768,27 @@ function initTradingViewChart(){
     lastValueVisible: false
   });
 
-  tvChart.timeScale().subscribeVisibleTimeRangeChange(() => {
-    syncHandles();
-    llPlace();
-  });
-  tvChart.timeScale().subscribeVisibleLogicalRangeChange(() => {
-    syncHandles();
-    llPlace();
-  });
-
-  // 启动高频平滑帧循环，在缩放、平移和自适应时 100% 毫秒级硬贴合
-  function handleFrameLoop(){
-    syncHandles();
-    llPlace();
-    requestAnimationFrame(handleFrameLoop);
+  let _rafHandles = 0;
+  function scheduleHandles(){
+    if(_rafHandles) return;
+    _rafHandles = requestAnimationFrame(()=>{
+      _rafHandles = 0;
+      syncHandles();
+      llPlace();
+      if(F.on || LL_ITEMS.some(it => it.dragging)){
+        scheduleHandles();
+      }
+    });
   }
-  requestAnimationFrame(handleFrameLoop);
+
+  tvChart.timeScale().subscribeVisibleTimeRangeChange(scheduleHandles);
+  tvChart.timeScale().subscribeVisibleLogicalRangeChange(scheduleHandles);
 
   window.addEventListener("resize", () => {
     if(tvChart) tvChart.resize(window.innerWidth, window.innerHeight);
-    syncHandles();
-    llPlace();
+    scheduleHandles();
   });
+  scheduleHandles();
 }
 
 function updateChartTheme(){
@@ -855,18 +859,29 @@ async function loadUniverse(){
 }
 
 function calcNatrFromCandles(klineList){
-  if(!klineList || klineList.length < 15) return 0;
-  const recent = klineList.slice(-15);
-  let trSum = 0;
-  for(let i = 1; i < recent.length; i++){
-    const h = +recent[i].h;
-    const l = +recent[i].l;
-    const pc = +recent[i - 1].c;
-    trSum += Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+  if(!klineList || klineList.length < 16) return null;
+  // 丢弃最新一根尚未收盘的 K 线，避免盘中跳动
+  const closed = klineList.slice(0, -1);
+  if(closed.length < 15) return null;
+
+  const trs = [];
+  for(let i = 1; i < closed.length; i++){
+    const cur = closed[i], prev = closed[i - 1];
+    const h = +(cur.h != null ? cur.h : cur[2]);
+    const l = +(cur.l != null ? cur.l : cur[3]);
+    const pc = +(prev.c != null ? prev.c : prev[4]);
+    trs.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
   }
-  const atr14 = trSum / 14.0;
-  const close = +recent[recent.length - 1].c;
-  return close > 0 ? (atr14 / close) * 100 : 0;
+  if(trs.length < 14) return null;
+
+  // Wilder RMA: 初始取前 14 根简单均值，之后递归平滑
+  let atr = trs.slice(0, 14).reduce((a, b) => a + b, 0) / 14.0;
+  for(let i = 14; i < trs.length; i++){
+    atr = (atr * 13.0 + trs[i]) / 14.0;
+  }
+  const lastC = closed[closed.length - 1];
+  const close = +(lastC.c != null ? lastC.c : lastC[4]);
+  return close > 0 ? +((atr / close) * 100).toFixed(3) : null;
 }
 
 function getNatr(sym, tf = S.tf){
@@ -875,28 +890,21 @@ function getNatr(sym, tf = S.tf){
   return c["natr_" + tf] != null ? c["natr_" + tf] : null;
 }
 
-const _natrFetching = { "15m": false, "30m": false };
-const _natrAt = { "15m": 0, "30m": 0 };
+const _natrFetching = { "15m": false, "1h": false };
+const _natrAt = { "15m": 0, "1h": 0 };
 const NATR_REFRESH_MS = 60000;
 
 async function fetchSymbolNatr(sym, tf = S.tf){
   try{
-    if(sym === S.sym && S.tf === tf && S.kc[sym + "|" + tf]?.k?.length >= 15){
+    if(sym === S.sym && S.tf === tf && S.kc[sym + "|" + tf]?.k?.length >= 20){
       const natr = calcNatrFromCandles(S.kc[sym + "|" + tf].k);
       if(!S.ctx[sym]) S.ctx[sym] = {};
       S.ctx[sym]["natr_" + tf] = natr;
       return natr;
     }
-    const r = await pub("/fapi/v1/klines", { symbol: sym, interval: tf, limit: 15 }, 8000);
-    if(Array.isArray(r) && r.length >= 15){
-      let trSum = 0;
-      for(let i = 1; i < r.length; i++){
-        const h = +r[i][2], l = +r[i][3], pc = +r[i - 1][4];
-        trSum += Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
-      }
-      const atr14 = trSum / 14.0;
-      const close = +r[r.length - 1][4];
-      const natr = close > 0 ? (atr14 / close) * 100 : 0;
+    const r = await pub("/fapi/v1/klines", { symbol: sym, interval: tf, limit: 30 }, 8000);
+    if(Array.isArray(r) && r.length >= 16){
+      const natr = calcNatrFromCandles(r);
       if(!S.ctx[sym]) S.ctx[sym] = {};
       S.ctx[sym]["natr_" + tf] = natr;
       return natr;
@@ -906,7 +914,7 @@ async function fetchSymbolNatr(sym, tf = S.tf){
 }
 
 async function refreshNatrs(tf = S.tf, force = false){
-  if(tf !== "15m" && tf !== "30m") tf = "15m";
+  if(tf !== "15m" && tf !== "1h") tf = "15m";
   if(_natrFetching[tf]) return;
   if(!force && Date.now() - (_natrAt[tf] || 0) < NATR_REFRESH_MS) return;
   _natrFetching[tf] = true;
@@ -937,7 +945,7 @@ async function tickers(){
       {last:+x.lastPrice,chg:+x.priceChangePercent,volUsd:+x.quoteVolume});
     if(S.mid[x.symbol]==null)S.mid[x.symbol]=+x.lastPrice;});
   refreshNatrs(S.tf).then(()=>{
-    const altTf = (S.tf === "15m" ? "30m" : "15m");
+    const altTf = (S.tf === "15m" ? "1h" : "15m");
     refreshNatrs(altTf).catch(()=>{});
   }).catch(()=>{});
 }
@@ -1017,7 +1025,7 @@ async function kline(force){
       // 防切币竞态条件：确认当前仍是请求的币种和周期
       if(S.sym === reqSym && S.tf === reqTf){
         useCandles(raw, true);
-        if((reqTf === "15m" || reqTf === "30m") && raw.length >= 15){
+        if((reqTf === "15m" || reqTf === "1h") && raw.length >= 16){
           if(!S.ctx[reqSym]) S.ctx[reqSym] = {};
           S.ctx[reqSym]["natr_" + reqTf] = calcNatrFromCandles(raw);
           head();
@@ -1087,7 +1095,7 @@ function sock(){
           const liveEma = b.c * k + lastEmaValue * (1 - k);
           emaSeries.update({ time: timeSec, value: liveEma });
         }
-        if((S.tf === "15m" || S.tf === "30m") && c.k.length >= 15){
+        if((S.tf === "15m" || S.tf === "1h") && c.k.length >= 16){
           if(!S.ctx[S.sym]) S.ctx[S.sym] = {};
           S.ctx[S.sym]["natr_" + S.tf] = calcNatrFromCandles(c.k);
           head();
@@ -1205,16 +1213,17 @@ function applyAcct(acc,pos,od){
   updateTvBtn();
 }
 
-async function load(silent){
+async function load(silent, symOnly){
   if(!HASKEY){if(!silent)toast("未配置 API Key / Secret，无法读取账户");return;}
   try{
+    const orderParams = symOnly ? { symbol: symOnly } : {};
     const tasks=[
-      priv("GET","/fapi/v2/account",{}),
-      priv("GET","/fapi/v2/positionRisk",{}),
-      priv("GET","/fapi/v1/openOrders",{}).catch(()=>[]),
-      priv("GET","/fapi/v1/openAlgoOrders",{}).catch(()=>[])
+      priv("GET","/fapi/v2/account",{}, 15000, { escapeLock: true }),
+      priv("GET","/fapi/v2/positionRisk",{}, 15000, { escapeLock: true }),
+      priv("GET","/fapi/v1/openOrders", orderParams, 15000, { escapeLock: true }).catch(()=>[]),
+      priv("GET","/fapi/v1/openAlgoOrders", orderParams, 15000, { escapeLock: true }).catch(()=>[])
     ];
-    if(S.dual==null)tasks.push(priv("GET","/fapi/v1/positionSide/dual",{}).catch(()=>null));
+    if(S.dual==null)tasks.push(priv("GET","/fapi/v1/positionSide/dual",{}, 15000, { escapeLock: true }).catch(()=>null));
     const [acc,pos,stdOd,algoRes,dual]=await Promise.all(tasks);
     if(dual&&dual.dualSidePosition!=null)S.dual=!!dual.dualSidePosition;
     
@@ -1241,7 +1250,13 @@ async function load(silent){
     });
 
     const od = [...(Array.isArray(stdOd)?stdOd:[]), ...normalizedAlgo];
-    applyAcct(acc,pos,od);
+    if(symOnly && S.ords){
+      // 增量合并当前标的的挂单，避免擦除其它品种
+      S.ords[symOnly] = od;
+      S.ordsAt = Date.now();
+    } else {
+      applyAcct(acc,pos,od);
+    }
     if(!silent){const a=acctView();
       toast("已加载：总资金 $"+money(a.equity)+" · 可用 $"+money(a.avail)+"，持仓已置顶");}
     sweepOrphans(true);
@@ -1271,19 +1286,18 @@ function ordInfo(o){
   const ps=String(o.positionSide||"BOTH").toUpperCase();
   const side=String(o.side||"").toUpperCase();
   
-  let ro = !!o.reduceOnly || closeAll;
-  if(!ro && ps === "LONG" && side === "SELL") ro = true;
-  if(!ro && ps === "SHORT" && side === "BUY") ro = true;
-  if(!ro){
-    const p = posOf(o.symbol).find(x => x.amt !== 0);
-    if(p && ((p.amt > 0 && side === "SELL") || (p.amt < 0 && side === "BUY"))) ro = true;
+  // 严格依据交易所返回的 reduceOnly 与 closePosition，绝不凭持仓方向盲目猜测！
+  let ro = !!o.reduceOnly || o.reduceOnly === "true" || closeAll;
+  if(!ro && S.dual){
+    if(ps === "LONG" && side === "SELL") ro = true;
+    if(ps === "SHORT" && side === "BUY") ro = true;
   }
 
   const trail=/TRAILING/.test(t);
   const tp=/TAKE_PROFIT/.test(t),sl=/STOP/.test(t)&&!trail;
   const trig=trail||stop>0||/STOP|TAKE_PROFIT/.test(t);
   const isEntry=trig&&!ro;
-  const kind=trail?"追踪止损":trig?(isEntry?"触发入场":tp?"止盈":(/MARKET/.test(t)?"市价止损":"止损")):(ro?"限价平仓":"限价");
+  const kind=trail?"追踪止损":trig?(isEntry?"触发入场":tp?"止盈":(/MARKET/.test(t)?"市价止损 (MARK)":"止损 (MARK)")):(ro?"限价平仓":"限价");
   const size=Math.abs(+o.origQty||+o.quantity||+o.totalQty||0);
   const sizeTxt=closeAll?"全平":size>0?sz(size,o.symbol):"—";
   const price=trig?stop:lim;
@@ -1449,42 +1463,49 @@ async function modifyOrderPrice(oldOrder, newPrice){
   }
 
   // 安全修改流程：
-  // 策略 A: 先尝试直接提交新单（保证止损单不会因为先撤单而瞬间失保）
-  let res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym));
-  const isGood = res && (res.orderId != null || res.algoId != null) && !(res.code != null && +res.code < 0);
-
-  if(isGood){
-    // 新单成功挂入，安全撤销旧单
-    await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo);
-    toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
-  } else {
-    // 若因 closePosition 重复限制或 ReduceOnly 冲突被拒（例如 -2022），则切换为安全撤旧挂新
-    const errCode = (LAST_ERR && +LAST_ERR.code) || (res && +res.code) || 0;
-    if(errCode === -2022 || errCode === -4013 || errCode === -1013){
-      log("modifyOrderPrice: retry cancel-and-replace for " + sym);
-      await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo);
-      res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym));
-      const retryGood = res && (res.orderId != null || res.algoId != null) && !(res.code != null && +res.code < 0);
-      if(retryGood){
-        toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
-      } else {
-        // 兜底：若新单仍然失败，立即把原止损单重新挂回，坚决不丢止损！
-        toast("⚠ 新单挂入被拒，正在恢复原止损单…");
-        const restoreOrd = Object.assign({}, newOrd, {
-          stopPrice: fmtPx(oi.price, sym),
-          price: (/LIMIT|TAKE_PROFIT$|STOP$/.test(orderType)) ? fmtPx(oi.price, sym) : undefined
-        });
-        await placeOrder(restoreOrd, "恢复原止损 " + disp(sym));
-      }
+  if(oi.isEntry){
+    // 入场单：坚决【先撤后挂】！防止双单在穿透瞬间同时成交导致加倍仓位！
+    await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo, { escapeLock: true });
+    let res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym));
+    const isGood = res && (res.orderId != null || res.algoId != null) && !(res.code != null && +res.code < 0);
+    if(isGood){
+      toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
     } else {
-      // 其它拒绝原因（如价格不符合要求等），旧单完全保留在交易所
-      const errMsg = (LAST_ERR && (LAST_ERR.msg || LAST_ERR.message)) || "交易所拒绝新单";
-      toast("⚠ 修改失败：" + errMsg + "，已保留原止损单 @" + px(oi.price, sym));
-      liveLines(true);
+      toast("⚠ 入场单撤销成功，但新单提交被拒：" + errText(LAST_ERR || res));
+    }
+  } else {
+    // 保护单（止损 / 止盈）：坚决【先挂后撤】！绝不留保护真空！
+    let res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym), false, { escapeLock: true });
+    const isGood = res && (res.orderId != null || res.algoId != null) && !(res.code != null && +res.code < 0);
+    if(isGood){
+      await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo, { escapeLock: true });
+      toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
+    } else {
+      const errCode = (LAST_ERR && +LAST_ERR.code) || (res && +res.code) || 0;
+      if(errCode === -2022 || errCode === -4013 || errCode === -1013){
+        log("modifyOrderPrice: retry cancel-and-replace for " + sym);
+        await cancelOrder(sym, oldOrder.orderId || oldOrder.algoId, oldOrder.isAlgo, { escapeLock: true });
+        res = await placeOrder(newOrd, "改单挂入 " + disp(sym) + " @" + px(alignedPx, sym), false, { escapeLock: true });
+        const retryGood = res && (res.orderId != null || res.algoId != null) && !(res.code != null && +res.code < 0);
+        if(retryGood){
+          toast("已成功修改 " + disp(sym) + " " + oi.kind + " 至 " + px(alignedPx, sym));
+        } else {
+          toast("⚠ 新单挂入被拒，正在恢复原止损单…");
+          const restoreOrd = Object.assign({}, newOrd, {
+            stopPrice: fmtPx(oi.price, sym),
+            price: (/LIMIT|TAKE_PROFIT$|STOP$/.test(orderType)) ? fmtPx(oi.price, sym) : undefined
+          });
+          await placeOrder(restoreOrd, "恢复原止损 " + disp(sym), false, { escapeLock: true });
+        }
+      } else {
+        const errMsg = (LAST_ERR && (LAST_ERR.msg || LAST_ERR.message)) || "交易所拒绝新单";
+        toast("⚠ 修改失败：" + errMsg + "，已保留原单 @" + px(oi.price, sym));
+        liveLines(true);
+      }
     }
   }
 
-  load(true);
+  load(true, sym);
 }
 
 let ORPHAN_KEY="",ORPHAN_AT=0;
@@ -1525,8 +1546,8 @@ async function sweepOrphans(auto){
   }
   const syms=[...new Set(orphans.map(o=>o.sym))];
   for(const sym of syms){
-    await send("DELETE","/fapi/v1/allOpenOrders",{symbol:sym},"清理 "+disp(sym)+" 孤儿单",true).catch(()=>{});
-    await send("DELETE","/fapi/v1/algoOpenOrders",{symbol:sym},"清理 "+disp(sym)+" 孤儿 Algo 单",true).catch(()=>{});
+    await send("DELETE","/fapi/v1/allOpenOrders",{symbol:sym},"清理 "+disp(sym)+" 孤儿单",true,{escapeLock:true}).catch(()=>{});
+    await send("DELETE","/fapi/v1/algoOpenOrders",{symbol:sym},"清理 "+disp(sym)+" 孤儿 Algo 单",true,{escapeLock:true}).catch(()=>{});
     delete S.ords[sym];
   }
   await cleanDuplicateOrders();
@@ -1539,14 +1560,24 @@ async function cleanDuplicateOrders(){
   for(const sym of Object.keys(S.ords||{})){
     const sls = (S.ords[sym]||[]).filter(o => ordInfo(o).sl);
     if(sls.length > 1){
+      const p = posOf(sym)[0];
+      const isLong = p ? p.amt > 0 : true;
+      sls.sort((a,b)=>{
+        const pA = +(a.stopPrice || a.triggerPrice || 0);
+        const pB = +(b.stopPrice || b.triggerPrice || 0);
+        const cpA = a.closePosition === true || a.closePosition === "true" ? 1 : 0;
+        const cpB = b.closePosition === true || b.closePosition === "true" ? 1 : 0;
+        if(cpA !== cpB) return cpB - cpA;
+        return isLong ? (pB - pA) : (pA - pB);
+      });
       const toCancel = sls.slice(1);
       for(const o of toCancel){
-        await cancelOrder(sym, o.orderId || o.algoId, o.isAlgo);
+        await cancelOrder(sym, o.orderId || o.algoId, o.isAlgo, { escapeLock: true });
         cleaned++;
       }
     }
   }
-  if(cleaned > 0) toast("已自动清理 "+cleaned+" 张多余重复挂单");
+  if(cleaned > 0) toast("已自动清理 "+cleaned+" 张多余重复挂单（保留最保守止损）");
 }
 
 /* ================= 提交层与订单路由 ================= */
@@ -1569,32 +1600,65 @@ const ERRH={"-5022":"只挂单（GTX）会立刻成交被拒（已自动调整�
 function errText(e){const c=e&&e.code!=null?String(e.code):"";
   return ERRH[c]?ERRH[c]+"（"+c+"）":((e&&(e.msg||e.message))||("错误 "+c));}
 
-async function send(method,path,params,msg,silent){
-  if(LOCK){toast("行情异常，交易已锁定："+LOCK);return null;}
-  if(INFLIGHT){toast("上一笔请求还在处理，请稍候");return null;}
+async function send(method,path,params,msg,silent,opt={}){
+  const isEscape = !!opt.escapeLock || opt.isExit || (params && (params.closePosition === "true" || params.reduceOnly === "true")) || method === "DELETE";
+  if(LOCK && !isEscape){toast("行情异常，交易已锁定："+LOCK);return null;}
+  if(INFLIGHT && !isEscape){toast("上一笔请求还在处理，请稍候");return null;}
+  if(DRY_RUN){
+    console.log("[DRY RUN] send:", method, path, params);
+    toast("【演练模式 DRY_RUN】"+msg+"：已记录请求（未真实下单）");
+    return {orderId:888888,algoId:888888,clientOrderId:params.newClientOrderId||params.clientAlgoId||"dryrun"};
+  }
   if(!HASKEY){copyJson({method,path,params},msg+"：未配置 API Key/Secret → 已复制请求 JSON");return null;}
   INFLIGHT=true;LAST_ERR=null;try{render();}catch(e){}
   const t0=Date.now();
   try{
-    const res=await priv(method,path,params);
+    const res=await priv(method,path,params,opt.ms,opt);
     const errs=errsOf(res);
     if(errs.length){LAST_ERR=errs[0];toast("被拒："+errs.map(errText).join(" / ").slice(0,140));return res;}
     if(!silent)toast(msg+" 已提交");
-    setTimeout(()=>{if(Date.now()-(NET.acct||0)>5000)load(true);else log("skip reload (user stream fresh)");},900);
     return res;
   }catch(e){
     if(e.code===-1021){await syncTime();toast("时间不同步已重新校时，请再点一次");return null;}
     if(e.code===-4061){S.dual=null;load(true);
       toast("持仓模式变了，已重新读取账户设置，请再点一次");return null;}
     if(e.timeout||!e.code){
-      toast("提交无响应，正在对账…（"+(e.message||e)+"）");await reconcile(t0-5000);return null;}
+      toast("提交无响应，正在精准对账…（"+(e.message||e)+"）");
+      const cid = params && (params.newClientOrderId || params.clientAlgoId);
+      if(cid){
+        const isAlgo = path.includes("algo");
+        try{
+          const check = await priv("GET", isAlgo ? "/fapi/v1/algoOrder" : "/fapi/v1/order",
+            isAlgo ? {symbol:params.symbol,clientAlgoId:cid} : {symbol:params.symbol,origClientOrderId:cid},
+            5000, {escapeLock:true});
+          if(check && (check.orderId || check.algoId)){
+            toast("精准对账成功：订单已在交易所 (" + (check.status || check.algoStatus || "已挂入") + ")");
+            return check;
+          }
+        }catch(recErr){
+          log("cid recon err " + recErr.message);
+        }
+      }
+      await reconcile(t0-5000);
+      return null;
+    }
     LAST_ERR=e;toast(keyHint(e)||("被拒："+errText(e)).slice(0,140));
     log("send err "+e.code+" "+e.message);
     return null;
-  }finally{INFLIGHT=false;try{render();}catch(e){}load(true);}
+  }finally{
+    INFLIGHT=false;
+    try{render();}catch(e){}
+    load(true, params && params.symbol);
+  }
 }
 
-async function placeOrder(ord, label, silent){
+async function placeOrder(ord, label, silent, opt={}){
+  const escapeOpt = Object.assign({}, opt);
+  if(ord.closePosition === true || ord.closePosition === "true" || ord.reduceOnly === true || ord.reduceOnly === "true"){
+    escapeOpt.escapeLock = true;
+  }
+  const cid = ord.newClientOrderId || ord.clientAlgoId || ("bn" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+
   // 1. 判断是否为条件单（止损/止盈/突破单）
   // 币安新规：所有条件单必须通过 POST /fapi/v1/algoOrder (algoType="CONDITIONAL", triggerPrice)
   const isAlgo = /STOP|TAKE_PROFIT|TRAILING/.test(ord.type) || ord.algoType === "CONDITIONAL" || ord.isAlgo;
@@ -1607,17 +1671,23 @@ async function placeOrder(ord, label, silent){
       symbol: ord.symbol,
       side: ord.side,
       type: cleanType,
-      triggerPrice: String(trig)
+      triggerPrice: String(trig),
+      clientAlgoId: cid,
+      newClientOrderId: cid
     };
     if(ord.positionSide) p.positionSide = ord.positionSide;
     
     if(ord.closePosition === true || ord.closePosition === "true"){
       p.closePosition = "true";
+      delete p.quantity;
+      delete p.reduceOnly;
     } else if(ord.quantity){
       p.quantity = String(ord.quantity);
       if(ord.reduceOnly === true || ord.reduceOnly === "true") p.reduceOnly = "true";
     } else {
       p.closePosition = "true";
+      delete p.quantity;
+      delete p.reduceOnly;
     }
 
     if(ord.price && /LIMIT|TAKE_PROFIT$|STOP$/.test(cleanType)){
@@ -1626,7 +1696,7 @@ async function placeOrder(ord, label, silent){
     if(ord.workingType) p.workingType = ord.workingType;
     if(ord.priceProtect) p.priceProtect = String(ord.priceProtect).toUpperCase();
 
-    let res = await send("POST", "/fapi/v1/algoOrder", p, label, silent);
+    let res = await send("POST", "/fapi/v1/algoOrder", p, label, silent, escapeOpt);
     
     // 双向兼容：如果报不支持 algoOrder，则回退到传统 /fapi/v1/order
     if(!okAll(res) && LAST_ERR && (LAST_ERR.code === -4120 || LAST_ERR.code === -1102 || LAST_ERR.code === -4003)){
@@ -1637,7 +1707,8 @@ async function placeOrder(ord, label, silent){
       delete cleanOrd.orderType;
       cleanOrd.stopPrice = trig;
       delete cleanOrd.triggerPrice;
-      res = await send("POST", "/fapi/v1/order", cleanOrd, label, silent);
+      cleanOrd.newClientOrderId = cid;
+      res = await send("POST", "/fapi/v1/order", cleanOrd, label, silent, escapeOpt);
     }
     return res;
   } else {
@@ -1647,8 +1718,9 @@ async function placeOrder(ord, label, silent){
     delete cleanOrd.algoType;
     delete cleanOrd.orderType;
     delete cleanOrd.triggerPrice;
+    cleanOrd.newClientOrderId = cid;
 
-    let res = await send("POST", "/fapi/v1/order", cleanOrd, label, silent);
+    let res = await send("POST", "/fapi/v1/order", cleanOrd, label, silent, escapeOpt);
     
     // 双向兼容：若报 -4120 则自动切换到 algoOrder 重试
     if(!okAll(res) && LAST_ERR && LAST_ERR.code === -4120){
@@ -1659,12 +1731,14 @@ async function placeOrder(ord, label, silent){
         symbol: ord.symbol,
         side: ord.side,
         type: ord.type || "STOP_MARKET",
-        triggerPrice: String(trig)
+        triggerPrice: String(trig),
+        clientAlgoId: cid,
+        newClientOrderId: cid
       };
       if(ord.positionSide) p.positionSide = ord.positionSide;
       if(ord.quantity) p.quantity = String(ord.quantity);
       if(ord.price) p.price = String(ord.price);
-      res = await send("POST", "/fapi/v1/algoOrder", p, label, silent);
+      res = await send("POST", "/fapi/v1/algoOrder", p, label, silent, escapeOpt);
     }
     return res;
   }
@@ -1757,7 +1831,7 @@ async function closePos(key){
     price:fmtPx(lim,sym),quantity:fmtSz(q,sym)};
   if(S.dual)o.positionSide=p.side==="BOTH"?(lg?"LONG":"SHORT"):p.side;
   else o.reduceOnly="true";
-  await send("POST","/fapi/v1/order",o,"挂单平仓 "+disp(sym)+" @ "+px(lim,sym));
+  await send("POST","/fapi/v1/order",o,"挂单平仓 "+disp(sym)+" @ "+px(lim,sym), false, { escapeLock: true, isExit: true });
 }
 
 /* ================= 偏好记忆 ================= */
@@ -1787,7 +1861,7 @@ function loadPref(){
     S.filter = true;
     try{localStorage.setItem("bn_ver", VER);}catch(e){}
   } else {
-    if(PREF.tf === "30m") S.tf = "30m";
+    if(PREF.tf === "1h") S.tf = "1h";
     else S.tf = "15m";
     if(typeof PREF.filter === "boolean") S.filter = PREF.filter;
   }
@@ -1862,15 +1936,18 @@ function exitOrder(sym,lg,price,ps,qty){
     workingType:WORK,
     priceProtect:"true"
   };
-  let q=qty;
-  if(!(q>0)){
-    const p=posOf(sym).find(x=>(x.amt>0)===lg);
-    if(p)q=Math.abs(p.amt);
-    else if(PENDBR[sym]&&PENDBR[sym].qty)q=PENDBR[sym].qty;
+  if(!S.dual){
+    o.closePosition="true";
+  }else{
+    let q=qty;
+    if(!(q>0)){
+      const p=posOf(sym).find(x=>(x.amt>0)===lg);
+      if(p)q=Math.abs(p.amt);
+      else if(PENDBR[sym]&&PENDBR[sym].qty)q=PENDBR[sym].qty;
+    }
+    if(q>0)o.quantity=fmtSz(alignSz(q,sym),sym);
+    o.positionSide=ps||(lg?"LONG":"SHORT");
   }
-  if(q>0)o.quantity=fmtSz(alignSz(q,sym),sym);
-  if(S.dual)o.positionSide=ps||(lg?"LONG":"SHORT");
-  else o.reduceOnly="true";
   return o;
 }
 
@@ -1899,6 +1976,7 @@ function tpPostOnlyOrder(sym,lg,tp,ps,qty){
 }
 
 async function firePendingBracket(sym){
+  if(BC_CH && !IS_LEADER) return;
   const b=PENDBR[sym];if(!b)return;
   if(BRBUSY.has(sym))return;
   const p=posOf(sym).find(x=>(x.amt>0)===(b.side==="BUY"));
@@ -1909,20 +1987,15 @@ async function firePendingBracket(sym){
     const live=(S.ords[sym]||[]).filter(Boolean).map(o=>ordInfo(o));
     const left=live.some(i=>!i.ro);
 
+    // 严禁反向信任本地旧标志，严格由交易所实况 live 订单推导！
     const hasLiveSl = live.some(i=>i.sl && i.ro);
-    if(hasLiveSl) b.slDone = true;
+    b.slDone = hasLiveSl;
 
     const hasLiveTp = live.some(i=>i.tp && i.ro);
     if(hasLiveTp) b.tpFbDone = true;
 
-    if(b.slDone && (b.tp == null || b.tpFbDone || b.tpOid)){
-      delete PENDBR[sym];
-      savePendBr();
-      return;
-    }
-
     const orders=[];let iSl=-1,iTp=-1,iFb=-1,tpQty=0;
-    if(b.sl!=null&&!b.slDone&&!hasLiveSl){
+    if(b.sl!=null&&!hasLiveSl){
       iSl=orders.length;
       orders.push(exitOrder(sym,lg,alignPx(b.sl,sym,lg?1:-1),ps,Math.abs(p.amt)));
     }
@@ -1939,13 +2012,16 @@ async function firePendingBracket(sym){
       iFb=orders.length;
       orders.push(tpPostOnlyOrder(sym,lg,b.tp,ps,tpQty||Math.abs(p.amt)));
     }
-    const done=()=>!left&&(b.sl==null||b.slDone)&&(b.tp==null||!!b.tpOid)&&(b.tp==null||!PREATTACH_TP||!!b.tpFbDone);
-    if(!orders.length){if(done()){delete PENDBR[sym];savePendBr();}return;}
+    const done=()=>!left && hasLiveSl && (b.tp==null || !!b.tpOid || !PREATTACH_TP || hasLiveTp);
+    if(!orders.length){
+      if(done()){delete PENDBR[sym];savePendBr();}
+      return;
+    }
     const what=[iSl>=0?"止损市价单":"",iTp>=0?"止盈挂单":"",iFb>=0?"兜底止盈挂单":""].filter(Boolean).join("/");
     
     const results=[];
     for(const ord of orders){
-      const res=await placeOrder(ord,"入场已成交，自动挂"+(ord.type.includes("STOP")?"止损":"止盈"),true);
+      const res=await placeOrder(ord,"入场已成交，自动挂"+(ord.type.includes("STOP")?"止损":"止盈"),true,{escapeLock:true});
       results.push(res);
     }
     const good=x=>x&&(x.orderId!=null||x.algoId!=null)&&!(x.code!=null&&+x.code<0);
@@ -1977,6 +2053,58 @@ async function firePendingBracket(sym){
     setTimeout(()=>{try{firePendingBracket(sym);}catch(_){}},BRACKET_RETRY);
   }finally{BRBUSY.delete(sym);}
 }
+
+/* ================= 独立裸仓看门狗（每 10 秒巡检：声光报警 + 自动保底补挂） ================= */
+async function slWatchdog(){
+  if(!HASKEY || (BC_CH && !IS_LEADER)) return;
+  const positions = Object.values(S.pos || {}).filter(p => p && Math.abs(p.amt) > 0);
+  const elAlert = $("#nakedAlert");
+  if(!positions.length){
+    if(elAlert) elAlert.style.display = "none";
+    return;
+  }
+  let nakedSyms = [];
+  for(const p of positions){
+    const sym = p.sym;
+    const lg = p.amt > 0;
+    const live = (S.ords[sym] || []).filter(Boolean).map(o => ordInfo(o));
+    const hasLiveSl = live.some(i => i.sl && i.ro);
+    if(!hasLiveSl){
+      nakedSyms.push(sym);
+      console.warn("[WATCHDOG NAKED POSITION]", sym, p);
+      wBeep();
+      // 获取建议止损价：若 PENDBR 中有则用，否则按当前市价 1.5% 保底防击穿
+      let slPx = null;
+      if(PENDBR[sym] && PENDBR[sym].sl){
+        slPx = PENDBR[sym].sl;
+      } else {
+        const curM = mid(sym) || p.entry;
+        const offset = curM * 0.015;
+        slPx = lg ? (curM - offset) : (curM + offset);
+      }
+      slPx = alignPx(slPx, sym, lg ? -1 : 1);
+      const ps = p.side === "BOTH" ? (lg ? "LONG" : "SHORT") : p.side;
+      const slOrd = exitOrder(sym, lg, slPx, ps, Math.abs(p.amt));
+      log("watchdog auto sl " + sym + " @" + slPx);
+      toast("⚠ 看门狗发现裸仓！正在为 " + disp(sym) + " 自动补挂市价止损单 @" + px(slPx, sym));
+      try{
+        await placeOrder(slOrd, "看门狗补止损", true, { escapeLock: true });
+        load(true, sym);
+      }catch(err){
+        log("watchdog err " + err.message);
+      }
+    }
+  }
+  if(nakedSyms.length){
+    if(elAlert){
+      elAlert.style.display = "block";
+      elAlert.textContent = "⚠ 严重警告：发现裸仓！【" + nakedSyms.map(disp).join("、") + "】未设止损保护！正在自动补挂…";
+    }
+  } else {
+    if(elAlert) elAlert.style.display = "none";
+  }
+}
+setInterval(slWatchdog, 10000);
 
 /* ================= 机会清单与 TV 按钮状态 ================= */
 const WKEY="bn_watch";
@@ -2113,7 +2241,7 @@ function list(soft){
     '<span><span class="n">'+x.d+'</span><span class="ttag '+(x.type==="TradFi"?"tradfi":"usdc")+'">'+x.type+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+(wHas(x.n)?' <span class="hold">★</span>':"")+
     '<span class="v">Vol $'+ab(x.vol)+(x.natr!=null?' · '+S.tf+' NATR <b class="'+(x.natr>=NATR_MIN?'natr-hot':'')+'">'+x.natr.toFixed(2)+'%</b>':'')+'</span></span>'+
     '<span class="r"><span class="a">'+px(x.p,x.n)+'</span><span class="b '+(x.ch>=0?"up":"down")+'">'+(x.ch>=0?"+":"")+x.ch.toFixed(2)+'%</span></span></div>').join("")
-    ||'<div class="none">暂无满足【'+S.tf+' NATR &gt; 0.5% 且 24h成交额 &gt; $50M】的标的。<br>可点击上方切换至 '+(S.tf==='15m'?'30m':'15m')+' 周期，或点击上方按钮查看全部免挂单费品种。</div>';
+    ||'<div class="none">暂无满足【'+S.tf+' NATR &gt; 0.5% 且 24h成交额 &gt; $50M】的标的。<br>可点击上方切换至 '+(S.tf==='15m'?'1h':'15m')+' 周期，或点击上方按钮查看全部免挂单费品种。</div>';
 }
 let posPollT=null;
 function stopPosPoll(){if(posPollT){clearInterval(posPollT);posPollT=null;}}
@@ -2817,7 +2945,7 @@ async function onLocked(){
 }
 
 function lockCheck(){
-  const t=Date.now(),ivl=(S.tf==="30m"?18e5:9e5);
+  const t=Date.now(),ivl=(S.tf==="1h"?36e5:9e5);
   const age=NET.mid?t-NET.mid:Infinity;
   let why="";
   if(!S.uni.length)why="行情未加载";
@@ -2939,16 +3067,57 @@ async function switchTf(newTf){
   toast("已切换为 "+S.tf+" 周期（筛选机制联动）");
 }
 
-// 点击顶部品种名称切换 15m / 30m 周期
-$("#name").addEventListener("click", ()=>switchTf(S.tf === "15m" ? "30m" : "15m"));
+// 点击顶部品种名称切换 15m / 1h 周期
+$("#name").addEventListener("click", ()=>switchTf(S.tf === "15m" ? "1h" : "15m"));
 
-// 抽屉内部 15m / 30m 快速分段切换
+// 抽屉内部 15m / 1h 快速分段切换
 const tfSeg = $("#listTfSeg");
 if(tfSeg){
   tfSeg.addEventListener("click", e=>{
     const btn = e.target.closest(".tf-btn");
     if(btn && btn.dataset.tf) switchTf(btn.dataset.tf);
   });
+}
+
+function initLeaderElection(){
+  if(!BC_CH){
+    IS_LEADER = true;
+    return;
+  }
+  BC_CH.onmessage = (ev) => {
+    const d = ev.data || {};
+    if(d.type === "HEARTBEAT" || d.type === "CLAIM"){
+      if(d.tabId !== TAB_ID){
+        LEADER_HEARTBEAT = Date.now();
+        if(IS_LEADER && d.tabId < TAB_ID){
+          IS_LEADER = false;
+        }
+      }
+    }
+  };
+
+  function checkLeader(){
+    const now = Date.now();
+    if(now - LEADER_HEARTBEAT > 4500){
+      if(!IS_LEADER){
+        IS_LEADER = true;
+        BC_CH.postMessage({ type: "CLAIM", tabId: TAB_ID });
+      }
+    }
+    if(IS_LEADER){
+      BC_CH.postMessage({ type: "HEARTBEAT", tabId: TAB_ID });
+    }
+  }
+
+  setInterval(checkLeader, 2000);
+  checkLeader();
+}
+
+function setTestnet(on){
+  IS_TESTNET = !!on;
+  BASE = IS_TESTNET ? "https://testnet.binancefuture.com" : "https://fapi.binance.com";
+  WSU = IS_TESTNET ? "wss://stream.binancefuture.com/ws" : "wss://fstream.binance.com/ws";
+  toast("已切换为 " + (IS_TESTNET ? "币安测试网 (Testnet)" : "币安实盘"));
 }
 
 // 左下角 TV 二合一按钮：弹出整合面板
@@ -2958,7 +3127,7 @@ $("#bTv").addEventListener("click",()=>{
   wList();
   load(true);
   stopPosPoll();
-  posPollT=setInterval(()=>load(true),5000);
+  posPollT=setInterval(()=>load(true),20000);
 });
 
 // TV 面板内部 Tab 切换
@@ -3128,7 +3297,9 @@ addEventListener("keydown",e=>{
 /* ================= 架构抽象层 ================= */
 window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,load,reconcile,
   findOrphans,sweepOrphans,subCoin,startUserStream,applyAcct},
-  TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice},
+  TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice,
+    dryRun:(on=true)=>{DRY_RUN=!!on;toast("DRY_RUN = "+DRY_RUN);return DRY_RUN;},
+    setTestnet:(on=true)=>{setTestnet(on);return IS_TESTNET;}},
   ver:VER,LOG,log,dump:()=>LOG.join("\n"),
   debug:(v=true)=>{window.__BNDEBUG=!!v;return "debug="+!!v;},
   time:()=>({offsetMs:TOFF,serverNow:now()}),
@@ -3144,6 +3315,7 @@ addEventListener("unhandledrejection",e=>{try{const r=(e||{}).reason;log("unhand
 
 /* ================= 启动流程 ================= */
 async function boot(){
+  initLeaderElection();
   await syncTime();
   initTradingViewChart();
   applyTheme();
