@@ -159,10 +159,10 @@ th{text-align:right;font-weight:400;font-size:10.5px;letter-spacing:.05em;text-t
   color:var(--faint);padding:6px 5px;border-bottom:1px solid var(--line);white-space:nowrap}
 td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);font-variant-numeric:tabular-nums;
   border-bottom:1px solid var(--line)}
-th:first-child,td:first-child{text-align:left}
 #toast{position:fixed;left:50%;bottom:78px;transform:translateX(-50%) translateY(8px);opacity:0;
-  background:var(--raised);border-radius:9px;padding:9px 15px;font-size:13px;transition:.2s;pointer-events:none;z-index:20;
-  max-width:78vw;text-align:center}
+  background:var(--surface);color:var(--text);border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.22);
+  border-radius:10px;padding:10px 18px;font-size:13px;font-weight:550;transition:.2s;pointer-events:none;z-index:100;
+  max-width:88vw;text-align:center}
 #toast.on{opacity:1;transform:translateX(-50%)}
 
 /* ---- 下单 HUD 面板 ---- */
@@ -1392,8 +1392,8 @@ function posView(){
     +pbk.map(s=>disp(s)+(PENDBR[s].slDone?"（止损已预挂）":"（成交后补挂止损）")).join("、")+"</div>";
   el.innerHTML+=ords.length?'<table><thead><tr><th>币种</th><th>类型</th><th>方向</th><th>数量</th><th>价格</th><th>距现价</th><th>已挂</th><th></th></tr></thead><tbody>'+
     ords.map(o=>{const oi=ordInfo(o);
-      const oid = o.algoId || o.orderId;
-      const isAlgo = o.isAlgo ? "1" : "0";
+      const oid = o.algoId || o.orderId || o.clientAlgoId || o.clientOrderId;
+      const isAlgo = (o.isAlgo || o.algoId != null || /STOP|TAKE_PROFIT|TRAILING/.test(o.type || "")) ? "1" : "0";
       return '<tr data-c="'+o.symbol+'" style="cursor:pointer"><td>'+disp(o.symbol)+'</td><td>'+oi.kind+'</td><td>'+oi.sideTxt+'</td>'+
       '<td>'+oi.sizeTxt+'</td><td>'+oi.priceTxt+'</td><td>'+ordGap(o)+'</td><td>'+ordAge(o)+'</td>'+
       '<td><button class="cxl" data-o="'+oid+'" data-a="'+isAlgo+'" data-x="'+o.symbol+'" style="padding:2px 8px;font-size:11px">撤单</button></td></tr>';}).join("")+"</tbody></table>"
@@ -1401,25 +1401,57 @@ function posView(){
 }
 
 async function cancelOrder(sym,oid,isAlgo,opt={}){
+  if(!HASKEY && !DRY_RUN){
+    toast("⚠ 未配置或未解锁 API Key，无法向交易所撤单！请先点击资金栏解锁。", true);
+    const rec = readRec();
+    if(typeof openKey === "function") openKey(rec && rec.mode === "aes" ? "unlock" : "set");
+    return null;
+  }
+  if(!oid || oid === "undefined" || oid === "null"){
+    toast("⚠ 订单缺少有效编号 (orderId/algoId)，无法向交易所发起撤单", true);
+    return null;
+  }
+
   const options = (typeof opt === "object" && opt !== null) ? opt : {};
   const targetAlgoId = (typeof opt === "string" || typeof opt === "number") ? opt : options.algoId;
   const useAlgo = isAlgo || targetAlgoId != null;
+
+  toast("正在向交易所撤销 " + disp(sym) + " 挂单 #" + oid + "…", true);
+
+  // 1. 发起首选路径撤单
   let path = useAlgo ? "/fapi/v1/algoOrder" : "/fapi/v1/order";
   let params = useAlgo ? { symbol: sym, algoId: targetAlgoId || oid } : { symbol: sym, orderId: oid };
   let res = await send("DELETE", path, params, "撤单 " + disp(sym), true, { escapeLock: true, ...options });
   
-  const errCode = (res && res.code != null ? +res.code : (res && res._err && res._err.code != null ? +res._err.code : (LAST_ERR ? +LAST_ERR.code : 0)));
-  if(!okAll(res) && (errCode === -2011 || errCode === -4120 || errCode === -1102)){
+  let errCode = (res && res.code != null ? +res.code : (res && res._err && res._err.code != null ? +res._err.code : (LAST_ERR ? +LAST_ERR.code : 0)));
+  
+  // 2. 双向智能兜底重试：若接口不匹配（-4120/-1102/-2011/-4003），互换标准单/条件单接口重试一次
+  if(!okAll(res) && (errCode === -2011 || errCode === -4120 || errCode === -1102 || errCode === -4003)){
     path = useAlgo ? "/fapi/v1/order" : "/fapi/v1/algoOrder";
     params = useAlgo ? { symbol: sym, orderId: oid } : { symbol: sym, algoId: targetAlgoId || oid };
     res = await send("DELETE", path, params, "撤单 " + disp(sym), true, { escapeLock: true, ...options });
+    errCode = (res && res.code != null ? +res.code : (res && res._err && res._err.code != null ? +res._err.code : (LAST_ERR ? +LAST_ERR.code : 0)));
   }
-  
+
+  // 3. 结果处理与清晰反馈
   if(okAll(res)){
+    // 成功撤单
     if(S.ords[sym]) S.ords[sym] = S.ords[sym].filter(o => String(o.orderId || o.algoId) !== String(oid));
     posView(); syncTradeLines(); updateTvBtn();
+    toast("✔ 撤单成功：已撤销 " + disp(sym) + " 挂单 #" + oid, true);
+    return res;
+  } else if(errCode === -2011 || (LAST_ERR && LAST_ERR.code === -2011) || (res && res.code === -2011)){
+    // -2011 Unknown order sent：说明交易所撮合引擎中该订单已不存在（已撤销或已成交）
+    if(S.ords[sym]) S.ords[sym] = S.ords[sym].filter(o => String(o.orderId || o.algoId) !== String(oid));
+    posView(); syncTradeLines(); updateTvBtn();
+    toast("交易所已无该订单（已成交或已在交易所撤销），已同步清理本地挂单显示", true);
+    return { code: 200, msg: "already_cleared" };
+  } else {
+    // 真正失败：给出详细明确的失败原因，绝不静默！
+    const failReason = keyHint(LAST_ERR || res) || errText(LAST_ERR || res) || ((res && res.msg) || (LAST_ERR && LAST_ERR.message) || "交易所拒绝请求");
+    toast("⚠ 撤单失败：" + failReason + (errCode ? "（" + errCode + "）" : ""), true);
+    return res;
   }
-  return res;
 }
 
 /* 拖拽直接修改已挂出的订单价格（先保单、安全撤挂、绝不丢止损） */
@@ -3321,7 +3353,20 @@ $("#pb").addEventListener("click",e=>{
     const p=S.pos[m.dataset.x];
     if(p&&confirm("【市价紧急强平】"+disp(p.sym)+"（"+(p.amt>0?"多":"空")+" "+sz(Math.abs(p.amt),p.sym)+"）？\n将以市价立刻全平，确保保命脱身！"))closePos(m.dataset.x, true);
     return;}
-  if(c){e.stopPropagation();cancelOrder(c.dataset.x,c.dataset.o,c.dataset.a==="1");return;}
+  if(c){
+    e.stopPropagation();
+    const origText = c.textContent;
+    c.disabled = true;
+    c.textContent = "撤单中…";
+    cancelOrder(c.dataset.x, c.dataset.o, c.dataset.a==="1")
+      .finally(()=>{
+        try{
+          c.disabled = false;
+          c.textContent = origText;
+        }catch(_){}
+      });
+    return;
+  }
   const r=e.target.closest("tr[data-c]");if(r)pick(r.dataset.c);});
 $("#fBtn").addEventListener("click",e=>{S.filter=!S.filter;savePref();e.target.classList.toggle("on",S.filter);
   e.target.textContent=S.filter?(S.tf+" NATR > 0.5% · 额 > $50M"):"全部 0 挂单费品种";list();});
