@@ -297,8 +297,15 @@ th:first-child,td:first-child{text-align:left}
 
 <!-- 品种列表抽屉 -->
 <aside class="sheet" id="shList">
-  <div class="sh"><b>免挂单费品种</b><span class="num" style="font-size:11.5px;color:var(--faint)" id="cnt"></span>
-    <button class="x" data-close>✕</button></div>
+  <div class="sh">
+    <b>免挂单费品种</b>
+    <div class="tf-seg" id="listTfSeg" style="display:inline-flex;background:var(--raised);padding:2px;border-radius:8px;gap:2px;margin-left:6px">
+      <button class="tf-btn" data-tf="15m" style="border:none;background:transparent;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--faint);cursor:pointer;transition:all .15s">15m</button>
+      <button class="tf-btn" data-tf="30m" style="border:none;background:transparent;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--faint);cursor:pointer;transition:all .15s">30m</button>
+    </div>
+    <span class="num" style="font-size:11.5px;color:var(--faint);margin-left:auto" id="cnt"></span>
+    <button class="x" data-close>✕</button>
+  </div>
   <div class="filt"><button class="on" id="fBtn">15m NATR &gt; 0.5% · 额 &gt; $50M</button><span>免挂单费 (USDC / TradFi)</span></div>
   <div class="sbody" id="clist"></div>
 </aside>
@@ -1764,6 +1771,13 @@ function applyPrefUI(){
   const nb=$("#nTf");if(nb)nb.textContent=S.tf;
   try{const fb=$("#fBtn");if(fb){fb.classList.toggle("on",S.filter);
     fb.textContent=S.filter?(S.tf+" NATR > 0.5% · 额 > $50M"):"全部 0 挂单费品种";}}catch(e){}
+  $$("#listTfSeg .tf-btn").forEach(b=>{
+    const on = b.dataset.tf === S.tf;
+    b.classList.toggle("on", on);
+    b.style.background = on ? "var(--surface)" : "transparent";
+    b.style.color = on ? "var(--text)" : "var(--faint)";
+    b.style.boxShadow = on ? "0 1px 3px rgba(0,0,0,.15)" : "none";
+  });
 }
 function loadPref(){
   try{PREF=JSON.parse(localStorage.getItem(PKEY)||"{}")||{};}catch(e){PREF={};}
@@ -2912,10 +2926,9 @@ function cycleTheme(){
 }
 try{THMQ.addEventListener("change",()=>{if(THMODE==="auto")applyTheme();});}catch(e){}
 
-/* ---- 事件绑定 ---- */
-// 点击品种名称切换 15m / 30m 周期
-$("#name").addEventListener("click",async()=>{
-  S.tf = (S.tf === "15m" ? "30m" : "15m");
+async function switchTf(newTf){
+  if(newTf === S.tf) return;
+  S.tf = newTf;
   savePref();
   applyPrefUI();
   await kline(true);
@@ -2924,7 +2937,19 @@ $("#name").addEventListener("click",async()=>{
   refreshNatrs(S.tf, false).catch(()=>{});
   if($("#shList").classList.contains("on")) list();
   toast("已切换为 "+S.tf+" 周期（筛选机制联动）");
-});
+}
+
+// 点击顶部品种名称切换 15m / 30m 周期
+$("#name").addEventListener("click", ()=>switchTf(S.tf === "15m" ? "30m" : "15m"));
+
+// 抽屉内部 15m / 30m 快速分段切换
+const tfSeg = $("#listTfSeg");
+if(tfSeg){
+  tfSeg.addEventListener("click", e=>{
+    const btn = e.target.closest(".tf-btn");
+    if(btn && btn.dataset.tf) switchTf(btn.dataset.tf);
+  });
+}
 
 // 左下角 TV 二合一按钮：弹出整合面板
 $("#bTv").addEventListener("click",()=>{
