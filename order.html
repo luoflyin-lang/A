@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,minimum-scale=1.0,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#F2EFE9">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; connect-src 'self' https://fapi.binance.com wss://fstream.binance.com https://testnet.binancefuture.com wss://stream.binancefuture.com; img-src 'self' data:; font-src 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; connect-src 'self' https: wss:; img-src 'self' data:; font-src 'self';">
 <title>BN Chart</title>
+<!-- 引入 TradeCore 纯函数内核 -->
+<script src="./trade-core.js"></script>
 <!-- 引入 Lightweight Charts 图表库（优先同域本地/安全 CDN） -->
 <script src="./lightweight-charts.standalone.production.js"></script>
 <script>
@@ -380,29 +382,28 @@ const TIF="GTX";                        // 只挂单（Post Only）
 const CLOSE_OFF=0.0005;                 // 手动平仓：挂在现价外 0.05%
 const BRACKET_RETRY=6000;               // 补挂止损重试间隔
 const BRACKET_MAX_TRY=5;                // 连续失败重试上限
-const MAKER_FEE=0.0;                    // 挂单费率 0% (USDC 永续与 TradFi 合约免挂单手续费)
-const TAKER_FEE=0.0005;                 // 吃单费率 0.05%
-const PREATTACH_SL=true;                // 入场单和止损单一起提交
+let MAKER_FEE=0.0;                      // 挂单费率 (启动时从接口动态更新)
+let TAKER_FEE=0.0005;                   // 吃单费率 (启动时从接口动态更新)
 const PENDBR_TTL=864e5;                 // 待补挂记录保质期 (24h)
-const ENTRY_TTL=0;                      // 已设为 0：关闭挂单超时自动撤销
-const AWAY_TTL=0;                       // 已设为 0：关闭离线超时自动撤销
 const ALIVE_MS=15000;                   // 心跳落盘间隔
 const WATCH_KEEP=36e5;                  // 机会标记保留 1 小时
 const WATCH_MAX=20;                     // 最多 20 条
 const TFMS={"15m":9e5,"1h":36e5};
 const LOCK_CANCEL_ENTRY=false;          // 断线/锁定时不自动撤销挂单
 const LOCK_CANCEL_COLDSTART=false;
-const NUDGE_TICKS=2;
 const WS_SILENT=90000;
 const MID_POLL=8000;
 const MID_STALE=60000;
 const MID_BACK=8000;
 const TOAST_DEDUP=60000;
 const PREATTACH_TP=true;
-const TP_FB_OFF=0.001;
-const VER="v11.0";
+const VER="v11.1";
 let DRY_RUN=false;                      // 演练模式（开启后只记录请求，不真实下单）
 let IS_TESTNET=false;                   // 测试网开关
+const MAX_DAILY_LOSS_PCT=5.0;           // 全局闸门1：单日最大亏损 5%
+const MAX_TOTAL_RISK_PCT=3.0;           // 全局闸门2：并发持仓总风险 3%
+const MAX_CONSEC_LOSS_COUNT=3;          // 全局闸门3：连亏 3 笔进入冷静期
+const COOLDOWN_MS=1800000;              // 冷静期 30 分钟
 const BC_CH = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("bn_leader_election") : null;
 let IS_LEADER = false;
 let LEADER_HEARTBEAT = 0;
@@ -437,12 +438,15 @@ function log(m){const s=new Date().toISOString().slice(11,23)+"  "+m;
   if(window.__BNDEBUG)console.log("[BN]",s);}
 
 let tt;const TSEEN=new Map();
-const toast=m=>{const now=Date.now();
-  if(now-(TSEEN.get(m)||0)<TOAST_DEDUP)return;
+const toast=(m, force = false)=>{
+  const now=Date.now();
+  const isCrucial = force || (typeof m === "string" && (m.includes("⚠") || m.includes("裸仓") || m.includes("强平") || m.includes("警告") || m.includes("被拒") || m.includes("风险") || m.includes("熔断") || m.includes("冷静期")));
+  if(!isCrucial && now-(TSEEN.get(m)||0)<TOAST_DEDUP)return;
   TSEEN.set(m,now);
   if(TSEEN.size>60)TSEEN.forEach((v,k)=>{if(now-v>TOAST_DEDUP)TSEEN.delete(k);});
-  const e=$("#toast");e.textContent=m;e.classList.add("on");
-  clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),2600);};
+  const e=$("#toast");if(!e)return;
+  e.innerHTML=m;e.classList.add("on");
+  clearTimeout(tt);tt=setTimeout(()=>e.classList.remove("on"),isCrucial ? 4200 : 2600);};
 function copyJson(o,msg){const j=JSON.stringify(o,null,2);
   navigator.clipboard?.writeText(j).then(()=>toast(msg)).catch(()=>{console.log(j);toast("已输出到控制台");});}
 let LOCK="",MIDSRC="",midFail=0,MIDGRACE=0,NET={info:0,mid:0,fail:0,acct:0,ws:0};
@@ -581,7 +585,7 @@ async function priv(method,path,params,ms,opt){
 }
 
 /* ================= API 密钥安全存储 ================= */
-const KKEY="bn_key";
+let KKEY="bn_key";
 const CANCRYPT=!!(window.isSecureContext&&window.crypto&&window.crypto.subtle);
 let PRIVON=false;
 function setKeys(k,s){API_KEY=k||"";API_SECRET=s||"";HASKEY=!!(API_KEY&&API_SECRET);}
@@ -607,16 +611,32 @@ async function decKeys(rec,pass){
 async function bootKeys(){
   if(API_KEY&&API_SECRET){HASKEY=true;return;}
   const rec=readRec();if(!rec)return;
-  if(rec.mode==="plain"&&rec.k&&rec.s){setKeys(rec.k,rec.s);return;}
+  if(rec.mode==="plain"&&rec.k&&rec.s){
+    setKeys(rec.k,rec.s);
+    toast("⚠ 当前存储为未加密明文密钥，建议重新保存并设置口令以启用 AES-GCM 高强度加密！", true);
+    return;
+  }
   if(rec.mode==="aes")openKey("unlock");
 }
 let acctPollT=null;
+async function updateCommissionRate(sym){
+  if(!HASKEY)return;
+  try{
+    const r=await priv("GET","/fapi/v1/commissionRate",{symbol:sym||S.sym||("BTC"+QUOTE)},5000).catch(()=>null);
+    if(r&&r.makerCommissionRate!=null){
+      MAKER_FEE=parseFloat(r.makerCommissionRate);
+      if(r.takerCommissionRate!=null)TAKER_FEE=parseFloat(r.takerCommissionRate);
+      log("commissionRate updated: maker="+MAKER_FEE+", taker="+TAKER_FEE);
+    }
+  }catch(e){}
+}
 async function startPrivate(){
   if(PRIVON||!HASKEY)return;
   PRIVON=true;ACCT_LOADING=true;try{posView();}catch(e){}
   try{
     await loadBrackets();
     await load(false);
+    updateCommissionRate().catch(()=>{});
     startUserStream();
     clearInterval(acctPollT);
     acctPollT=setInterval(()=>{if(NET.acct&&Date.now()-NET.acct<45000)return;load(true);},25000);
@@ -646,12 +666,12 @@ function openKey(mode){
   $("#kK").style.display=unlock?"none":"block";
   $("#kS").style.display=unlock?"none":"block";
   $("#kP").style.display=(unlock||CANCRYPT)?"block":"none";
-  $("#kP").placeholder=unlock?"口令":"口令（留空 = 不加密）";
+  $("#kP").placeholder=unlock?"输入口令解锁":"设置加密口令（必填，防投毒保护）";
   $("#kP").value="";$("#kSave").textContent=unlock?"解锁":"保存";
   $("#kSt").textContent=unlock?"已加密存在本机":(HASKEY?"已配置":"只存这台设备");
   $("#kHint").innerHTML=unlock
     ?"输错口令只是解不开，不会弄丢密钥。忘了口令就点清除，重新填一遍。"
-    :("密钥只写进这台设备的浏览器，不进代码、不上传。创建时只勾「允许合约」，永远不要勾提现。");
+    :("密钥只写进这台设备的浏览器，采用 PBKDF2+AES-GCM 加密，不进代码、不上传。创建时只勾「允许合约」，永远不要勾提现。");
   setTimeout(()=>{const el=unlock?$("#kP"):$("#kK");if(el)el.focus();},60);
 }
 function closeKey(){
@@ -672,12 +692,12 @@ async function submitKey(){
   }
   const k=$("#kK").value.trim(),s=$("#kS").value.trim();
   if(!k||!s){toast("Key 和 Secret 都要填");return;}
+  if(!pass){toast("⚠ 为保障资金安全，请务必设置口令以启用 AES-GCM 加密存储！", true);return;}
+  if(!CANCRYPT){toast("当前浏览器环境不支持 WebCrypto，无法安全加密");return;}
   try{
-    if(pass&&CANCRYPT){
-      localStorage.setItem(KKEY,JSON.stringify(await encKeys(k,s,pass)));
-    }else localStorage.setItem(KKEY,JSON.stringify({v:1,mode:"plain",k,s}));
+    localStorage.setItem(KKEY,JSON.stringify(await encKeys(k,s,pass)));
   }catch(e){toast("存不进去："+((e&&e.message)||e));return;}
-  setKeys(k,s);closeKey();toast(pass&&CANCRYPT?"已加密保存，正在读账户":"已保存到本机，正在读账户");
+  setKeys(k,s);closeKey();toast("已高强度加密保存到本机，正在读账户");
   await startPrivate();
 }
 async function keyReq(method,path){
@@ -1172,6 +1192,11 @@ async function startUserStream(force){
       if(d.e==="ORDER_TRADE_UPDATE"||d.e==="ALGO_ORDER_TRADE_UPDATE"){
         const o=d.o||d.a||{};
         if((o.X==="FILLED"||o.X==="PARTIALLY_FILLED")&&PENDBR[o.s])setTimeout(()=>firePendingBracket(o.s),600);
+        // 止损成交保护：止损单成交说明仓位已被清空，立即撤销同品种所有非减仓入场挂单，防止后续成交产生裸仓！
+        if(o.X==="FILLED"&&(o.ot==="STOP_MARKET"||o.cp===true||(o.R===true&&o.ot!=="LIMIT"))){
+          cancelAllEntryOrders(o.s);
+          if(PENDBR[o.s]){ delete PENDBR[o.s]; savePendBr(); }
+        }
         schedAcct();return;}
       if(d.e==="ACCOUNT_UPDATE"){
         (((d.a||{}).P)||[]).forEach(p=>{
@@ -1187,6 +1212,14 @@ async function startUserStream(force){
   }catch(e){log("userStream err "+e.message);setTimeout(()=>startUserStream(true),10000);}
 }
 addEventListener("pagehide",()=>{try{if(uws)uws.close();}catch(e){}});
+
+async function cancelAllEntryOrders(sym){
+  const entries=(S.ords[sym]||[]).filter(o=>!ordInfo(o).ro);
+  for(const o of entries){
+    await cancelOrder(sym,o.orderId||o.algoId,o.isAlgo,{escapeLock:true});
+  }
+  if(entries.length)toast("已自动撤除 "+disp(sym)+" "+entries.length+" 张残留入场挂单（防残留成交变裸仓）", true);
+}
 
 /* ================= 账户 / 持仓 / 挂单 ================= */
 function posKey(sym,side){return (!side||side==="BOTH")?sym:sym+":"+side;}
@@ -1251,9 +1284,12 @@ async function load(silent, symOnly){
 
     const od = [...(Array.isArray(stdOd)?stdOd:[]), ...normalizedAlgo];
     if(symOnly && S.ords){
-      // 增量合并当前标的的挂单，避免擦除其它品种
+      // 增量合并当前标的的挂单，同时绝不丢弃账户资金与持仓数据！
+      applyAcct(acc,pos,null);
       S.ords[symOnly] = od;
       S.ordsAt = Date.now();
+      try{prunePendBr();}catch(e){log("prune err "+e.message);}
+      sweepStaleEntries().catch(e=>log("ttl err "+e.message));
     } else {
       applyAcct(acc,pos,od);
     }
@@ -1334,7 +1370,8 @@ function posView(){
       return '<tr data-c="'+x.sym+'" style="cursor:pointer"><td>'+disp(x.sym)+' <span class="'+(lg?"up":"down")+'">'+(lg?"多":"空")+'</span>'+(x.lev?' <span class="hold">'+x.lev+'x'+(x.iso?"逐":"")+'</span>':"")+'</td>'+
       '<td>'+sz(Math.abs(x.amt),x.sym)+'</td><td>'+px(x.entry,x.sym)+'</td>'+
       '<td class="'+(p>=0?"up":"down")+'">'+(p>=0?"+":"")+nf(p,2)+'</td><td>'+px(x.liq,x.sym)+'</td>'+
-      '<td><button class="cls" data-x="'+k+'" style="padding:2px 8px;font-size:11px">平仓</button></td></tr>';}).join("")+"</tbody></table>"
+      '<td><button class="cls" data-x="'+k+'" style="padding:2px 6px;font-size:11px;margin-right:4px" title="限价挂单平仓(Maker 0费率)">挂单平</button>'+
+      '<button class="cls-mkt" data-x="'+k+'" style="padding:2px 6px;font-size:11px;background:var(--down);color:#fff" title="市价强平(极端行情逃生)">市价平</button></td></tr>';}).join("")+"</tbody></table>"
     :'<div class="none">当前无持仓。</div>');
   const ords=[];Object.values(S.ords||{}).forEach(arr=>(arr||[]).forEach(o=>{if(o)ords.push(o);}));
   ords.sort((x,y)=>String(x.symbol).localeCompare(String(y.symbol))||(+(y.stopPrice||y.price||0))-(+(x.stopPrice||x.price||0)));
@@ -1362,22 +1399,26 @@ function posView(){
     :'<div class="none" style="padding:10px">当前无挂单。</div>';
 }
 
-async function cancelOrder(sym,oid,isAlgo,algoId){
-  const useAlgo = isAlgo || algoId != null;
+async function cancelOrder(sym,oid,isAlgo,opt={}){
+  const options = (typeof opt === "object" && opt !== null) ? opt : {};
+  const targetAlgoId = (typeof opt === "string" || typeof opt === "number") ? opt : options.algoId;
+  const useAlgo = isAlgo || targetAlgoId != null;
   let path = useAlgo ? "/fapi/v1/algoOrder" : "/fapi/v1/order";
-  let params = useAlgo ? { symbol: sym, algoId: algoId || oid } : { symbol: sym, orderId: oid };
-  let res = await send("DELETE", path, params, "撤单 " + disp(sym), true);
+  let params = useAlgo ? { symbol: sym, algoId: targetAlgoId || oid } : { symbol: sym, orderId: oid };
+  let res = await send("DELETE", path, params, "撤单 " + disp(sym), true, { escapeLock: true, ...options });
   
-  if(!okAll(res) && LAST_ERR && (LAST_ERR.code === -2011 || LAST_ERR.code === -4120 || LAST_ERR.code === -1102)){
+  const errCode = (res && res.code != null ? +res.code : (res && res._err && res._err.code != null ? +res._err.code : (LAST_ERR ? +LAST_ERR.code : 0)));
+  if(!okAll(res) && (errCode === -2011 || errCode === -4120 || errCode === -1102)){
     path = useAlgo ? "/fapi/v1/order" : "/fapi/v1/algoOrder";
-    params = useAlgo ? { symbol: sym, orderId: oid } : { symbol: sym, algoId: algoId || oid };
-    res = await send("DELETE", path, params, "撤单 " + disp(sym));
+    params = useAlgo ? { symbol: sym, orderId: oid } : { symbol: sym, algoId: targetAlgoId || oid };
+    res = await send("DELETE", path, params, "撤单 " + disp(sym), true, { escapeLock: true, ...options });
   }
   
   if(okAll(res)){
     if(S.ords[sym]) S.ords[sym] = S.ords[sym].filter(o => String(o.orderId || o.algoId) !== String(oid));
     posView(); syncTradeLines(); updateTvBtn();
   }
+  return res;
 }
 
 /* 拖拽直接修改已挂出的订单价格（先保单、安全撤挂、绝不丢止损） */
@@ -1820,18 +1861,36 @@ async function ensureLev(target){
     return true;
   }
 }
-async function closePos(key){
+async function closePos(key, isMarket = false){
   const p=S.pos[key];if(!p)return;
   const sym=p.sym,lg=p.amt>0,q=alignSz(Math.abs(p.amt),sym);
   if(!(q>0)){toast("持仓数量小于最小下单精度");return;}
+  const ps=p.side==="BOTH"?(lg?"LONG":"SHORT"):p.side;
+
+  if(isMarket){
+    const o={symbol:sym,side:lg?"SELL":"BUY",type:"MARKET"};
+    if(!S.dual)o.closePosition="true";
+    else{o.positionSide=ps;o.quantity=fmtSz(q,sym);}
+    await send("POST","/fapi/v1/order",o,"市价强平 "+disp(sym),false,{escapeLock:true,isExit:true});
+    return;
+  }
+
   const m=mid(sym);
   if(!isFinite(m)||m<=0){toast("无法获取市价，已取消平仓");return;}
   const lim=alignPx(lg?m*(1+CLOSE_OFF):m*(1-CLOSE_OFF),sym,lg?1:-1);
   const o={symbol:sym,side:lg?"SELL":"BUY",type:"LIMIT",timeInForce:TIF,
     price:fmtPx(lim,sym),quantity:fmtSz(q,sym)};
-  if(S.dual)o.positionSide=p.side==="BOTH"?(lg?"LONG":"SHORT"):p.side;
+  if(S.dual)o.positionSide=ps;
   else o.reduceOnly="true";
   await send("POST","/fapi/v1/order",o,"挂单平仓 "+disp(sym)+" @ "+px(lim,sym), false, { escapeLock: true, isExit: true });
+
+  // 3.5 秒后若持仓仍在，醒目提示建议市价强平
+  setTimeout(()=>{
+    const curP=S.pos[key];
+    if(curP&&Math.abs(curP.amt)>0){
+      toast("⚠ "+disp(sym)+" 限价挂单平仓尚未成交，行情剧烈时建议点击【市价平】！", true);
+    }
+  }, 3500);
 }
 
 /* ================= 偏好记忆 ================= */
@@ -1956,12 +2015,9 @@ function tpPostOnlyOrder(sym,lg,tp,ps,qty){
   const o={
     symbol:sym,
     side:lg?"SELL":"BUY",
-    type:"TAKE_PROFIT",
+    type:"LIMIT",
     price:pxStr,
-    stopPrice:pxStr,
-    timeInForce:"GTC",
-    workingType:WORK,
-    priceProtect:"true"
+    timeInForce:"GTX"
   };
   let q=qty;
   if(!(q>0)){
@@ -2055,6 +2111,7 @@ async function firePendingBracket(sym){
 }
 
 /* ================= 独立裸仓看门狗（每 10 秒巡检：声光报警 + 自动保底补挂） ================= */
+const WDBUSY = new Set();
 async function slWatchdog(){
   if(!HASKEY || (BC_CH && !IS_LEADER)) return;
   const positions = Object.values(S.pos || {}).filter(p => p && Math.abs(p.amt) > 0);
@@ -2066,32 +2123,58 @@ async function slWatchdog(){
   let nakedSyms = [];
   for(const p of positions){
     const sym = p.sym;
+    if(WDBUSY.has(sym)) continue;
     const lg = p.amt > 0;
     const live = (S.ords[sym] || []).filter(Boolean).map(o => ordInfo(o));
-    const hasLiveSl = live.some(i => i.sl && i.ro);
+    let hasLiveSl = live.some(i => i.sl && i.ro);
+
+    // 实时复核：防止推送延迟导致重复补挂
     if(!hasLiveSl){
-      nakedSyms.push(sym);
-      console.warn("[WATCHDOG NAKED POSITION]", sym, p);
-      wBeep();
-      // 获取建议止损价：若 PENDBR 中有则用，否则按当前市价 1.5% 保底防击穿
-      let slPx = null;
-      if(PENDBR[sym] && PENDBR[sym].sl){
-        slPx = PENDBR[sym].sl;
-      } else {
-        const curM = mid(sym) || p.entry;
-        const offset = curM * 0.015;
-        slPx = lg ? (curM - offset) : (curM + offset);
-      }
-      slPx = alignPx(slPx, sym, lg ? -1 : 1);
-      const ps = p.side === "BOTH" ? (lg ? "LONG" : "SHORT") : p.side;
-      const slOrd = exitOrder(sym, lg, slPx, ps, Math.abs(p.amt));
-      log("watchdog auto sl " + sym + " @" + slPx);
-      toast("⚠ 看门狗发现裸仓！正在为 " + disp(sym) + " 自动补挂市价止损单 @" + px(slPx, sym));
       try{
-        await placeOrder(slOrd, "看门狗补止损", true, { escapeLock: true });
-        load(true, sym);
+        const checkTasks = [
+          priv("GET", "/fapi/v1/openOrders", { symbol: sym }, 5000, { escapeLock: true }).catch(() => []),
+          priv("GET", "/fapi/v1/openAlgoOrders", { symbol: sym }, 5000, { escapeLock: true }).catch(() => [])
+        ];
+        const [cStd, cAlgo] = await Promise.all(checkTasks);
+        const checkAll = [...(Array.isArray(cStd) ? cStd : []), ...(Array.isArray(cAlgo) ? cAlgo : [])];
+        if(checkAll.some(o => ordInfo(o).sl && ordInfo(o).ro)){
+          hasLiveSl = true;
+          S.ords[sym] = checkAll;
+        }
+      }catch(chkErr){}
+    }
+
+    if(!hasLiveSl){
+      WDBUSY.add(sym);
+      try{
+        nakedSyms.push(sym);
+        console.warn("[WATCHDOG NAKED POSITION]", sym, p);
+        wBeep();
+        // 科学止损推导梯队：1) PENDBR 记录 -> 2) 1% 风险预算反推 -> 3) 紧急市价平仓
+        let slPx = null;
+        if(PENDBR[sym] && PENDBR[sym].sl && +PENDBR[sym].sl > 0){
+          slPx = +PENDBR[sym].sl;
+        } else {
+          slPx = TradeCore.riskBudgetSl(p.entry, Math.abs(p.amt), equity(), F.risk || 1.0, lg);
+        }
+
+        if(slPx && slPx > 0){
+          slPx = alignPx(slPx, sym, lg ? -1 : 1);
+          const ps = p.side === "BOTH" ? (lg ? "LONG" : "SHORT") : p.side;
+          const slOrd = exitOrder(sym, lg, slPx, ps, Math.abs(p.amt));
+          log("watchdog auto sl " + sym + " @" + slPx);
+          toast("⚠ 看门狗发现裸仓！正在为 " + disp(sym) + " 自动补挂市价止损单 @" + px(slPx, sym), true);
+          await placeOrder(slOrd, "看门狗补止损", true, { escapeLock: true });
+          await load(true, sym);
+        } else {
+          // 极端异常无有效止损价，直接市价强平避险
+          toast("⚠ " + disp(sym) + " 裸仓且无法计算安全止损，执行紧急市价平仓避险！", true);
+          await closePos(posKey(sym, p.side), true);
+        }
       }catch(err){
         log("watchdog err " + err.message);
+      }finally{
+        WDBUSY.delete(sym);
       }
     }
   }
@@ -2257,7 +2340,11 @@ async function pick(sym){if(!sym)return;close();if(sym===S.sym)return;S.sym=sym;
   if(F.on)endFlow();useMaxLev();savePref();await kline(true);head();wSync();}
 function step(n){const l=pool();if(!l.length)return;
   let i=l.findIndex(x=>x.n===S.sym);if(i<0)i=0;
-  pick(l[(i+n+l.length)%l.length].n);}
+  const prevSym = S.sym;
+  const nextSym = l[(i+n+l.length)%l.length].n;
+  pick(nextSym);
+  toast("已切至 "+disp(nextSym)+" · <a href='javascript:void(0)' onclick='pick(\""+prevSym+"\")' style='color:#fff;text-decoration:underline;margin-left:4px'>3秒内点此撤销</a>", true);
+}
 
 /* ================= 下单：按止损自动算仓 ================= */
 const F={on:false,step:0,e:null,sl:null,tp:null,risk:1};
@@ -2268,9 +2355,27 @@ function startFlow(){F.on=true;F.step=1;F.e=F.sl=F.tp=null;
   $("#ohud").classList.add("on");render();toast("请在图表上点击选择【入场价】");}
 function endFlow(){F.on=false;F.step=0;F.e=F.sl=F.tp=null;
   $("#ohud").classList.remove("on");syncTradeLines();}
-function sizing(){
+function sizing(entryOverride, slOverride){
   const f=fOf(S.sym);
-  const base={equity:equity(),riskPct:F.risk,entry:F.e,sl:F.sl,tp:F.tp,
+  const curM = mid(S.sym);
+  const buy = flowSide() === "buy";
+  const tk = f.tick || 0.01;
+
+  let rawE = entryOverride != null ? entryOverride : F.e;
+  let rawSl = slOverride != null ? slOverride : F.sl;
+
+  // 严格先对齐价格与盘口微调，再计算仓位与名义价值，杜绝 1% 真实风险偏离！
+  if(rawE != null && curM > 0){
+    let alignedE = alignPx(rawE, S.sym, buy ? -1 : 1);
+    if(buy && alignedE >= curM) alignedE = alignPx(curM - tk, S.sym, -1);
+    else if(!buy && alignedE <= curM) alignedE = alignPx(curM + tk, S.sym, 1);
+    rawE = alignedE;
+  }
+  if(rawSl != null){
+    rawSl = alignPx(rawSl, S.sym, buy ? 1 : -1);
+  }
+
+  const base={equity:equity(),riskPct:F.risk,entry:rawE,sl:rawSl,tp:F.tp,
     lev:S.lev,maxLev:maxLev(),step:f.step||0.001,tick:f.tick||0.01,
     minQty:f.minQty||0,maxQty:f.maxQty||0,minNotional:f.minNotional||5,
     feeRate:(MAKER_FEE+TAKER_FEE)/2,
@@ -2904,16 +3009,25 @@ addEventListener("touchend",e=>{
     return;
   }
 
-  // 触屏点击左右 20% 区域切币
-  if(!F.on && onChart(e.target) && dt < 280 && dx < 12 && dy < 12 && !pMulti){
-    if(document.querySelector(".sheet.on")) return;
-    const w = window.innerWidth;
-    if(cx < w * 0.20){
-      if(e.cancelable) e.preventDefault();
-      step(-1);
-    }else if(cx > w * 0.80){
+  // 触屏手势切币：支持横向滑动切币（滑幅 > 45px，垂直偏离 < 30px）或点击左右 15% 边缘
+  const isSwipeLeft = (t && (touchStartX - t.clientX > 45) && dy < 30 && dt < 350);
+  const isSwipeRight = (t && (t.clientX - touchStartX > 45) && dy < 30 && dt < 350);
+  if(!F.on && onChart(e.target) && !pMulti && !document.querySelector(".sheet.on")){
+    if(isSwipeLeft){
       if(e.cancelable) e.preventDefault();
       step(1);
+    }else if(isSwipeRight){
+      if(e.cancelable) e.preventDefault();
+      step(-1);
+    }else if(dt < 280 && dx < 12 && dy < 12){
+      const w = window.innerWidth;
+      if(cx < w * 0.15){
+        if(e.cancelable) e.preventDefault();
+        step(-1);
+      }else if(cx > w * 0.85){
+        if(e.cancelable) e.preventDefault();
+        step(1);
+      }
     }
   }
 },{passive:false});
@@ -2959,56 +3073,44 @@ function lockCheck(){
 }
 setInterval(lockCheck,5000);
 
-/* ================= TRADE 纯函数内核 ================= */
-const TradeCore={
-  dec(v){const n=+v;if(!isFinite(n)||n<=0)return 8;
-    const s=n.toFixed(12).replace(/0+$/,""),i=s.indexOf(".");return i<0?0:Math.max(0,s.length-i-1);},
-  alignSz(s,step){const st=+step>0?+step:1e-8,d=this.dec(st);
-    return +(Math.floor((+s)/st+1e-9)*st).toFixed(d);},
-  alignPx(p,tick,dir){const n=+p;if(!isFinite(n)||n<=0)return 0;
-    const tk=+tick>0?+tick:0.01,d=this.dec(tk);
-    const r=dir?(dir<0?Math.floor(n/tk+1e-9):Math.ceil(n/tk-1e-9)):Math.round(n/tk);
-    if(!(r>0))return 0;return +(r*tk).toFixed(d);},
-  sizing(i){
-    const r={e:i.entry,sl:i.sl,tp:i.tp,risk:i.riskPct,reasons:[],ok:false};
-    const lev=Math.max(1,Math.min(+i.lev||1,+i.maxLev||+i.lev||1));r.lev=lev;
-    if(!(+i.equity>0))r.reasons.push("未加载账户资金");
-    if(r.e==null||r.sl==null){r.reasons.push("入场或止损未选");return r;}
-    const dist=Math.abs(r.e-r.sl);
-    if(!dist||!isFinite(dist)){r.bad=true;r.reasons.push("止损 = 入场价，无效");return r;}
-    r.dist=dist;
-    const feeRt=(+i.feeRate||0)*2;
-    const perUnit=dist+r.e*feeRt;
-    const budget=(+i.equity||0)*(+i.riskPct||0)/100;
-    r.budget=budget;
-    let size=this.alignSz(perUnit>0?budget/perUnit:0,i.step);
-    if(!(size>0)){r.size=0;r.reasons.push("数量小于最小下单精度（stepSize="+(i.step||0)+"）");return r;}
-    const avail=i.availableMargin!=null?+i.availableMargin:+i.equity||0;
-    let notional=size*r.e,margin=notional/lev;
-    if(margin+notional*feeRt>avail){
-      const maxSize=this.alignSz(avail*lev/(r.e*(1+lev*feeRt)),i.step);
-      if(maxSize>0&&maxSize<size){size=maxSize;notional=size*r.e;margin=notional/lev;
-        r.capped="可用保证金不足，已按可用保证金缩仓";}
-      else if(!(maxSize>0)){r.size=0;r.reasons.push("可用保证金不足");return r;}
-    }
-    if(+i.maxQty>0&&size>+i.maxQty){
-      size=this.alignSz(+i.maxQty,i.step);notional=size*r.e;margin=notional/lev;
-      r.capped=(r.capped?r.capped+"；":"")+"已按品种单笔上限缩仓";}
-    if(+i.minQty>0&&size<+i.minQty)r.reasons.push("数量 "+size+" 低于最小下单量 "+i.minQty);
-    const minN=+i.minNotional||0;
-    if(notional<minN)r.reasons.push("名义价值 "+notional.toFixed(2)+" 低于最小 "+minN);
-    r.size=size;r.notional=notional;r.margin=margin;
-    r.fee=notional*feeRt;
-    r.riskUsd=size*dist+r.fee;
-    if(i.tp!=null){const long=r.sl<r.e,good=long?(+i.tp>r.e):(+i.tp<r.e);
-      if(!good)r.reasons.push("止盈方向错误（应在入场价的盈利一侧）");}
-    r.rr=i.tp!=null?Math.abs(i.tp-r.e)/dist:null;
-    r.ok=r.reasons.length===0&&size>0;
-    return r;
-  }
-};
+/* ================= TRADE 纯函数内核与全局风控闸门 ================= */
 function alignSz(s,sym){return TradeCore.alignSz(s,fOf(sym).step||0.001);}
 function alignPx(p,sym,dir){return TradeCore.alignPx(p,fOf(sym).tick||0.01,dir);}
+
+function checkRiskGates(sym, newRiskUsd){
+  const eq = equity();
+  if(!eq || eq <= 0) return { pass: true };
+
+  // 1. 单日最大亏损熔断
+  const upnl = (+((S.acct||{}).upnl) || 0);
+  const maxLossUsd = eq * (MAX_DAILY_LOSS_PCT / 100);
+  if(upnl < -maxLossUsd){
+    return { pass: false, reason: "今日持仓浮亏 (" + money(Math.abs(upnl)) + ") 超过单日限额 " + MAX_DAILY_LOSS_PCT + "% ($" + money(maxLossUsd) + ")，已触发日内熔断锁单！" };
+  }
+
+  // 2. 并发持仓总风险上限 (3%)
+  let totalRiskUsd = newRiskUsd || 0;
+  Object.values(S.pos || {}).forEach(p => {
+    if(p && Math.abs(p.amt) > 0){
+      const liveSl = (S.ords[p.sym] || []).map(ordInfo).find(i => i.sl && i.ro);
+      const slPx = liveSl ? liveSl.price : (PENDBR[p.sym]?.sl || (p.amt > 0 ? p.entry * 0.98 : p.entry * 1.02));
+      totalRiskUsd += Math.abs(p.entry - slPx) * Math.abs(p.amt);
+    }
+  });
+  const maxTotalRisk = eq * (MAX_TOTAL_RISK_PCT / 100);
+  if(totalRiskUsd > maxTotalRisk){
+    return { pass: false, reason: "当前全部持仓总风险 ($" + money(totalRiskUsd) + ") 超过并发限额 " + MAX_TOTAL_RISK_PCT + "% ($" + money(maxTotalRisk) + ")，请降低敞口！" };
+  }
+
+  // 3. 连亏冷静期 (3笔亏损后冷静 30 分钟)
+  const coolUntil = +localStorage.getItem("bn_cooldown_until") || 0;
+  if(Date.now() < coolUntil){
+    const leftSec = Math.round((coolUntil - Date.now()) / 1000);
+    return { pass: false, reason: "连亏保护中：系统处于只读冷静期（剩余 " + leftSec + " 秒），暂停新开仓！" };
+  }
+
+  return { pass: true };
+}
 
 let _raf=0;
 function schedule(){
@@ -3113,11 +3215,38 @@ function initLeaderElection(){
   checkLeader();
 }
 
-function setTestnet(on){
+async function setTestnet(on){
   IS_TESTNET = !!on;
+  KKEY = IS_TESTNET ? "bn_key_testnet" : "bn_key";
   BASE = IS_TESTNET ? "https://testnet.binancefuture.com" : "https://fapi.binance.com";
   WSU = IS_TESTNET ? "wss://stream.binancefuture.com/ws" : "wss://fstream.binance.com/ws";
-  toast("已切换为 " + (IS_TESTNET ? "币安测试网 (Testnet)" : "币安实盘"));
+  
+  // 隔离清空实盘/测试网在内存中的持仓、挂单与资金
+  S.pos = {};
+  S.ords = {};
+  S.acct = null;
+  S.ordsAt = 0;
+  
+  // 断开已有 WS 连接
+  try{if(uws)uws.close();}catch(e){}
+  uws = null; LKEY = "";
+  try{if(ws)ws.close();}catch(e){}
+  
+  // 重新加载对应环境的密钥
+  setKeys("","");
+  await bootKeys();
+  
+  // 重新连接公共行情与私有流
+  startWs();
+  if(HASKEY){
+    await startPrivate();
+  } else {
+    avHint();
+    posView();
+  }
+  await kline(true);
+  syncTradeLines();
+  toast("已切换为 " + (IS_TESTNET ? "币安测试网 (Testnet)" : "币安实盘") + "，已重连隔离环境！", true);
 }
 
 // 左下角 TV 二合一按钮：弹出整合面板
@@ -3167,11 +3296,16 @@ $("#khud").addEventListener("keydown",e=>{
   else if(e.key==="Escape"){e.preventDefault();closeKey();}
 });
 $("#clist").addEventListener("click",e=>{const r=e.target.closest(".ci");if(r)pick(r.dataset.c);});
-$("#pb").addEventListener("click",e=>{const b=e.target.closest("button.cls"),c=e.target.closest("button.cxl");
+$("#pb").addEventListener("click",e=>{
+  const b=e.target.closest("button.cls"), m=e.target.closest("button.cls-mkt"), c=e.target.closest("button.cxl");
   const w=e.target.closest("button.swp");if(w){e.stopPropagation();sweepOrphans(false);return;}
   if(b){e.stopPropagation();
     const p=S.pos[b.dataset.x];
-    if(p&&confirm("挂单平仓 "+disp(p.sym)+"（"+(p.amt>0?"多":"空")+" "+sz(Math.abs(p.amt),p.sym)+"）？只挂单，可能不会立刻成交"))closePos(b.dataset.x);
+    if(p&&confirm("限价挂单平仓 "+disp(p.sym)+"（"+(p.amt>0?"多":"空")+" "+sz(Math.abs(p.amt),p.sym)+"）？\n只挂单享受 0% 费率，极端行情可能不会立刻成交。"))closePos(b.dataset.x, false);
+    return;}
+  if(m){e.stopPropagation();
+    const p=S.pos[m.dataset.x];
+    if(p&&confirm("【市价紧急强平】"+disp(p.sym)+"（"+(p.amt>0?"多":"空")+" "+sz(Math.abs(p.amt),p.sym)+"）？\n将以市价立刻全平，确保保命脱身！"))closePos(m.dataset.x, true);
     return;}
   if(c){e.stopPropagation();cancelOrder(c.dataset.x,c.dataset.o,c.dataset.a==="1");return;}
   const r=e.target.closest("tr[data-c]");if(r)pick(r.dataset.c);});
@@ -3189,6 +3323,14 @@ $("#ohGo").addEventListener("click",async()=>{
   if(!hasAcct()){toast("未读到账户资金，无法下单");return;}
   const r=sizing();
   if(!r.ok){toast((r.reasons&&r.reasons[0])||"入场或止损无效");return;}
+
+  // 全局三大风控闸门校验（单日最大亏损、并发总风险上限、连亏冷静期）
+  const gateCheck = checkRiskGates(S.sym, r.riskUsd);
+  if(!gateCheck.pass){
+    toast("⚠ 触发风控拦截：" + gateCheck.reason, true);
+    return;
+  }
+
   const sym=S.sym,qty=fmtSz(alignSz(r.size,sym),sym);
   if(!(+qty>0)){toast("数量小于最小下单精度（stepSize="+(fOf(sym).step||0)+"）");return;}
   const buy=S.side==="buy",m=mid(sym);
@@ -3196,14 +3338,7 @@ $("#ohGo").addEventListener("click",async()=>{
   const side=buy?"BUY":"SELL",ps=buy?"LONG":"SHORT";
   
   // 统一策略：入场永远是只挂单（LIMIT GTX），享受 0% 挂单手续费，绝不以市价吃单！
-  let safeEntryPx = alignPx(r.e, sym, buy ? -1 : 1);
-  const tk = (fOf(sym).tick || 0.01);
-  if(buy && safeEntryPx >= m){
-    safeEntryPx = alignPx(m - tk, sym, -1);
-  } else if(!buy && safeEntryPx <= m){
-    safeEntryPx = alignPx(m + tk, sym, 1);
-  }
-  const ePx = fmtPx(safeEntryPx, sym);
+  const ePx = fmtPx(r.e, sym);
   const entry = {
     symbol: sym,
     side: side,

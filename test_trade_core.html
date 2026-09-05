@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>TradeCore 单元测试报告</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; background: #FAF8F3; color: #332F28; }
+  h1 { font-size: 20px; margin-bottom: 16px; }
+  .test-item { padding: 10px 14px; margin-bottom: 8px; border-radius: 6px; background: #fff; border: 1px solid rgba(0,0,0,0.08); font-size: 14px; }
+  .pass { color: #3A755D; font-weight: bold; }
+  .fail { color: #A85244; font-weight: bold; }
+  pre { background: #eee; padding: 8px; border-radius: 4px; font-size: 12px; }
+</style>
+<script src="./trade-core.js"></script>
+</head>
+<body>
+<h1>TradeCore 自动化风控与纯函数内核测试</h1>
+<div id="results">测试运行中...</div>
+<script>
+  const logs = [];
+  function assert(condition, message) {
+    if (!condition) throw new Error(message || "Assertion failed");
+  }
+  function runTests() {
+    const el = document.getElementById("results");
+    el.innerHTML = "";
+    const suites = [
+      {
+        name: "测试 1: 精度与步长对齐 (alignSz / alignPx)",
+        run: () => {
+          assert(TradeCore.dec(0.001) === 3);
+          assert(TradeCore.alignSz(1.23456, 0.001) === 1.234);
+          assert(TradeCore.alignPx(100.254, 0.01, -1) === 100.25);
+          assert(TradeCore.alignPx(100.251, 0.01, 1) === 100.26);
+        }
+      },
+      {
+        name: "测试 2: 爆仓价格估算与 1.5 倍安全距离校验",
+        run: () => {
+          const liqLong = TradeCore.estLiqPrice(100, 20, true, 0.004);
+          assert(Math.abs(liqLong - 95.4) < 1e-4);
+          const safe = TradeCore.checkLiqSafety(100, 98, 20, true, 1.5, 0.004);
+          assert(safe.safe === true);
+          const unsafe = TradeCore.checkLiqSafety(100, 96, 20, true, 1.5, 0.004);
+          assert(unsafe.safe === false);
+        }
+      },
+      {
+        name: "测试 3: 1% 风险预算仓位计算与远距离止损自动降杠杆",
+        run: () => {
+          const r = TradeCore.sizing({
+            equity: 10000, riskPct: 1.0, entry: 100, sl: 95, tp: 110,
+            lev: 20, maxLev: 20, step: 0.001, tick: 0.01, minQty: 0.01,
+            maxQty: 10000, minNotional: 5, feeRate: 0.00025, availableMargin: 10000
+          });
+          assert(r.ok === true);
+          assert(r.lev < 20); // 止损太远，自动降杠杆
+          assert(r.capped && r.capped.includes("降杠杆"));
+        }
+      },
+      {
+        name: "测试 4: 看门狗从风险预算反推保底止损价",
+        run: () => {
+          const slLong = TradeCore.riskBudgetSl(100, 10, 10000, 1.0, true);
+          assert(slLong === 90);
+          const slShort = TradeCore.riskBudgetSl(100, 10, 10000, 1.0, false);
+          assert(slShort === 110);
+        }
+      }
+    ];
+
+    let passedCount = 0;
+    suites.forEach(s => {
+      const item = document.createElement("div");
+      item.className = "test-item";
+      try {
+        s.run();
+        item.innerHTML = `<span class="pass">✔ 通过</span> - ${s.name}`;
+        passedCount++;
+      } catch (e) {
+        item.innerHTML = `<span class="fail">✘ 失败</span> - ${s.name}: ${e.message}`;
+      }
+      el.appendChild(item);
+    });
+
+    const summary = document.createElement("h3");
+    summary.style.marginTop = "16px";
+    summary.textContent = `测试完成: ${passedCount} / ${suites.length} 项全部通过`;
+    el.appendChild(summary);
+  }
+  window.onload = runTests;
+</script>
+</body>
+</html>
