@@ -3195,33 +3195,23 @@ $("#ohGo").addEventListener("click",async()=>{
   if(!isFinite(m)||m<=0){toast("无法获取市价，已阻止下单");return;}
   const side=buy?"BUY":"SELL",ps=buy?"LONG":"SHORT";
   
-  // 判断是做多突破/做空跌破（Stop Entry）还是正常限价回踩挂单（Limit Entry）
-  const stopEntry=buy?(r.e>m):(r.e<m);
-  const ePx=fmtPx(alignPx(r.e,sym,buy?-1:1),sym);
-  
-  let entry;
-  if(stopEntry){
-    // 突破单：使用 STOP_MARKET 市价突破触发单（保证突破瞬间成交）
-    entry={
-      symbol:sym,
-      side:side,
-      type:"STOP_MARKET",
-      stopPrice:ePx,
-      quantity:qty,
-      workingType:WORK,
-      priceProtect:"true"
-    };
-  } else {
-    // 回踩限价单：使用 LIMIT GTX 只挂单（保证 Maker 低手续费）
-    entry={
-      symbol:sym,
-      side:side,
-      type:"LIMIT",
-      price:ePx,
-      quantity:qty,
-      timeInForce:TIF // "GTX"
-    };
+  // 统一策略：入场永远是只挂单（LIMIT GTX），享受 0% 挂单手续费，绝不以市价吃单！
+  let safeEntryPx = alignPx(r.e, sym, buy ? -1 : 1);
+  const tk = (fOf(sym).tick || 0.01);
+  if(buy && safeEntryPx >= m){
+    safeEntryPx = alignPx(m - tk, sym, -1);
+  } else if(!buy && safeEntryPx <= m){
+    safeEntryPx = alignPx(m + tk, sym, 1);
   }
+  const ePx = fmtPx(safeEntryPx, sym);
+  const entry = {
+    symbol: sym,
+    side: side,
+    type: "LIMIT",
+    price: ePx,
+    quantity: qty,
+    timeInForce: TIF // "GTX" 只挂单
+  };
   if(S.dual)entry.positionSide=ps;
   if(LOCK){toast("行情异常，交易已锁定："+LOCK);return;}
   SUBMITTING=true;try{render();}catch(e){}
@@ -3229,24 +3219,24 @@ $("#ohGo").addEventListener("click",async()=>{
     if(!await ensureLev(r.lev)) return;
     const slOrd=exitOrder(sym,buy,alignPx(r.sl,sym,buy?1:-1),ps,qty);
     const tpOrd=(r.tp!=null)?tpPostOnlyOrder(sym,buy,r.tp,ps,qty):null;
-    const label=(stopEntry?(buy?"突破挂多 ":"突破挂空 "):(buy?"挂单做多 ":"挂单做空 "))+qty+" "+disp(sym);
+    const label=(buy?"挂单做多 ":"挂单做空 ")+qty+" "+disp(sym)+" @"+ePx;
     
     const good=x=>x&&(x.orderId!=null||x.algoId!=null)&&!(x.code!=null&&+x.code<0);
     const oidOf=x=>x?(x.algoId!=null?x.algoId:x.orderId):null;
 
     let eRes=null,slRes=null,tpRes=null;
     
-    // 1. 提交入场单
+    // 1. 提交只挂单入场单
     eRes=await placeOrder(entry,label);
     
     // 若限价只挂单（GTX）遇 -5022 盘口穿透，智能向盘口外微调并重试
-    if(!good(eRes)&&!stopEntry){
+    if(!good(eRes)){
       const code=eRes&&eRes.code!=null?+eRes.code:(LAST_ERR&&LAST_ERR.code!=null?+LAST_ERR.code:0);
       if(code===-5022){
         const curM=mid(sym);
-        const tk=(fOf(sym).tick||0);
-        if(tk>0&&curM>0){
-          const safePx=buy?Math.min(+entry.price,curM-tk):Math.max(+entry.price,curM+tk);
+        const tkSafe=(fOf(sym).tick||0.01);
+        if(tkSafe>0&&curM>0){
+          const safePx=buy?Math.min(+entry.price,curM-tkSafe):Math.max(+entry.price,curM+tkSafe);
           const np=alignPx(safePx,sym,buy?-1:1);
           entry.price=fmtPx(np,sym);
           toast("只挂单会立刻成交，已将价格微调至 "+px(np,sym)+" 重试");
