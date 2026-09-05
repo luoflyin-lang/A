@@ -578,6 +578,7 @@ async function req(method,path,query,headers,ms,opt={}){
 }
 const pub=(path,params,ms,opt)=>req("GET",path,params?qs(params):"",{},ms,opt);
 async function priv(method,path,params,ms,opt){
+  if(DRY_RUN && method === "GET") return [];
   if(!HASKEY)throw new Error("未配置 API Key / Secret");
   const p=Object.assign({},params||{},{recvWindow:RECV,timestamp:Math.floor(now())});
   const q=qs(p);
@@ -2113,7 +2114,7 @@ async function firePendingBracket(sym){
 /* ================= 独立裸仓看门狗（每 10 秒巡检：声光报警 + 自动保底补挂） ================= */
 const WDBUSY = new Set();
 async function slWatchdog(){
-  if(!HASKEY || (BC_CH && !IS_LEADER)) return;
+  if((!HASKEY && !DRY_RUN) || (BC_CH && !IS_LEADER)) return;
   const positions = Object.values(S.pos || {}).filter(p => p && Math.abs(p.amt) > 0);
   const elAlert = $("#nakedAlert");
   if(!positions.length){
@@ -2338,10 +2339,13 @@ function close(){$$(".sheet").forEach(s=>s.classList.remove("on"));$("#mask").cl
   subArr(false);stopPosPoll();}
 async function pick(sym){if(!sym)return;close();if(sym===S.sym)return;S.sym=sym;
   if(F.on)endFlow();useMaxLev();savePref();await kline(true);head();wSync();}
-function step(n){const l=pool();if(!l.length)return;
-  let i=l.findIndex(x=>x.n===S.sym);if(i<0)i=0;
+function step(n){
+  const l=pool();
+  const listToUse = l.length ? l : (S.uni || []).map(u => ({ n: u.name }));
+  if(!listToUse.length) return;
+  let i=listToUse.findIndex(x=>x.n===S.sym);if(i<0)i=0;
   const prevSym = S.sym;
-  const nextSym = l[(i+n+l.length)%l.length].n;
+  const nextSym = listToUse[(i+n+listToUse.length)%listToUse.length].n;
   pick(nextSym);
   toast("已切至 "+disp(nextSym)+" · <a href='javascript:void(0)' onclick='pick(\""+prevSym+"\")' style='color:#fff;text-decoration:underline;margin-left:4px'>3秒内点此撤销</a>", true);
 }
@@ -2413,7 +2417,7 @@ function render(){
   go.className=buy?"b":"s";
   go.textContent=(buy?"确认 · 做多":"确认 · 做空")+(r.size?" "+sz(r.size,S.sym):"");
   const busy=INFLIGHT||SUBMITTING;
-  go.disabled=!r.ok||!!LOCK||busy||!HASKEY;
+  go.disabled=!r.ok||(!DRY_RUN&&!!LOCK)||busy||(!DRY_RUN&&!HASKEY);
   if(busy)go.textContent="提交中…";
   $("#ohH").textContent=busy?"提交中，请勿重复点击"
     :!HASKEY?"未配置 API Key / Secret，无法下单"
@@ -3169,8 +3173,10 @@ async function switchTf(newTf){
   toast("已切换为 "+S.tf+" 周期（筛选机制联动）");
 }
 
-// 点击顶部品种名称切换 15m / 1h 周期
-$("#name").addEventListener("click", ()=>switchTf(S.tf === "15m" ? "1h" : "15m"));
+// 顶部币种与周期点击交互
+$("#nS").addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
+$("#nTf").addEventListener("click", (e)=>{e.stopPropagation(); switchTf(S.tf === "15m" ? "1h" : "15m");});
+$("#name").addEventListener("click", ()=>open("shList"));
 
 // 抽屉内部 15m / 1h 快速分段切换
 const tfSeg = $("#listTfSeg");
@@ -3215,7 +3221,7 @@ function initLeaderElection(){
   checkLeader();
 }
 
-async function setTestnet(on){
+async function switchTestnet(on){
   IS_TESTNET = !!on;
   KKEY = IS_TESTNET ? "bn_key_testnet" : "bn_key";
   BASE = IS_TESTNET ? "https://testnet.binancefuture.com" : "https://fapi.binance.com";
@@ -3237,7 +3243,7 @@ async function setTestnet(on){
   await bootKeys();
   
   // 重新连接公共行情与私有流
-  startWs();
+  if(typeof sock === "function") sock();
   if(HASKEY){
     await startPrivate();
   } else {
@@ -3248,6 +3254,14 @@ async function setTestnet(on){
   syncTradeLines();
   toast("已切换为 " + (IS_TESTNET ? "币安测试网 (Testnet)" : "币安实盘") + "，已重连隔离环境！", true);
 }
+const setTestnet = switchTestnet;
+window.switchTestnet = switchTestnet;
+window.setTestnet = switchTestnet;
+try{
+  Object.defineProperty(window, "IS_TESTNET", { get: () => IS_TESTNET, set: v => { IS_TESTNET = v; }, configurable: true });
+  Object.defineProperty(window, "KKEY", { get: () => KKEY, set: v => { KKEY = v; }, configurable: true });
+  Object.defineProperty(window, "BASE", { get: () => BASE, set: v => { BASE = v; }, configurable: true });
+}catch(_){}
 
 // 左下角 TV 二合一按钮：弹出整合面板
 $("#bTv").addEventListener("click",()=>{
@@ -3318,8 +3332,8 @@ $("#ohSkip").addEventListener("click",()=>{if(F.step===3){F.tp=null;F.step=4;}el
 /* ================= 确认下单流程 ================= */
 $("#ohGo").addEventListener("click",async()=>{
   if(SUBMITTING||INFLIGHT){toast("正在提交，请稍候");return;}
-  if(!HASKEY){toast("未配置 API Key / Secret，无法下单");return;}
-  if(ACCT_LOADING){toast("账户加载中，请稍候再试");return;}
+  if(!DRY_RUN && !HASKEY){toast("未配置 API Key / Secret，无法下单");return;}
+  if(!DRY_RUN && ACCT_LOADING){toast("账户加载中，请稍候再试");return;}
   if(!hasAcct()){toast("未读到账户资金，无法下单");return;}
   const r=sizing();
   if(!r.ok){toast((r.reasons&&r.reasons[0])||"入场或止损无效");return;}
@@ -3423,17 +3437,20 @@ addEventListener("keydown",e=>{
 window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,load,reconcile,
   findOrphans,sweepOrphans,subCoin,startUserStream,applyAcct},
   TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice,
+    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,
     dryRun:(on=true)=>{DRY_RUN=!!on;toast("DRY_RUN = "+DRY_RUN);return DRY_RUN;},
-    setTestnet:(on=true)=>{setTestnet(on);return IS_TESTNET;}},
+    setTestnet:async (on=true)=>{await switchTestnet(on);return IS_TESTNET;}},
   ver:VER,LOG,log,dump:()=>LOG.join("\n"),
   debug:(v=true)=>{window.__BNDEBUG=!!v;return "debug="+!!v;},
   time:()=>({offsetMs:TOFF,serverNow:now()}),
   pendbr:()=>PENDBR,
   keys:()=>openKey("set"),
+  $: $,
   setProxy:(http,ws)=>{
     try{localStorage.setItem("bn_proxy",JSON.stringify({http:http||"",ws:ws||""}));}
     catch(e){return "存不进去："+e.message;}
     return "已保存，刷新页面生效 · http="+(http||"直连")+" ws="+(ws||"直连");}};
+window.TradeCore = TradeCore;
 
 addEventListener("error",e=>{try{log("window error "+((e&&e.message)||e));}catch(_){}});
 addEventListener("unhandledrejection",e=>{try{const r=(e||{}).reason;log("unhandled "+((r&&r.message)||r));}catch(_){}});

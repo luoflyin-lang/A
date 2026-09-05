@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>交易系统全按钮与全功能自动化测试 (低成本 0 资金消耗)</title>
+<style>
+  :root {
+    --bg: #F4F1EA; --surface: #FAF8F3; --text: #332F28; --dim: rgba(51,47,40,.68);
+    --up: #3A755D; --down: #A85244; --blue: #3C5A78; --line: rgba(51,47,40,.12);
+  }
+  body {
+    margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  h1 { font-size: 20px; margin-top: 0; display: flex; align-items: center; justify-content: space-between; }
+  .badge { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: var(--up); color: #fff; }
+  .badge.dry { background: #8B6A2B; }
+  .controls { margin-bottom: 16px; display: flex; gap: 10px; }
+  button.action-btn {
+    padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 6px;
+    background: var(--blue); color: #fff; border: none; cursor: pointer;
+  }
+  button.action-btn:hover { opacity: 0.9; }
+  .grid { display: grid; grid-template-columns: 460px 1fr; gap: 20px; height: calc(100vh - 120px); }
+  .log-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .log-header { padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--line); font-size: 14px; background: rgba(0,0,0,0.02); }
+  .log-body { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 12.5px; font-family: monospace; }
+  .test-row { padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; align-items: flex-start; justify-content: space-between; }
+  .test-title { font-weight: 500; }
+  .test-detail { font-size: 11px; color: var(--dim); margin-top: 2px; }
+  .status-pass { color: var(--up); font-weight: bold; }
+  .status-fail { color: var(--down); font-weight: bold; }
+  .status-run { color: var(--blue); font-weight: bold; }
+  .preview-card {
+    background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  iframe { width: 100%; height: 100%; border: none; }
+</style>
+</head>
+<body>
+
+<h1>
+  <span>⚡ 交易系统全按钮与全功能自动化测试</span>
+  <span class="badge dry">100% 零成本 · 演练模式 DRY_RUN</span>
+</h1>
+
+<div class="controls">
+  <button class="action-btn" id="runAllBtn" onclick="runAllTests()">开始全量自动化测试</button>
+  <span id="summaryText" style="align-self:center; font-size:13px; font-weight:500;">等待运行…</span>
+</div>
+
+<div class="grid">
+  <div class="log-card">
+    <div class="log-header">测试执行进度与结果</div>
+    <div class="log-body" id="logBox"></div>
+  </div>
+  <div class="preview-card">
+    <div class="log-header">被测应用实时交互视窗 (order.html)</div>
+    <iframe id="appFrame" src="./order.html"></iframe>
+  </div>
+</div>
+
+<script>
+  let w = null;
+  const logs = [];
+  const logBox = document.getElementById("logBox");
+  const summaryText = document.getElementById("summaryText");
+
+  function sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  function addLog(id, name, status, detail) {
+    let el = document.getElementById("test-" + id);
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "test-" + id;
+      el.className = "test-row";
+      logBox.appendChild(el);
+    }
+    const stClass = status === "PASS" ? "status-pass" : (status === "FAIL" ? "status-fail" : "status-run");
+    const stIcon = status === "PASS" ? "✔" : (status === "FAIL" ? "✘" : "⏳");
+    el.innerHTML = `
+      <div>
+        <div class="test-title">${name}</div>
+        ${detail ? `<div class="test-detail">${detail}</div>` : ""}
+      </div>
+      <span class="${stClass}">${stIcon} ${status}</span>
+    `;
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  function assert(cond, msg) {
+    if (!cond) throw new Error(msg || "Assertion failed");
+  }
+
+  async function initApp() {
+    const iframe = document.getElementById("appFrame");
+    w = iframe.contentWindow;
+    for (let i = 0; i < 60; i++) {
+      if (w && w.BN && w.BN.S && w.BN.TRADE && w.BN.$) break;
+      await sleep(100);
+      w = iframe.contentWindow;
+    }
+    assert(w && w.BN && w.BN.S, "iframe 内嵌 order.html 初始化超时");
+    
+    // 映射顶层代理
+    w.S = w.BN.S;
+    w.F = w.BN.F;
+    w.$ = w.BN.$;
+    w.TradeCore = w.BN.TRADE.core;
+    w.send = w.BN.TRADE.send;
+    w.placeOrder = w.BN.TRADE.placeOrder;
+    w.cancelOrder = w.BN.TRADE.cancelOrder;
+    w.closePos = w.BN.TRADE.closePos;
+    w.checkRiskGates = w.BN.TRADE.checkRiskGates;
+    w.slWatchdog = w.BN.TRADE.slWatchdog;
+    w.step = w.BN.TRADE.step;
+    w.pick = w.BN.TRADE.pick;
+    w.open = w.BN.TRADE.open;
+    w.close = w.BN.TRADE.close;
+    w.posView = w.BN.TRADE.posView;
+    w.render = w.BN.TRADE.render;
+    w.endFlow = w.BN.TRADE.endFlow;
+    w.startFlow = w.BN.TRADE.startFlow;
+    w.setTestnet = w.BN.TRADE.setTestnet;
+    
+    // 强制开启 DRY_RUN 演练模式，保证绝对不消耗一分钱真实资金！
+    w.DRY_RUN = true;
+    w.BN.TRADE.dryRun(true);
+
+    // 模拟账户已配置 Key 与初始模拟净值
+    w.API_KEY = "mock_test_key_001";
+    w.API_SECRET = "mock_test_secret_001";
+    w.HASKEY = true;
+    w.ACCT_LOADING = false;
+    w.S.acct = { equity: 10000, avail: 10000, used: 0, wallet: 10000, upnl: 0 };
+    if (!w.S.pos) w.S.pos = {};
+    if (!w.S.ords) w.S.ords = {};
+    if (w.posView) w.posView();
+    if (w.render) w.render();
+  }
+
+  async function runAllTests() {
+    const btn = document.getElementById("runAllBtn");
+    btn.disabled = true;
+    logBox.innerHTML = "";
+    summaryText.textContent = "测试执行中，请观察视窗变化…";
+
+    await initApp();
+
+    let passed = 0, failed = 0;
+    const testCases = [
+      // 1. 顶部导航栏按钮测试
+      {
+        id: "nav_symbol",
+        name: "1. 顶部币种按钮 (#nS) 点击弹窗",
+        test: async () => {
+          const btn = w.$("#nS");
+          assert(btn, "未找到 #nS 按钮");
+          btn.click();
+          await sleep(200);
+          assert(w.$("#shList").classList.contains("on"), "#shList 未能正常弹出");
+          // 点击遮罩关闭
+          w.$("#mask").click();
+          await sleep(150);
+          assert(!w.$("#shList").classList.contains("on"), "遮罩点击未关闭 #shList");
+        }
+      },
+      {
+        id: "nav_tf",
+        name: "2. 周期切换按钮 (#nTf) 15m / 1h 互切",
+        test: async () => {
+          const curTf = w.S.tf;
+          const wantTf = curTf === "15m" ? "1h" : "15m";
+          w.$("#nTf").click();
+          await sleep(200);
+          assert(w.S.tf === wantTf, `周期切换失败：期望 ${wantTf}，实际 ${w.S.tf}`);
+          // 切回 15m
+          if (w.S.tf !== "15m") {
+            w.$("#nTf").click();
+            await sleep(200);
+          }
+        }
+      },
+      {
+        id: "nav_filter",
+        name: "3. 机会清单过滤开关 (#fBtn) 切换",
+        test: async () => {
+          w.open("shList");
+          await sleep(150);
+          const fBtn = w.$("#fBtn");
+          const initFilter = w.S.filter;
+          fBtn.click();
+          await sleep(150);
+          assert(w.S.filter !== initFilter, "过滤状态未能正常切换");
+          // 复原
+          fBtn.click();
+          await sleep(100);
+          w.close();
+        }
+      },
+      {
+        id: "nav_list_tf",
+        name: "4. 清单内周期分段按钮 ([data-tf]) 点击",
+        test: async () => {
+          w.open("shList");
+          await sleep(150);
+          const btn1h = w.$('#listTfSeg .tf-btn[data-tf="1h"]');
+          if (btn1h) {
+            btn1h.click();
+            await sleep(200);
+            assert(w.S.tf === "1h", "点击 1h 分段按钮未切换到 1h");
+            const btn15m = w.$('#listTfSeg .tf-btn[data-tf="15m"]');
+            btn15m.click();
+            await sleep(200);
+            assert(w.S.tf === "15m", "点击 15m 分段按钮未切回 15m");
+          }
+          w.close();
+        }
+      },
+
+      // 2. 密钥设置与安全弹窗 (#khud)
+      {
+        id: "key_modal",
+        name: "5. API Key 弹窗 (#av) 与强制加密校验",
+        test: async () => {
+          w.$("#av").click();
+          await sleep(200);
+          assert(w.$("#khud").classList.contains("on"), "密钥弹窗未能正常弹出");
+          // 测试清空并尝试保存明文（应被拦截提示必须设置口令）
+          w.$("#kK").value = "test_key";
+          w.$("#kS").value = "test_secret";
+          w.$("#kP").value = "";
+          w.$("#kSave").click();
+          await sleep(200);
+          assert(w.$("#toast").textContent.includes("必须设置口令") || w.$("#toast").textContent.includes("口令"), "缺少强制口令加密拦截提示");
+          // 关闭弹窗
+          w.$("#kX").click();
+          await sleep(150);
+          assert(!w.$("#khud").classList.contains("on"), "#kX 关闭按钮失效");
+        }
+      },
+
+      // 3. TV 整合面板 (#shTv) 与 Tab 切换
+      {
+        id: "tv_sheet",
+        name: "6. TV 整合面板 (#bTv) 及 Tab 切换",
+        test: async () => {
+          w.$("#bTv").click();
+          await sleep(200);
+          assert(w.$("#shTv").classList.contains("on"), "#shTv 未能正常弹出");
+          // 切换到关注 Tab
+          w.$("#tabWatBtn").click();
+          await sleep(150);
+          assert(w.$("#tabWatContent").classList.contains("on"), "关注 Tab 未能激活");
+          // 切换回持仓 Tab
+          w.$("#tabPosBtn").click();
+          await sleep(150);
+          assert(w.$("#tabPosContent").classList.contains("on"), "持仓 Tab 未能激活");
+          w.close();
+        }
+      },
+
+      // 4. 持仓平仓双通道按钮测试：「挂单平」与「市价平」
+      {
+        id: "pos_close_dual",
+        name: "7. 持仓操作：「挂单平」(GTX) 与「市价平」(MARKET)",
+        test: async () => {
+          // 模拟持有一张多头仓位
+          w.S.pos["BTCUSDC"] = { sym: "BTCUSDC", side: "BOTH", amt: 0.5, entry: 80000, liq: 76000, upnl: 100, lev: 20 };
+          w.S.mid["BTCUSDC"] = 80200;
+          w.posView();
+          await sleep(100);
+
+          const clsBtn = w.$('button.cls[data-x="BTCUSDC"]');
+          assert(clsBtn, "未找到「挂单平」按钮");
+          const clsMktBtn = w.$('button.cls-mkt[data-x="BTCUSDC"]');
+          assert(clsMktBtn, "未找到「市价平」按钮");
+
+          // 监听 send 调用
+          let sentOrder = null;
+          const origSend = w.send;
+          w.send = async (method, path, params, label, silent, opt) => {
+            sentOrder = { method, path, params, label, opt };
+            return { orderId: 99901, clientOrderId: "test" };
+          };
+
+          // 触发挂单平 (GTX Limit)
+          await w.closePos("BTCUSDC", false);
+          assert(sentOrder && sentOrder.params.type === "LIMIT" && sentOrder.params.timeInForce === "GTX", "挂单平仓未发出 LIMIT GTX 订单");
+
+          // 触发市价强平 (Market)
+          await w.closePos("BTCUSDC", true);
+          assert(sentOrder && sentOrder.params.type === "MARKET" && sentOrder.params.closePosition === "true", "市价强平未发出 MARKET closePosition 订单");
+
+          w.send = origSend;
+          delete w.S.pos["BTCUSDC"];
+          w.posView();
+        }
+      },
+
+      // 5. 撤单与重复单清理测试
+      {
+        id: "cancel_order_algo",
+        name: "8. 撤单函数 cancelOrder 传参及 options 隔离",
+        test: async () => {
+          let reqPayload = null;
+          const origSend = w.send;
+          w.send = async (method, path, params, label, silent, opt) => {
+            reqPayload = { method, path, params, opt };
+            return { code: 200, msg: "success" };
+          };
+
+          // 模拟老调用传 { escapeLock: true }
+          await w.cancelOrder("BTCUSDC", "12345678", false, { escapeLock: true });
+          assert(reqPayload.params.orderId === "12345678", `orderId 解析错误: ${reqPayload.params.orderId}`);
+          assert(reqPayload.opt.escapeLock === true, "escapeLock 未能正确透传");
+          assert(typeof reqPayload.params.algoId === "undefined", "algoId 错误混入参数");
+
+          // 模拟 algo 条件单撤单
+          await w.cancelOrder("BTCUSDC", "88889999", true, { escapeLock: true });
+          assert(reqPayload.path.includes("algoOrder"), "algo 单撤单路径错误");
+          assert(reqPayload.params.algoId === "88889999", `algoId 解析错误: ${reqPayload.params.algoId}`);
+
+          w.send = origSend;
+        }
+      },
+
+      // 6. 下单流程与只挂单入场校验
+      {
+        id: "order_flow",
+        name: "9. 下单流程：确认 LIMIT GTX 入场与 STOP_MARKET 止损",
+        test: async () => {
+          w.DRY_RUN = true;
+          w.LOCK = "";
+          w.ACCT_LOADING = false;
+          w.S.acct = { equity: 10000, avail: 10000, used: 0, wallet: 10000, upnl: 0 };
+          w.S.sym = "BTCUSDC";
+          w.S.mid["BTCUSDC"] = 80000;
+          w.F.risk = 1;
+          w.F.e = 79500;
+          w.F.sl = 79000;
+          w.F.tp = 81000;
+          w.F.on = true;
+          w.render();
+          await sleep(150);
+
+          // 风险切换按钮测试 (#ohR)
+          const ohR = w.$("#ohR");
+          assert(ohR, "未找到风险切换按钮 #ohR");
+          ohR.click();
+          await sleep(100);
+          assert(w.F.risk === 0.25, "点击 #ohR 未切换至 0.25% 风险");
+          ohR.click();
+          await sleep(100);
+          assert(w.F.risk === 1, "点击 #ohR 未切回 1% 风险");
+
+          // 跳过止盈测试 (#ohSkip)
+          w.F.step = 3;
+          w.$("#ohSkip").click();
+          await sleep(100);
+          assert(w.F.tp === null, "点击跳过止盈未能清空止盈");
+          w.F.tp = 81000;
+
+          // 拦截 placeOrder 检查订单类型
+          const placedOrders = [];
+          const origPlace = w.placeOrder;
+          w.placeOrder = async (ord, label, silent, opt) => {
+            placedOrders.push(ord);
+            return { orderId: 77701, algoId: 77701 };
+          };
+
+          // 点击确认下单按钮 (#ohGo)
+          const goBtn = w.$("#ohGo");
+          assert(goBtn && !goBtn.disabled, "确认下单按钮 #ohGo 处于不可用状态");
+          await goBtn.click();
+          await sleep(300);
+
+          assert(placedOrders.length >= 2, `下单未提交足够订单: ${placedOrders.length}`);
+          const entryOrd = placedOrders[0];
+          const slOrd = placedOrders[1];
+
+          // 核心校验：入场必须是 LIMIT + GTX (0% 手续费)
+          assert(entryOrd.type === "LIMIT", `入场单类型不正确: ${entryOrd.type}`);
+          assert(entryOrd.timeInForce === "GTX", `入场单未启用 GTX 只挂单: ${entryOrd.timeInForce}`);
+          // 核心校验：止损必须是市价 STOP_MARKET 全平
+          assert(slOrd.type === "STOP_MARKET", `止损单类型不正确: ${slOrd.type}`);
+          assert(slOrd.closePosition === "true", `单向持仓未设 closePosition="true": ${slOrd.closePosition}`);
+
+          w.placeOrder = origPlace;
+          w.endFlow();
+        }
+      },
+
+      // 7. 三大全局风控闸门拦截测试
+      {
+        id: "risk_gates",
+        name: "10. 三大全局风控闸门拦截（熔断 / 敞口 / 冷静期）",
+        test: async () => {
+          // 闸门 1: 单日最大亏损 5% 拦截测试
+          w.S.acct.upnl = -600; // 净值 10000 下亏损 6%
+          let gate = w.checkRiskGates("BTCUSDC", 100);
+          assert(!gate.pass && gate.reason.includes("单日限额"), "单日浮亏超 5% 未触发熔断拦截");
+          w.S.acct.upnl = 0;
+
+          // 闸门 2: 并发总风险上限 3% 拦截测试
+          w.S.pos["BTCUSDC"] = { sym: "BTCUSDC", amt: 1.0, entry: 80000 };
+          w.S.ords["BTCUSDC"] = [{ symbol: "BTCUSDC", stopPrice: "77000", type: "STOP_MARKET", closePosition: "true" }]; // $3000 风险 = 30%
+          gate = w.checkRiskGates("BTCUSDC", 200);
+          assert(!gate.pass && gate.reason.includes("并发限额"), "并发总风险超 3% 未触发拦截");
+          delete w.S.pos["BTCUSDC"];
+          delete w.S.ords["BTCUSDC"];
+
+          // 闸门 3: 连亏冷静期拦截测试
+          localStorage.setItem("bn_cooldown_until", String(Date.now() + 60000));
+          gate = w.checkRiskGates("BTCUSDC", 50);
+          assert(!gate.pass && gate.reason.includes("冷静期"), "冷静期未触发只读开仓拦截");
+          localStorage.removeItem("bn_cooldown_until");
+        }
+      },
+
+      // 8. 裸仓看门狗巡检与保底补单
+      {
+        id: "watchdog_healing",
+        name: "11. 独立裸仓看门狗 (slWatchdog) 警报与自动推导补挂",
+        test: async () => {
+          // 注入无止损裸仓
+          w.DRY_RUN = true;
+          w.S.acct = { equity: 10000, avail: 10000, used: 0, wallet: 10000, upnl: 0 };
+          w.S.pos["ETHUSDC"] = { sym: "ETHUSDC", side: "BOTH", amt: 5.0, entry: 3000, liq: 2850, lev: 20 };
+          w.S.ords["ETHUSDC"] = [];
+          w.IS_LEADER = true;
+
+          let healedOrd = null;
+          const origPlace = w.placeOrder;
+          w.placeOrder = async (ord, label) => {
+            healedOrd = ord;
+            return { orderId: 88801, algoId: 88801 };
+          };
+
+          await w.slWatchdog();
+          await sleep(200);
+
+          assert(healedOrd != null, "看门狗未能成功为裸仓自动补挂止损单");
+          assert(healedOrd.symbol === "ETHUSDC" && healedOrd.type === "STOP_MARKET", "看门狗补挂止损参数错误");
+          // 验证警报条显示
+          const alertEl = w.$("#nakedAlert");
+          assert(alertEl && alertEl.style.display !== "none", "看门狗未展示顶部红色警报条");
+
+          w.placeOrder = origPlace;
+          delete w.S.pos["ETHUSDC"];
+          alertEl.style.display = "none";
+        }
+      },
+
+      // 9. 触屏切币横向滑动与 3 秒撤销
+      {
+        id: "swipe_undo",
+        name: "12. 切换币种及 3 秒撤销交互 Toast",
+        test: async () => {
+          w.S.filter = false;
+          w.S.uni = [{ name: "BTCUSDC" }, { name: "ETHUSDC" }, { name: "SOLUSDC" }];
+          const oldSym = w.S.sym;
+          w.step(1);
+          await sleep(200);
+          const newSym = w.S.sym;
+          assert(newSym !== oldSym, "step(1) 未能成功切换到下一个币种");
+
+          const toastEl = w.$("#toast");
+          assert(toastEl && toastEl.textContent.includes("点此撤销"), "切币后未提供撤销 Toast");
+
+          // 点击撤销链接切回
+          const undoLink = toastEl.querySelector("a");
+          if (undoLink) {
+            undoLink.click();
+            await sleep(200);
+            assert(w.S.sym === oldSym, "点击撤销链接未切回原币种");
+          }
+        }
+      },
+
+      // 10. 测试网环境物理隔离切换
+      {
+        id: "testnet_isolation",
+        name: "13. 测试网隔离切换 setTestnet",
+        test: async () => {
+          await w.setTestnet(true);
+          await sleep(200);
+          assert(w.IS_TESTNET === true, "setTestnet(true) 未设置 IS_TESTNET");
+          assert(w.KKEY === "bn_key_testnet", `存储命名空间未隔离: ${w.KKEY}`);
+          assert(w.BASE.includes("testnet"), `API 地址未指向测试网: ${w.BASE}`);
+
+          // 切回实盘
+          await w.setTestnet(false);
+          await sleep(200);
+          assert(w.IS_TESTNET === false, "未成功切回实盘");
+          assert(w.KKEY === "bn_key", `实盘存储命名空间错误: ${w.KKEY}`);
+        }
+      }
+    ];
+
+    for (const tc of testCases) {
+      addLog(tc.id, tc.name, "RUNNING", "执行测试逻辑…");
+      try {
+        await tc.test();
+        addLog(tc.id, tc.name, "PASS", "全部断言与交互响应均正确");
+        passed++;
+      } catch (err) {
+        console.error(err);
+        addLog(tc.id, tc.name, "FAIL", err.message);
+        failed++;
+      }
+      await sleep(100);
+    }
+
+    btn.disabled = false;
+    summaryText.innerHTML = `<span style="color:var(--up);font-weight:bold;">测试完毕: ${passed} 项通过</span>${failed ? `, <span style="color:var(--down);font-weight:bold;">${failed} 项失败</span>` : " (100% 全部通过)"}`;
+  }
+
+  // 页面加载完成后自动触发全量测试
+  window.addEventListener("load", () => {
+    setTimeout(runAllTests, 500);
+  });
+</script>
+</body>
+</html>
