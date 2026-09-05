@@ -278,7 +278,7 @@ th:first-child,td:first-child{text-align:left}
 <div class="edge-zone right"><span class="edge-hint">›</span></div>
 
 <div id="tl">
-  <div id="name" title="点击切换 15m / 1h 周期">
+  <div id="name" title="点击切换 15m / 30m 周期">
     <span class="s" id="nS">BTC</span>
     <span class="tf-badge" id="nTf">15m</span>
     <span class="natr-badge" id="nNatr" style="display:none">15m NATR --</span>
@@ -363,7 +363,7 @@ try{const _px=JSON.parse(localStorage.getItem("bn_proxy")||"null");
   if(_px&&_px.ws)WSU=_px.ws+"/ws";}catch(e){}
 const QUOTE="USDC";             // 默认基准报价资产
 const VOL_MIN=50e6;             // 品种筛选：24h 成交额阈值 = 50M (5000 万美元)
-const NATR_MIN=0.5;             // 品种筛选：当前活跃周期 (15m/1h) NATR 阈值 = 0.5%
+const NATR_MIN=0.5;             // 品种筛选：当前活跃周期 (15m/30m) NATR 阈值 = 0.5%
 const NATR_LEN=14;              // NATR 计算周期 (过去 14 根 K 线)
 /* ---- 交易参数 ---- */
 const TIF="GTX";                        // 只挂单（Post Only）
@@ -379,7 +379,7 @@ const AWAY_TTL=0;                       // 已设为 0：关闭离线超时自�
 const ALIVE_MS=15000;                   // 心跳落盘间隔
 const WATCH_KEEP=36e5;                  // 机会标记保留 1 小时
 const WATCH_MAX=20;                     // 最多 20 条
-const TFMS={"15m":9e5,"1h":36e5};
+const TFMS={"15m":9e5,"30m":18e5};
 const LOCK_CANCEL_ENTRY=false;          // 断线/锁定时不自动撤销挂单
 const LOCK_CANCEL_COLDSTART=false;
 const NUDGE_TICKS=2;
@@ -868,8 +868,8 @@ function getNatr(sym, tf = S.tf){
   return c["natr_" + tf] != null ? c["natr_" + tf] : null;
 }
 
-const _natrFetching = { "15m": false, "1h": false };
-const _natrAt = { "15m": 0, "1h": 0 };
+const _natrFetching = { "15m": false, "30m": false };
+const _natrAt = { "15m": 0, "30m": 0 };
 const NATR_REFRESH_MS = 60000;
 
 async function fetchSymbolNatr(sym, tf = S.tf){
@@ -899,7 +899,7 @@ async function fetchSymbolNatr(sym, tf = S.tf){
 }
 
 async function refreshNatrs(tf = S.tf, force = false){
-  if(tf !== "15m" && tf !== "1h") tf = "15m";
+  if(tf !== "15m" && tf !== "30m") tf = "15m";
   if(_natrFetching[tf]) return;
   if(!force && Date.now() - (_natrAt[tf] || 0) < NATR_REFRESH_MS) return;
   _natrFetching[tf] = true;
@@ -930,7 +930,7 @@ async function tickers(){
       {last:+x.lastPrice,chg:+x.priceChangePercent,volUsd:+x.quoteVolume});
     if(S.mid[x.symbol]==null)S.mid[x.symbol]=+x.lastPrice;});
   refreshNatrs(S.tf).then(()=>{
-    const altTf = (S.tf === "15m" ? "1h" : "15m");
+    const altTf = (S.tf === "15m" ? "30m" : "15m");
     refreshNatrs(altTf).catch(()=>{});
   }).catch(()=>{});
 }
@@ -1010,7 +1010,7 @@ async function kline(force){
       // 防切币竞态条件：确认当前仍是请求的币种和周期
       if(S.sym === reqSym && S.tf === reqTf){
         useCandles(raw, true);
-        if((reqTf === "15m" || reqTf === "1h") && raw.length >= 15){
+        if((reqTf === "15m" || reqTf === "30m") && raw.length >= 15){
           if(!S.ctx[reqSym]) S.ctx[reqSym] = {};
           S.ctx[reqSym]["natr_" + reqTf] = calcNatrFromCandles(raw);
           head();
@@ -1080,7 +1080,7 @@ function sock(){
           const liveEma = b.c * k + lastEmaValue * (1 - k);
           emaSeries.update({ time: timeSec, value: liveEma });
         }
-        if((S.tf === "15m" || S.tf === "1h") && c.k.length >= 15){
+        if((S.tf === "15m" || S.tf === "30m") && c.k.length >= 15){
           if(!S.ctx[S.sym]) S.ctx[S.sym] = {};
           S.ctx[S.sym]["natr_" + S.tf] = calcNatrFromCandles(c.k);
           head();
@@ -1773,7 +1773,7 @@ function loadPref(){
     S.filter = true;
     try{localStorage.setItem("bn_ver", VER);}catch(e){}
   } else {
-    if(PREF.tf === "1h") S.tf = "1h";
+    if(PREF.tf === "30m") S.tf = "30m";
     else S.tf = "15m";
     if(typeof PREF.filter === "boolean") S.filter = PREF.filter;
   }
@@ -2099,7 +2099,7 @@ function list(soft){
     '<span><span class="n">'+x.d+'</span><span class="ttag '+(x.type==="TradFi"?"tradfi":"usdc")+'">'+x.type+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+(wHas(x.n)?' <span class="hold">★</span>':"")+
     '<span class="v">Vol $'+ab(x.vol)+(x.natr!=null?' · '+S.tf+' NATR <b class="'+(x.natr>=NATR_MIN?'natr-hot':'')+'">'+x.natr.toFixed(2)+'%</b>':'')+'</span></span>'+
     '<span class="r"><span class="a">'+px(x.p,x.n)+'</span><span class="b '+(x.ch>=0?"up":"down")+'">'+(x.ch>=0?"+":"")+x.ch.toFixed(2)+'%</span></span></div>').join("")
-    ||'<div class="none">暂无满足【'+S.tf+' NATR &gt; 0.5% 且 24h成交额 &gt; $50M】的标的。<br>可点击上方切换至 '+(S.tf==='15m'?'1h':'15m')+' 周期，或点击上方按钮查看全部免挂单费品种。</div>';
+    ||'<div class="none">暂无满足【'+S.tf+' NATR &gt; 0.5% 且 24h成交额 &gt; $50M】的标的。<br>可点击上方切换至 '+(S.tf==='15m'?'30m':'15m')+' 周期，或点击上方按钮查看全部免挂单费品种。</div>';
 }
 let posPollT=null;
 function stopPosPoll(){if(posPollT){clearInterval(posPollT);posPollT=null;}}
@@ -2803,7 +2803,7 @@ async function onLocked(){
 }
 
 function lockCheck(){
-  const t=Date.now(),ivl=(S.tf==="1h"?36e5:9e5);
+  const t=Date.now(),ivl=(S.tf==="30m"?18e5:9e5);
   const age=NET.mid?t-NET.mid:Infinity;
   let why="";
   if(!S.uni.length)why="行情未加载";
@@ -2913,9 +2913,9 @@ function cycleTheme(){
 try{THMQ.addEventListener("change",()=>{if(THMODE==="auto")applyTheme();});}catch(e){}
 
 /* ---- 事件绑定 ---- */
-// 点击品种名称切换 15m / 1h 周期
+// 点击品种名称切换 15m / 30m 周期
 $("#name").addEventListener("click",async()=>{
-  S.tf = (S.tf === "15m" ? "1h" : "15m");
+  S.tf = (S.tf === "15m" ? "30m" : "15m");
   savePref();
   applyPrefUI();
   await kline(true);
