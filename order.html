@@ -129,10 +129,15 @@ body.locked #tv_chart{opacity:.42}
 .ci .n{font-size:13.5px;font-weight:550}
 .ci .v{display:block;margin-top:1px;font-size:11px;color:var(--faint);font-family:var(--mono)}
 .ci .hold{margin-left:6px}
+.ci .ttag{font-size:9.5px;padding:1px 5px;border-radius:4px;margin-left:4px;font-weight:600;font-family:var(--mono)}
+.ci .ttag.tradfi{background:rgba(217,119,6,.15);color:#D97706}
+.ci .ttag.usdc{background:rgba(37,99,235,.15);color:#2563EB}
+.ci .natr-hot{color:var(--up);font-weight:650}
 .ci .r{margin-left:auto;text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 .ci .r .a{display:block;font-size:13px}
 .ci .r .b{display:block;font-size:11px}
 .hold{font-size:10px;padding:1px 5px;border-radius:5px;background:var(--raised);color:var(--text)}
+#nNatr{font-size:11px;font-family:var(--mono);font-weight:600;padding:2px 6px;border-radius:6px;background:var(--raised);color:var(--dim);margin-left:2px}
 
 .wi{display:flex;align-items:center;gap:10px;padding:10px;border-radius:9px;cursor:pointer}
 .wi:hover{background:var(--raised)}
@@ -273,9 +278,10 @@ th:first-child,td:first-child{text-align:left}
 <div class="edge-zone right"><span class="edge-hint">›</span></div>
 
 <div id="tl">
-  <div id="name" title="点击切换 5m / 1h 周期">
+  <div id="name" title="点击切换 15m / 1h / 5m 周期">
     <span class="s" id="nS">BTC</span>
-    <span class="tf-badge" id="nTf">1h</span>
+    <span class="tf-badge" id="nTf">15m</span>
+    <span class="natr-badge" id="nNatr" style="display:none">15m NATR --</span>
     <span class="caret">⇄</span>
   </div>
   <button id="bStar" title="标记这个机会（W）：等这根 K 线收盘再下单">☆</button>
@@ -291,9 +297,9 @@ th:first-child,td:first-child{text-align:left}
 
 <!-- 品种列表抽屉 -->
 <aside class="sheet" id="shList">
-  <div class="sh"><b>品种</b><span class="num" style="font-size:11.5px;color:var(--faint)" id="cnt"></span>
+  <div class="sh"><b>免挂单费品种</b><span class="num" style="font-size:11.5px;color:var(--faint)" id="cnt"></span>
     <button class="x" data-close>✕</button></div>
-  <div class="filt"><button class="on" id="fBtn">24h成交额 &gt; $1M</button><span>持仓品种始终显示</span></div>
+  <div class="filt"><button class="on" id="fBtn">15m NATR &gt; 0.5% · 额 &gt; $50M</button><span>免挂单费 (USDC / TradFi)</span></div>
   <div class="sbody" id="clist"></div>
 </aside>
 
@@ -355,14 +361,16 @@ let WSU="wss://fstream.binance.com/ws";                 // 币安官方 WebSocke
 try{const _px=JSON.parse(localStorage.getItem("bn_proxy")||"null");
   if(_px&&_px.http)BASE=_px.http;
   if(_px&&_px.ws)WSU=_px.ws+"/ws";}catch(e){}
-const QUOTE="USDC";             // 只看 USDC 本位永续
-const VOL_MIN=1e6;              // 品种筛选：24h 成交额阈值 = 1M
+const QUOTE="USDC";             // 默认基准报价资产
+const VOL_MIN=50e6;             // 品种筛选：24h 成交额阈值 = 50M (5000 万美元)
+const NATR_MIN=0.5;             // 品种筛选：15m 周期 NATR 阈值 = 0.5%
+const NATR_LEN=14;              // NATR 计算周期 (14 根 15m K 线)
 /* ---- 交易参数 ---- */
 const TIF="GTX";                        // 只挂单（Post Only）
 const CLOSE_OFF=0.0005;                 // 手动平仓：挂在现价外 0.05%
 const BRACKET_RETRY=6000;               // 补挂止损重试间隔
 const BRACKET_MAX_TRY=5;                // 连续失败重试上限
-const MAKER_FEE=0.0002;                 // 挂单费率 0.02%
+const MAKER_FEE=0.0;                    // 挂单费率 0% (USDC 永续与 TradFi 合约免挂单手续费)
 const TAKER_FEE=0.0005;                 // 吃单费率 0.05%
 const PREATTACH_SL=true;                // 入场单和止损单一起提交
 const PENDBR_TTL=864e5;                 // 待补挂记录保质期 (24h)
@@ -371,7 +379,7 @@ const AWAY_TTL=0;                       // 已设为 0：关闭离线超时自�
 const ALIVE_MS=15000;                   // 心跳落盘间隔
 const WATCH_KEEP=36e5;                  // 机会标记保留 1 小时
 const WATCH_MAX=20;                     // 最多 20 条
-const TFMS={"5m":3e5,"30m":18e5,"1h":36e5};
+const TFMS={"5m":3e5,"15m":9e5,"30m":18e5,"1h":36e5};
 const LOCK_CANCEL_ENTRY=false;          // 断线/锁定时不自动撤销挂单
 const LOCK_CANCEL_COLDSTART=false;
 const NUDGE_TICKS=2;
@@ -382,7 +390,7 @@ const MID_BACK=8000;
 const TOAST_DEDUP=60000;
 const PREATTACH_TP=true;
 const TP_FB_OFF=0.001;
-const VER="v9.9";
+const VER="v10.0";
 const RECV=5000;
 const WORK="MARK_PRICE";
 const LEV_DEF=20;
@@ -390,7 +398,7 @@ const TICKER_MS=60000;
 const UNI_FULL_MS=6e5;
 let HASKEY=!!(API_KEY&&API_SECRET);
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const S={sym:"BTC"+QUOTE,tf:"1h",uni:[],f:{},ctx:{},mid:{},maxLev:{},brk:{},levSet:{},
+const S={sym:"BTC"+QUOTE,tf:"15m",uni:[],f:{},ctx:{},mid:{},maxLev:{},brk:{},levSet:{},
   k:[],kc:{},pos:{},ords:{},ordsAt:0,acct:null,side:"buy",lev:LEV_DEF,filter:true,dual:null};
 
 /* ---- 小工具 ---- */
@@ -814,22 +822,97 @@ async function loadUniverse(){
   const ex=await pub("/fapi/v1/exchangeInfo");
   const uni=[],f={};
   (ex.symbols||[]).forEach(s=>{
-    if(s.status!=="TRADING"||s.contractType!=="PERPETUAL"||s.quoteAsset!==QUOTE)return;
+    if(s.status!=="TRADING")return;
+    const ct=s.contractType||"";
+    const qa=s.quoteAsset||"";
+    const ma=s.marginAsset||"";
+    const isTradfi = (ct === "TRADIFI_PERPETUAL");
+    const isUsdc = (qa === "USDC" || ma === "USDC") && (ct === "PERPETUAL");
+    if(!isTradfi && !isUsdc)return;
     const ft={};(s.filters||[]).forEach(x=>ft[x.filterType]=x);
     f[s.symbol]={base:s.baseAsset,
+      quote:qa,
+      type:isTradfi?"TradFi":"USDC",
       tick:+((ft.PRICE_FILTER||{}).tickSize)||0.01,
       step:+((ft.LOT_SIZE||{}).stepSize)||0.001,
       minQty:+((ft.LOT_SIZE||{}).minQty)||0,
       maxQty:+((ft.LOT_SIZE||{}).maxQty)||0,
       minNotional:+((ft.MIN_NOTIONAL||{}).notional)||5};
-    uni.push({name:s.symbol});
+    uni.push({name:s.symbol,type:isTradfi?"TradFi":"USDC"});
   });
-  if(!uni.length)throw new Error("exchangeInfo 无可用品种");
+  if(!uni.length)throw new Error("exchangeInfo 无免挂单费可用标的");
   S.f=f;S.uni=uni;_uniAt=Date.now();
   if(!S.f[S.sym])S.sym=S.f["BTC"+QUOTE]?"BTC"+QUOTE:uni[0].name;
   await tickers();
   return uni.length;
 }
+
+function calcNatrFromCandles(klineList){
+  if(!klineList || klineList.length < 15) return 0;
+  const recent = klineList.slice(-15);
+  let trSum = 0;
+  for(let i = 1; i < recent.length; i++){
+    const h = +recent[i].h;
+    const l = +recent[i].l;
+    const pc = +recent[i - 1].c;
+    trSum += Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+  }
+  const atr14 = trSum / 14.0;
+  const close = +recent[recent.length - 1].c;
+  return close > 0 ? (atr14 / close) * 100 : 0;
+}
+
+let _natrFetching = false;
+let _natrAt = 0;
+const NATR_REFRESH_MS = 60000;
+
+async function fetchSymbol15mNatr(sym){
+  try{
+    if(sym === S.sym && S.tf === "15m" && S.kc[sym + "|15m"]?.k?.length >= 15){
+      const natr = calcNatrFromCandles(S.kc[sym + "|15m"].k);
+      S.ctx[sym] = Object.assign({}, S.ctx[sym] || {}, { natr });
+      return natr;
+    }
+    const r = await pub("/fapi/v1/klines", { symbol: sym, interval: "15m", limit: 15 }, 8000);
+    if(Array.isArray(r) && r.length >= 15){
+      let trSum = 0;
+      for(let i = 1; i < r.length; i++){
+        const h = +r[i][2], l = +r[i][3], pc = +r[i - 1][4];
+        trSum += Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc));
+      }
+      const atr14 = trSum / 14.0;
+      const close = +r[r.length - 1][4];
+      const natr = close > 0 ? (atr14 / close) * 100 : 0;
+      S.ctx[sym] = Object.assign({}, S.ctx[sym] || {}, { natr });
+      return natr;
+    }
+  }catch(e){}
+  return null;
+}
+
+async function refreshNatrs(force){
+  if(_natrFetching) return;
+  if(!force && Date.now() - _natrAt < NATR_REFRESH_MS) return;
+  _natrFetching = true;
+  try{
+    const targets = S.uni.filter(u => {
+      const c = S.ctx[u.name] || {};
+      return (+c.volUsd >= VOL_MIN) || (u.name === S.sym) || (posOf(u.name).length > 0) || wHas(u.name);
+    });
+    if(!targets.length) return;
+    const CONCURRENCY = 6;
+    for(let i = 0; i < targets.length; i += CONCURRENCY){
+      const chunk = targets.slice(i, i + CONCURRENCY);
+      await Promise.all(chunk.map(u => fetchSymbol15mNatr(u.name)));
+    }
+    _natrAt = Date.now();
+    head();
+    if($("#shList").classList.contains("on")) list(true);
+  } finally {
+    _natrFetching = false;
+  }
+}
+
 async function tickers(){
   const t=await pub("/fapi/v1/ticker/24hr");
   (Array.isArray(t)?t:[]).forEach(x=>{
@@ -837,6 +920,7 @@ async function tickers(){
     S.ctx[x.symbol]=Object.assign({},S.ctx[x.symbol]||{},
       {last:+x.lastPrice,chg:+x.priceChangePercent,volUsd:+x.quoteVolume});
     if(S.mid[x.symbol]==null)S.mid[x.symbol]=+x.lastPrice;});
+  refreshNatrs().catch(()=>{});
 }
 async function loadBrackets(){
   try{const b=await priv("GET","/fapi/v1/leverageBracket",{});
@@ -914,6 +998,10 @@ async function kline(force){
       // 防切币竞态条件：确认当前仍是请求的币种和周期
       if(S.sym === reqSym && S.tf === reqTf){
         useCandles(raw, true);
+        if(reqTf === "15m" && raw.length >= 15){
+          S.ctx[reqSym] = Object.assign({}, S.ctx[reqSym] || {}, { natr: calcNatrFromCandles(raw) });
+          head();
+        }
       }
     }
   }catch(e){log("klines err "+e.message);}
@@ -978,6 +1066,10 @@ function sock(){
           const k = 2 / 21;
           const liveEma = b.c * k + lastEmaValue * (1 - k);
           emaSeries.update({ time: timeSec, value: liveEma });
+        }
+        if(S.tf === "15m" && c.k.length >= 15){
+          S.ctx[S.sym] = Object.assign({}, S.ctx[S.sym] || {}, { natr: calcNatrFromCandles(c.k) });
+          head();
         }
       }
       schedule();return;}
@@ -1657,15 +1749,22 @@ function savePref(){
 function applyPrefUI(){
   const nb=$("#nTf");if(nb)nb.textContent=S.tf;
   try{const fb=$("#fBtn");if(fb){fb.classList.toggle("on",S.filter);
-    fb.textContent=S.filter?"24h成交额 > $1M":"全部品种";}}catch(e){}
+    fb.textContent=S.filter?"15m NATR > 0.5% · 额 > $50M":"全部 0 挂单费品种";}}catch(e){}
 }
 function loadPref(){
   try{PREF=JSON.parse(localStorage.getItem(PKEY)||"{}")||{};}catch(e){PREF={};}
-  if(PREF.tf==="5m"||PREF.tf==="30m"||PREF.tf==="1h")S.tf=PREF.tf;
-  else S.tf="1h";
+  const curVer = localStorage.getItem("bn_ver");
+  if(curVer !== VER){
+    S.tf = "15m";
+    S.filter = true;
+    try{localStorage.setItem("bn_ver", VER);}catch(e){}
+  } else {
+    if(PREF.tf==="5m"||PREF.tf==="15m"||PREF.tf==="30m"||PREF.tf==="1h")S.tf=PREF.tf;
+    else S.tf="15m";
+    if(typeof PREF.filter==="boolean")S.filter=PREF.filter;
+  }
   if(+PREF.lev>0){LEVWANT=Math.max(1,Math.round(+PREF.lev));S.lev=LEVWANT;}
   if(+PREF.risk>0)F.risk=+PREF.risk;
-  if(typeof PREF.filter==="boolean")S.filter=PREF.filter;
   if(typeof PREF.sym==="string"&&PREF.sym)S.sym=PREF.sym;
   applyPrefUI();
 }
@@ -1956,14 +2055,21 @@ addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"
 
 /* ================= 品种列表 ================= */
 function pool(){
-  return S.uni.map(u=>{const c=S.ctx[u.name]||{};
-    return{n:u.name,d:disp(u.name),p:mid(u.name),ch:+c.chg||0,vol:+c.volUsd||0,h:!!posOf(u.name).length};})
-    .filter(x=>x.h||!S.filter||x.vol>VOL_MIN)
+  return S.uni.map(u=>{const c=S.ctx[u.name]||{},f=S.f[u.name]||{};
+    return{n:u.name,d:disp(u.name),p:mid(u.name),ch:+c.chg||0,vol:+c.volUsd||0,
+      natr:c.natr!=null?+c.natr:null,type:f.type||"USDC",h:!!posOf(u.name).length};})
+    .filter(x=>{
+      if(x.h)return true;
+      if(!S.filter)return true;
+      if(x.vol < VOL_MIN)return false;
+      if(x.natr == null)return false;
+      return x.natr >= NATR_MIN;
+    })
     .sort((a,b)=>(b.h-a.h)||(b.vol-a.vol));
 }
 let _sig="";
 function list(soft){
-  const l=pool(),sig=l.map(x=>x.n).join(",")+"|"+S.sym+"|"+WATCH.map(w=>w.sym).join(",");
+  const l=pool(),sig=l.map(x=>x.n+"_"+(x.natr!=null?x.natr.toFixed(2):"")).join(",")+"|"+S.sym+"|"+WATCH.map(w=>w.sym).join(",");
   if(soft&&sig===_sig){
     const box=$("#clist");
     l.forEach(x=>{const el=box.querySelector('.ci[data-c="'+x.n+'"]');if(!el)return;
@@ -1972,18 +2078,19 @@ function list(soft){
       if(b){b.textContent=(x.ch>=0?"+":"")+x.ch.toFixed(2)+"%";b.className="b "+(x.ch>=0?"up":"down");}});
     return;}
   _sig=sig;
-  $("#cnt").textContent=l.length+" 个";
+  $("#cnt").textContent=l.length+" 个"+(_natrFetching?" (筛选中…)":"");
   $("#clist").innerHTML=l.map(x=>'<div class="ci'+(x.n===S.sym?" on":"")+'" data-c="'+x.n+'">'+
-    '<span><span class="n">'+x.d+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+(wHas(x.n)?' <span class="hold">★</span>':"")+'<span class="v">Vol $'+ab(x.vol)+'</span></span>'+
+    '<span><span class="n">'+x.d+'</span><span class="ttag '+(x.type==="TradFi"?"tradfi":"usdc")+'">'+x.type+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+(wHas(x.n)?' <span class="hold">★</span>':"")+
+    '<span class="v">Vol $'+ab(x.vol)+(x.natr!=null?' · 15m NATR <b class="'+(x.natr>=NATR_MIN?'natr-hot':'')+'">'+x.natr.toFixed(2)+'%</b>':'')+'</span></span>'+
     '<span class="r"><span class="a">'+px(x.p,x.n)+'</span><span class="b '+(x.ch>=0?"up":"down")+'">'+(x.ch>=0?"+":"")+x.ch.toFixed(2)+'%</span></span></div>').join("")
-    ||'<div class="none">暂无品种。</div>';
+    ||'<div class="none">暂无满足【15m NATR &gt; 0.5% 且 24h成交额 &gt; $50M】的标的。<br>可点击上方按钮查看全部免挂单费品种。</div>';
 }
 let posPollT=null;
 function stopPosPoll(){if(posPollT){clearInterval(posPollT);posPollT=null;}}
 function open(id){$$(".sheet").forEach(s=>s.classList.toggle("on",s.id===id));$("#mask").classList.add("on");
   subArr(id==="shList"||id==="shTv");
   if(id!=="shTv")stopPosPoll();
-  if(id==="shList")list();
+  if(id==="shList"){list();refreshNatrs(true).catch(()=>{});}
   if(id==="shTv"){posView();wList();}
 }
 function close(){$$(".sheet").forEach(s=>s.classList.remove("on"));$("#mask").classList.remove("on");
@@ -2680,7 +2787,7 @@ async function onLocked(){
 }
 
 function lockCheck(){
-  const t=Date.now(),ivl={"5m":3e5,"30m":18e5,"1h":36e5}[S.tf]||36e5;
+  const t=Date.now(),ivl={"5m":3e5,"15m":9e5,"30m":18e5,"1h":36e5}[S.tf]||9e5;
   const age=NET.mid?t-NET.mid:Infinity;
   let why="";
   if(!S.uni.length)why="行情未加载";
@@ -2755,6 +2862,17 @@ function head(){
   const p=mid(S.sym);
   $("#nS").textContent=disp(S.sym);
   $("#nTf").textContent=S.tf;
+  const ctx=S.ctx[S.sym]||{};
+  const elNatr=$("#nNatr");
+  if(elNatr){
+    if(ctx.natr!=null){
+      elNatr.style.display="inline-block";
+      elNatr.textContent="15m NATR "+ctx.natr.toFixed(2)+"%";
+      elNatr.style.color=ctx.natr>=NATR_MIN?"var(--up)":"var(--dim)";
+    }else{
+      elNatr.style.display="none";
+    }
+  }
   const bell=WATCH.some(w=>w.fired&&Date.now()-w.due<3e5);
   document.title=(bell?"🔔 ":"")+px(p)+" "+disp(S.sym)+" ("+S.tf+")";
 }
@@ -2779,9 +2897,9 @@ function cycleTheme(){
 try{THMQ.addEventListener("change",()=>{if(THMODE==="auto")applyTheme();});}catch(e){}
 
 /* ---- 事件绑定 ---- */
-// 点击品种名称切换 5m / 1h 周期
+// 点击品种名称切换 15m / 1h / 5m 周期
 $("#name").addEventListener("click",async()=>{
-  S.tf = (S.tf === "1h" ? "5m" : "1h");
+  S.tf = (S.tf === "15m" ? "1h" : S.tf === "1h" ? "5m" : "15m");
   savePref();
   applyPrefUI();
   await kline(true);
@@ -2846,7 +2964,7 @@ $("#pb").addEventListener("click",e=>{const b=e.target.closest("button.cls"),c=e
   if(c){e.stopPropagation();cancelOrder(c.dataset.x,c.dataset.o,c.dataset.a==="1");return;}
   const r=e.target.closest("tr[data-c]");if(r)pick(r.dataset.c);});
 $("#fBtn").addEventListener("click",e=>{S.filter=!S.filter;savePref();e.target.classList.toggle("on",S.filter);
-  e.target.textContent=S.filter?"24h成交额 > $1M":"全部品种";list();});
+  e.target.textContent=S.filter?"15m NATR > 0.5% · 额 > $50M":"全部 0 挂单费品种";list();});
 $("#ohX").addEventListener("click",endFlow);
 $("#ohR").addEventListener("click",()=>{F.risk=F.risk===1?.25:1;savePref();render();});
 $("#ohSkip").addEventListener("click",()=>{if(F.step===3){F.tp=null;F.step=4;}else{F.step=1;F.e=F.sl=F.tp=null;}render();});
