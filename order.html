@@ -278,7 +278,7 @@ th:first-child,td:first-child{text-align:left}
 <div class="edge-zone right"><span class="edge-hint">›</span></div>
 
 <div id="tl">
-  <div id="name" title="点击切换 15m / 1h / 5m 周期">
+  <div id="name" title="点击切换 15m / 1h 周期">
     <span class="s" id="nS">BTC</span>
     <span class="tf-badge" id="nTf">15m</span>
     <span class="natr-badge" id="nNatr" style="display:none">15m NATR --</span>
@@ -363,8 +363,8 @@ try{const _px=JSON.parse(localStorage.getItem("bn_proxy")||"null");
   if(_px&&_px.ws)WSU=_px.ws+"/ws";}catch(e){}
 const QUOTE="USDC";             // 默认基准报价资产
 const VOL_MIN=50e6;             // 品种筛选：24h 成交额阈值 = 50M (5000 万美元)
-const NATR_MIN=0.5;             // 品种筛选：15m 周期 NATR 阈值 = 0.5%
-const NATR_LEN=14;              // NATR 计算周期 (14 根 15m K 线)
+const NATR_MIN=0.5;             // 品种筛选：当前活跃周期 (15m/1h) NATR 阈值 = 0.5%
+const NATR_LEN=14;              // NATR 计算周期 (过去 14 根 K 线)
 /* ---- 交易参数 ---- */
 const TIF="GTX";                        // 只挂单（Post Only）
 const CLOSE_OFF=0.0005;                 // 手动平仓：挂在现价外 0.05%
@@ -379,7 +379,7 @@ const AWAY_TTL=0;                       // 已设为 0：关闭离线超时自�
 const ALIVE_MS=15000;                   // 心跳落盘间隔
 const WATCH_KEEP=36e5;                  // 机会标记保留 1 小时
 const WATCH_MAX=20;                     // 最多 20 条
-const TFMS={"5m":3e5,"15m":9e5,"30m":18e5,"1h":36e5};
+const TFMS={"15m":9e5,"1h":36e5};
 const LOCK_CANCEL_ENTRY=false;          // 断线/锁定时不自动撤销挂单
 const LOCK_CANCEL_COLDSTART=false;
 const NUDGE_TICKS=2;
@@ -862,18 +862,25 @@ function calcNatrFromCandles(klineList){
   return close > 0 ? (atr14 / close) * 100 : 0;
 }
 
-let _natrFetching = false;
-let _natrAt = 0;
+function getNatr(sym, tf = S.tf){
+  const c = S.ctx[sym];
+  if(!c) return null;
+  return c["natr_" + tf] != null ? c["natr_" + tf] : null;
+}
+
+const _natrFetching = { "15m": false, "1h": false };
+const _natrAt = { "15m": 0, "1h": 0 };
 const NATR_REFRESH_MS = 60000;
 
-async function fetchSymbol15mNatr(sym){
+async function fetchSymbolNatr(sym, tf = S.tf){
   try{
-    if(sym === S.sym && S.tf === "15m" && S.kc[sym + "|15m"]?.k?.length >= 15){
-      const natr = calcNatrFromCandles(S.kc[sym + "|15m"].k);
-      S.ctx[sym] = Object.assign({}, S.ctx[sym] || {}, { natr });
+    if(sym === S.sym && S.tf === tf && S.kc[sym + "|" + tf]?.k?.length >= 15){
+      const natr = calcNatrFromCandles(S.kc[sym + "|" + tf].k);
+      if(!S.ctx[sym]) S.ctx[sym] = {};
+      S.ctx[sym]["natr_" + tf] = natr;
       return natr;
     }
-    const r = await pub("/fapi/v1/klines", { symbol: sym, interval: "15m", limit: 15 }, 8000);
+    const r = await pub("/fapi/v1/klines", { symbol: sym, interval: tf, limit: 15 }, 8000);
     if(Array.isArray(r) && r.length >= 15){
       let trSum = 0;
       for(let i = 1; i < r.length; i++){
@@ -883,17 +890,19 @@ async function fetchSymbol15mNatr(sym){
       const atr14 = trSum / 14.0;
       const close = +r[r.length - 1][4];
       const natr = close > 0 ? (atr14 / close) * 100 : 0;
-      S.ctx[sym] = Object.assign({}, S.ctx[sym] || {}, { natr });
+      if(!S.ctx[sym]) S.ctx[sym] = {};
+      S.ctx[sym]["natr_" + tf] = natr;
       return natr;
     }
   }catch(e){}
   return null;
 }
 
-async function refreshNatrs(force){
-  if(_natrFetching) return;
-  if(!force && Date.now() - _natrAt < NATR_REFRESH_MS) return;
-  _natrFetching = true;
+async function refreshNatrs(tf = S.tf, force = false){
+  if(tf !== "15m" && tf !== "1h") tf = "15m";
+  if(_natrFetching[tf]) return;
+  if(!force && Date.now() - (_natrAt[tf] || 0) < NATR_REFRESH_MS) return;
+  _natrFetching[tf] = true;
   try{
     const targets = S.uni.filter(u => {
       const c = S.ctx[u.name] || {};
@@ -903,13 +912,13 @@ async function refreshNatrs(force){
     const CONCURRENCY = 6;
     for(let i = 0; i < targets.length; i += CONCURRENCY){
       const chunk = targets.slice(i, i + CONCURRENCY);
-      await Promise.all(chunk.map(u => fetchSymbol15mNatr(u.name)));
+      await Promise.all(chunk.map(u => fetchSymbolNatr(u.name, tf)));
     }
-    _natrAt = Date.now();
+    _natrAt[tf] = Date.now();
     head();
     if($("#shList").classList.contains("on")) list(true);
   } finally {
-    _natrFetching = false;
+    _natrFetching[tf] = false;
   }
 }
 
@@ -920,7 +929,10 @@ async function tickers(){
     S.ctx[x.symbol]=Object.assign({},S.ctx[x.symbol]||{},
       {last:+x.lastPrice,chg:+x.priceChangePercent,volUsd:+x.quoteVolume});
     if(S.mid[x.symbol]==null)S.mid[x.symbol]=+x.lastPrice;});
-  refreshNatrs().catch(()=>{});
+  refreshNatrs(S.tf).then(()=>{
+    const altTf = (S.tf === "15m" ? "1h" : "15m");
+    refreshNatrs(altTf).catch(()=>{});
+  }).catch(()=>{});
 }
 async function loadBrackets(){
   try{const b=await priv("GET","/fapi/v1/leverageBracket",{});
@@ -998,8 +1010,9 @@ async function kline(force){
       // 防切币竞态条件：确认当前仍是请求的币种和周期
       if(S.sym === reqSym && S.tf === reqTf){
         useCandles(raw, true);
-        if(reqTf === "15m" && raw.length >= 15){
-          S.ctx[reqSym] = Object.assign({}, S.ctx[reqSym] || {}, { natr: calcNatrFromCandles(raw) });
+        if((reqTf === "15m" || reqTf === "1h") && raw.length >= 15){
+          if(!S.ctx[reqSym]) S.ctx[reqSym] = {};
+          S.ctx[reqSym]["natr_" + reqTf] = calcNatrFromCandles(raw);
           head();
         }
       }
@@ -1067,8 +1080,9 @@ function sock(){
           const liveEma = b.c * k + lastEmaValue * (1 - k);
           emaSeries.update({ time: timeSec, value: liveEma });
         }
-        if(S.tf === "15m" && c.k.length >= 15){
-          S.ctx[S.sym] = Object.assign({}, S.ctx[S.sym] || {}, { natr: calcNatrFromCandles(c.k) });
+        if((S.tf === "15m" || S.tf === "1h") && c.k.length >= 15){
+          if(!S.ctx[S.sym]) S.ctx[S.sym] = {};
+          S.ctx[S.sym]["natr_" + S.tf] = calcNatrFromCandles(c.k);
           head();
         }
       }
@@ -1749,7 +1763,7 @@ function savePref(){
 function applyPrefUI(){
   const nb=$("#nTf");if(nb)nb.textContent=S.tf;
   try{const fb=$("#fBtn");if(fb){fb.classList.toggle("on",S.filter);
-    fb.textContent=S.filter?"15m NATR > 0.5% · 额 > $50M":"全部 0 挂单费品种";}}catch(e){}
+    fb.textContent=S.filter?(S.tf+" NATR > 0.5% · 额 > $50M"):"全部 0 挂单费品种";}}catch(e){}
 }
 function loadPref(){
   try{PREF=JSON.parse(localStorage.getItem(PKEY)||"{}")||{};}catch(e){PREF={};}
@@ -1759,9 +1773,9 @@ function loadPref(){
     S.filter = true;
     try{localStorage.setItem("bn_ver", VER);}catch(e){}
   } else {
-    if(PREF.tf==="5m"||PREF.tf==="15m"||PREF.tf==="30m"||PREF.tf==="1h")S.tf=PREF.tf;
-    else S.tf="15m";
-    if(typeof PREF.filter==="boolean")S.filter=PREF.filter;
+    if(PREF.tf === "1h") S.tf = "1h";
+    else S.tf = "15m";
+    if(typeof PREF.filter === "boolean") S.filter = PREF.filter;
   }
   if(+PREF.lev>0){LEVWANT=Math.max(1,Math.round(+PREF.lev));S.lev=LEVWANT;}
   if(+PREF.risk>0)F.risk=+PREF.risk;
@@ -2056,8 +2070,9 @@ addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"
 /* ================= 品种列表 ================= */
 function pool(){
   return S.uni.map(u=>{const c=S.ctx[u.name]||{},f=S.f[u.name]||{};
+    const natr = getNatr(u.name, S.tf);
     return{n:u.name,d:disp(u.name),p:mid(u.name),ch:+c.chg||0,vol:+c.volUsd||0,
-      natr:c.natr!=null?+c.natr:null,type:f.type||"USDC",h:!!posOf(u.name).length};})
+      natr:natr!=null?+natr:null,type:f.type||"USDC",h:!!posOf(u.name).length};})
     .filter(x=>{
       if(x.h)return true;
       if(!S.filter)return true;
@@ -2069,7 +2084,7 @@ function pool(){
 }
 let _sig="";
 function list(soft){
-  const l=pool(),sig=l.map(x=>x.n+"_"+(x.natr!=null?x.natr.toFixed(2):"")).join(",")+"|"+S.sym+"|"+WATCH.map(w=>w.sym).join(",");
+  const l=pool(),sig=l.map(x=>x.n+"_"+(x.natr!=null?x.natr.toFixed(2):"")).join(",")+"|"+S.sym+"|"+S.tf+"|"+WATCH.map(w=>w.sym).join(",");
   if(soft&&sig===_sig){
     const box=$("#clist");
     l.forEach(x=>{const el=box.querySelector('.ci[data-c="'+x.n+'"]');if(!el)return;
@@ -2078,19 +2093,20 @@ function list(soft){
       if(b){b.textContent=(x.ch>=0?"+":"")+x.ch.toFixed(2)+"%";b.className="b "+(x.ch>=0?"up":"down");}});
     return;}
   _sig=sig;
-  $("#cnt").textContent=l.length+" 个"+(_natrFetching?" (筛选中…)":"");
+  const isFetching=_natrFetching[S.tf];
+  $("#cnt").textContent=l.length+" 个"+(isFetching?" (筛选中…)":"");
   $("#clist").innerHTML=l.map(x=>'<div class="ci'+(x.n===S.sym?" on":"")+'" data-c="'+x.n+'">'+
     '<span><span class="n">'+x.d+'</span><span class="ttag '+(x.type==="TradFi"?"tradfi":"usdc")+'">'+x.type+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+(wHas(x.n)?' <span class="hold">★</span>':"")+
-    '<span class="v">Vol $'+ab(x.vol)+(x.natr!=null?' · 15m NATR <b class="'+(x.natr>=NATR_MIN?'natr-hot':'')+'">'+x.natr.toFixed(2)+'%</b>':'')+'</span></span>'+
+    '<span class="v">Vol $'+ab(x.vol)+(x.natr!=null?' · '+S.tf+' NATR <b class="'+(x.natr>=NATR_MIN?'natr-hot':'')+'">'+x.natr.toFixed(2)+'%</b>':'')+'</span></span>'+
     '<span class="r"><span class="a">'+px(x.p,x.n)+'</span><span class="b '+(x.ch>=0?"up":"down")+'">'+(x.ch>=0?"+":"")+x.ch.toFixed(2)+'%</span></span></div>').join("")
-    ||'<div class="none">暂无满足【15m NATR &gt; 0.5% 且 24h成交额 &gt; $50M】的标的。<br>可点击上方按钮查看全部免挂单费品种。</div>';
+    ||'<div class="none">暂无满足【'+S.tf+' NATR &gt; 0.5% 且 24h成交额 &gt; $50M】的标的。<br>可点击上方切换至 '+(S.tf==='15m'?'1h':'15m')+' 周期，或点击上方按钮查看全部免挂单费品种。</div>';
 }
 let posPollT=null;
 function stopPosPoll(){if(posPollT){clearInterval(posPollT);posPollT=null;}}
 function open(id){$$(".sheet").forEach(s=>s.classList.toggle("on",s.id===id));$("#mask").classList.add("on");
   subArr(id==="shList"||id==="shTv");
   if(id!=="shTv")stopPosPoll();
-  if(id==="shList"){list();refreshNatrs(true).catch(()=>{});}
+  if(id==="shList"){list();refreshNatrs(S.tf,true).catch(()=>{});}
   if(id==="shTv"){posView();wList();}
 }
 function close(){$$(".sheet").forEach(s=>s.classList.remove("on"));$("#mask").classList.remove("on");
@@ -2787,7 +2803,7 @@ async function onLocked(){
 }
 
 function lockCheck(){
-  const t=Date.now(),ivl={"5m":3e5,"15m":9e5,"30m":18e5,"1h":36e5}[S.tf]||9e5;
+  const t=Date.now(),ivl=(S.tf==="1h"?36e5:9e5);
   const age=NET.mid?t-NET.mid:Infinity;
   let why="";
   if(!S.uni.length)why="行情未加载";
@@ -2862,13 +2878,13 @@ function head(){
   const p=mid(S.sym);
   $("#nS").textContent=disp(S.sym);
   $("#nTf").textContent=S.tf;
-  const ctx=S.ctx[S.sym]||{};
+  const curNatr=getNatr(S.sym, S.tf);
   const elNatr=$("#nNatr");
   if(elNatr){
-    if(ctx.natr!=null){
+    if(curNatr!=null){
       elNatr.style.display="inline-block";
-      elNatr.textContent="15m NATR "+ctx.natr.toFixed(2)+"%";
-      elNatr.style.color=ctx.natr>=NATR_MIN?"var(--up)":"var(--dim)";
+      elNatr.textContent=S.tf+" NATR "+curNatr.toFixed(2)+"%";
+      elNatr.style.color=curNatr>=NATR_MIN?"var(--up)":"var(--dim)";
     }else{
       elNatr.style.display="none";
     }
@@ -2897,15 +2913,17 @@ function cycleTheme(){
 try{THMQ.addEventListener("change",()=>{if(THMODE==="auto")applyTheme();});}catch(e){}
 
 /* ---- 事件绑定 ---- */
-// 点击品种名称切换 15m / 1h / 5m 周期
+// 点击品种名称切换 15m / 1h 周期
 $("#name").addEventListener("click",async()=>{
-  S.tf = (S.tf === "15m" ? "1h" : S.tf === "1h" ? "5m" : "15m");
+  S.tf = (S.tf === "15m" ? "1h" : "15m");
   savePref();
   applyPrefUI();
   await kline(true);
   head();
   wSync();
-  toast("已切换为 "+S.tf+" 周期");
+  refreshNatrs(S.tf, false).catch(()=>{});
+  if($("#shList").classList.contains("on")) list();
+  toast("已切换为 "+S.tf+" 周期（筛选机制联动）");
 });
 
 // 左下角 TV 二合一按钮：弹出整合面板
@@ -2964,7 +2982,7 @@ $("#pb").addEventListener("click",e=>{const b=e.target.closest("button.cls"),c=e
   if(c){e.stopPropagation();cancelOrder(c.dataset.x,c.dataset.o,c.dataset.a==="1");return;}
   const r=e.target.closest("tr[data-c]");if(r)pick(r.dataset.c);});
 $("#fBtn").addEventListener("click",e=>{S.filter=!S.filter;savePref();e.target.classList.toggle("on",S.filter);
-  e.target.textContent=S.filter?"15m NATR > 0.5% · 额 > $50M":"全部 0 挂单费品种";list();});
+  e.target.textContent=S.filter?(S.tf+" NATR > 0.5% · 额 > $50M"):"全部 0 挂单费品种";list();});
 $("#ohX").addEventListener("click",endFlow);
 $("#ohR").addEventListener("click",()=>{F.risk=F.risk===1?.25:1;savePref();render();});
 $("#ohSkip").addEventListener("click",()=>{if(F.step===3){F.tp=null;F.step=4;}else{F.step=1;F.e=F.sl=F.tp=null;}render();});
