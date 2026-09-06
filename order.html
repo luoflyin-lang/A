@@ -701,6 +701,21 @@ async function submitKey(){
   setKeys(k,s);closeKey();toast("已高强度加密保存到本机，正在读账户");
   await startPrivate();
 }
+let CURRENT_NET_GEO = null;
+async function detectNetGeo(){
+  try{
+    const r = await fetch("https://order.124568.xyz/cdn-cgi/trace", { cache: "no-store" });
+    if(r.ok){
+      const t = await r.text();
+      const ip = (t.match(/ip=([^\n]+)/) || [])[1] || "";
+      const loc = (t.match(/loc=([^\n]+)/) || [])[1] || "";
+      CURRENT_NET_GEO = { ip: ip.trim(), loc: loc.trim().toUpperCase() };
+      return CURRENT_NET_GEO;
+    }
+  }catch(e){}
+  return null;
+}
+
 async function testKeyConnection(){
   let k = API_KEY, s = API_SECRET;
   const inK = $("#kK").value.trim(), inS = $("#kS").value.trim();
@@ -713,27 +728,37 @@ async function testKeyConnection(){
   const orig = btn ? btn.textContent : "测试连接";
   if(btn){ btn.disabled = true; btn.textContent = "正在探测…"; }
   try{
-    const oldK = API_KEY, oldS = API_SECRET;
-    API_KEY = k; API_SECRET = s;
+    const oldK = API_KEY, oldS = API_SECRET, oldHas = HASKEY;
+    API_KEY = k; API_SECRET = s; HASKEY = true;
     let res = null, err = null;
     try {
       res = await priv("GET", "/fapi/v2/account", {});
     } catch(e){
       err = e;
     } finally {
-      if(!HASKEY){ API_KEY = oldK; API_SECRET = oldS; }
+      if(!oldHas){ API_KEY = oldK; API_SECRET = oldS; HASKEY = false; }
     }
+
+    // 同步探测出口网络节点
+    const geo = await detectNetGeo().catch(()=>null);
     const hint = $("#kHint");
     if(res && res.totalMarginBalance != null){
       const eq = (+res.totalMarginBalance).toFixed(2);
       toast("✔ API 连通成功！读取到合约总资金：$" + eq, true);
-      if(hint) hint.innerHTML = "<span style='color:var(--up);font-weight:600'>✔ 连通成功！合约总净值: $" + eq + "</span>";
+      if(hint) hint.innerHTML = "<span style='color:var(--up);font-weight:600'>✔ 连通成功！合约总净值: $" + eq + (geo ? " · 出口: " + geo.loc + " (" + geo.ip + ")" : "") + "</span>";
       return;
     }
     if(err){
+      if(geo && geo.loc === "US"){
+        const usTip = "🚨 币安拒止（-2015）：检测到当前梯子出口为【美国节点 (US / " + geo.ip + ")】！币安合约严禁美国 IP 访问。请将梯子/Clash切换为【台湾/日本/香港】！";
+        toast(usTip, true);
+        if(hint) hint.innerHTML = "<span style='color:var(--down);font-weight:600'>" + usTip + "</span>";
+        return;
+      }
       const hintMsg = keyHint(err);
-      toast(hintMsg || ("连接失败：" + err.message), true);
-      if(hint) hint.innerHTML = "<span style='color:var(--down);font-weight:600'>" + (hintMsg || err.message) + "</span>";
+      const detail = (err.code ? "[-" + Math.abs(err.code) + "] " : "") + (hintMsg || err.message);
+      toast(detail, true);
+      if(hint) hint.innerHTML = "<span style='color:var(--down);font-weight:600'>" + detail + (geo ? "<br>当前出口IP: " + geo.ip + " (" + geo.loc + ")" : "") + "</span>";
     }
   } finally {
     if(btn){ btn.disabled = false; btn.textContent = orig; }
@@ -1395,6 +1420,10 @@ function keyHint(e){
   const c=+((e||{}).code||0);
   const msg=String((e||{}).message || (e||{}).msg || "");
   if(c===-2015){
+    if(CURRENT_NET_GEO && CURRENT_NET_GEO.loc === "US"){
+      return "🚨 币安拒止（-2015）：当前梯子出口为【美国节点 (US / " + CURRENT_NET_GEO.ip + ")】！币安合约严禁美国 IP。请将梯子/Clash切换为【台湾/日本/香港】！";
+    }
+    detectNetGeo().catch(()=>{});
     const ipMatch = msg.match(/request ip:\s*([0-9a-fA-F.:]+)/i);
     const ipTip = ipMatch ? "（请求IP: " + ipMatch[1] + "）" : "";
     return "API Key 无效 / 未开合约权限 / IP 不在白名单 " + ipTip + "（-2015）";
