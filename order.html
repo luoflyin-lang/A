@@ -74,12 +74,16 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-
 
 /* ---- 左上角：品种与周期点击切换 ---- */
 #tl{position:fixed;top:18px;left:22px;z-index:5;display:flex;flex-direction:row;gap:10px;align-items:center}
-#name{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;background:none;user-select:none;-webkit-user-select:none;transition:transform .12s,opacity .15s}
-#name:hover{opacity:.8}
-#name:active{transform:scale(0.96)}
-#name .s{font-size:18px;font-weight:650;letter-spacing:-.01em}
-#name .tf-badge{font-size:12px;font-family:var(--mono);font-weight:700;padding:2px 7px;border-radius:6px;background:var(--raised);color:var(--dim)}
-#name .caret{font-size:12px;color:var(--faint);margin-left:2px}
+#name{display:flex;align-items:center;gap:8px;padding:4px 0;background:none;user-select:none;-webkit-user-select:none}
+#name .s{font-size:18px;font-weight:650;letter-spacing:-.01em;cursor:pointer;padding:2px 6px;border-radius:7px;transition:all .15s}
+#name .s:hover{background:var(--raised);color:var(--ink)}
+#name .s:active{transform:scale(0.96)}
+#name .tf-badge{font-size:12px;font-family:var(--mono);font-weight:700;padding:2px 7px;border-radius:6px;background:var(--raised);color:var(--dim);cursor:pointer;transition:all .15s}
+#name .tf-badge:hover{color:var(--text);background:var(--tint)}
+#name .tf-badge:active{transform:scale(0.96)}
+#name .caret{font-size:13px;color:var(--faint);margin-left:2px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:all .15s;line-height:1}
+#name .caret:hover{color:var(--text);background:var(--raised)}
+#name .caret:active{transform:scale(0.94)}
 #bStar{height:32px;min-width:34px;padding:0 7px;border-radius:9px;font-size:16px;line-height:1;
   color:var(--faint);background:var(--fabbg);box-shadow:0 2px 8px rgba(0,0,0,.04);backdrop-filter:blur(8px);
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s,transform .12s}
@@ -283,11 +287,11 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 <div id="nakedAlert" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:100;background:#A85244;color:#FFF;padding:8px 16px;border-radius:10px;font-weight:600;font-size:12.5px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:center;pointer-events:none"></div>
 
 <div id="tl">
-  <div id="name" title="点击切换 15m / 1h 周期">
-    <span class="s" id="nS">BTC</span>
-    <span class="tf-badge" id="nTf">15m</span>
+  <div id="name" title="点击展开品种列表">
+    <span class="s" id="nS" title="点击一键切换 15m / 1h 机会标的">BTC</span>
+    <span class="tf-badge" id="nTf" title="点击一键切换 15m / 1h 机会标的">15m</span>
     <span class="natr-badge" id="nNatr" style="display:none">15m NATR --</span>
-    <span class="caret">⇄</span>
+    <span class="caret" id="nListBtn" title="打开免挂单费品种列表">☰</span>
   </div>
   <button id="bStar" title="标记这个机会（W）：等这根 K 线收盘再下单">☆</button>
 </div>
@@ -357,7 +361,6 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
   <div class="t"><b>API 密钥</b><span id="kSt"></span><button class="x" id="kX">✕</button></div>
   <input id="kK" type="password" placeholder="API Key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
   <input id="kS" type="password" placeholder="Secret" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-  <input id="kP" type="password" placeholder="口令（必填，本地 AES-GCM 加密）" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
   <div id="kHint"></div>
   <div class="obar"><button id="kSave" class="b">保存</button><button id="kTest">测试连接</button><button id="kWipe">清除</button></div>
 </div>
@@ -587,37 +590,23 @@ async function priv(method,path,params,ms,opt){
 
 /* ================= API 密钥安全存储 ================= */
 let KKEY="bn_key";
-const CANCRYPT=!!(window.isSecureContext&&window.crypto&&window.crypto.subtle);
 let PRIVON=false;
 function setKeys(k,s){API_KEY=k||"";API_SECRET=s||"";HASKEY=!!(API_KEY&&API_SECRET);}
-function readRec(){try{return JSON.parse(localStorage.getItem(KKEY)||"null");}catch(e){return null;}}
-const b64=u=>btoa(String.fromCharCode.apply(null,new Uint8Array(u)));
-const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
-async function passKey(pass,salt){
-  const raw=await crypto.subtle.importKey("raw",new TextEncoder().encode(pass),"PBKDF2",false,["deriveKey"]);
-  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:600000,hash:"SHA-256"},
-    raw,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
-}
-async function encKeys(k,s,pass){
-  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
-  const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},await passKey(pass,salt),
-    new TextEncoder().encode(JSON.stringify({k,s})));
-  return {v:1,mode:"aes",salt:b64(salt),iv:b64(iv),ct:b64(ct)};
-}
-async function decKeys(rec,pass){
-  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(rec.iv)},
-    await passKey(pass,unb64(rec.salt)),unb64(rec.ct));
-  return JSON.parse(new TextDecoder().decode(pt));
+function readRec(){
+  try{
+    const r=JSON.parse(localStorage.getItem(KKEY)||"null");
+    if(!r)return null;
+    if(r.k&&r.s)return {k:r.k,s:r.s};
+    return r;
+  }catch(e){return null;}
 }
 async function bootKeys(){
   if(API_KEY&&API_SECRET){HASKEY=true;return;}
   const rec=readRec();if(!rec)return;
-  if(rec.mode==="plain"&&rec.k&&rec.s){
+  if(rec.k&&rec.s){
     setKeys(rec.k,rec.s);
-    toast("⚠ 当前存储为未加密明文密钥，建议重新保存并设置口令以启用 AES-GCM 高强度加密！", true);
     return;
   }
-  if(rec.mode==="aes")openKey("unlock");
 }
 let acctPollT=null;
 async function updateCommissionRate(sym){
@@ -657,48 +646,30 @@ function wipeKeys(){
 }
 function avHint(){
   const el=$("#av");if(!el||HASKEY)return;
-  const rec=readRec();
-  el.textContent=rec&&rec.mode==="aes"?"已加密 · 点此解锁":"未配置 API Key";
+  el.textContent="未配置 API Key";
 }
-function openKey(mode){
+function openKey(){
   const box=$("#khud");if(!box)return;
-  const unlock=mode==="unlock";box.dataset.mode=unlock?"unlock":"set";
   box.classList.add("on");$("#mask").classList.add("on");
-  $("#kK").style.display=unlock?"none":"block";
-  $("#kS").style.display=unlock?"none":"block";
-  $("#kP").style.display=(unlock||CANCRYPT)?"block":"none";
-  $("#kP").placeholder=unlock?"输入口令解锁":"设置加密口令（必填，防投毒保护）";
-  $("#kP").value="";$("#kSave").textContent=unlock?"解锁":"保存";
-  $("#kSt").textContent=unlock?"已加密存在本机":(HASKEY?"已配置":"只存这台设备");
-  $("#kHint").innerHTML=unlock
-    ?"输错口令只是解不开，不会弄丢密钥。忘了口令就点清除，重新填一遍。"
-    :("密钥只加密保存在本机浏览器。请确认币安后台 API 权限：<br><b>① 必须勾选「允许合约」(Enable Futures)</b>；<br>② IP 限制建议选「无限制」(90天有效)；<br>③ 绝不勾选提现。");
-  setTimeout(()=>{const el=unlock?$("#kP"):$("#kK");if(el)el.focus();},60);
+  $("#kK").value=API_KEY||"";
+  $("#kS").value=API_SECRET||"";
+  $("#kSave").textContent="保存";
+  $("#kSt").textContent=HASKEY?"已配置":"只存这台设备";
+  $("#kHint").innerHTML="密钥只保存在本机浏览器。请确认币安后台 API 权限：<br><b>① 必须勾选「允许合约」(Enable Futures)</b>；<br>② IP 限制建议选「无限制」(90天有效)；<br>③ 绝不勾选提现。";
+  setTimeout(()=>{const el=$("#kK");if(el)el.focus();},60);
 }
 function closeKey(){
   const box=$("#khud");if(!box)return;
-  box.classList.remove("on");$("#kK").value="";$("#kS").value="";$("#kP").value="";
+  box.classList.remove("on");
   if(!document.querySelector(".sheet.on"))$("#mask").classList.remove("on");
 }
 async function submitKey(){
-  const unlock=$("#khud").dataset.mode==="unlock",pass=$("#kP").value.trim();
-  if(unlock){
-    const rec=readRec();if(!rec){closeKey();return;}
-    if(!CANCRYPT){toast("当前打开方式没有浏览器解密能力，解不开加密密钥");return;}
-    try{
-      const o=await decKeys(rec,pass);setKeys(o.k,o.s);
-      closeKey();toast("已解锁，正在读账户");await startPrivate();
-    }catch(e){toast("口令不对，解不开");}
-    return;
-  }
   const k=$("#kK").value.trim(),s=$("#kS").value.trim();
   if(!k||!s){toast("Key 和 Secret 都要填");return;}
-  if(!pass){toast("⚠ 为保障资金安全，请务必设置口令以启用 AES-GCM 加密存储！", true);return;}
-  if(!CANCRYPT){toast("当前浏览器环境不支持 WebCrypto，无法安全加密");return;}
   try{
-    localStorage.setItem(KKEY,JSON.stringify(await encKeys(k,s,pass)));
+    localStorage.setItem(KKEY,JSON.stringify({k,s}));
   }catch(e){toast("存不进去："+((e&&e.message)||e));return;}
-  setKeys(k,s);closeKey();toast("已高强度加密保存到本机，正在读账户");
+  setKeys(k,s);closeKey();toast("已保存到本机，正在读账户");
   await startPrivate();
 }
 let CURRENT_NET_GEO = null;
@@ -1524,9 +1495,8 @@ function posView(){
 
 async function cancelOrder(sym,oid,isAlgo,opt={}){
   if(!HASKEY && !DRY_RUN){
-    toast("⚠ 未配置或未解锁 API Key，无法向交易所撤单！请先点击资金栏解锁。", true);
-    const rec = readRec();
-    if(typeof openKey === "function") openKey(rec && rec.mode === "aes" ? "unlock" : "set");
+    toast("⚠ 未配置 API Key，无法向交易所撤单！请先配置 API Key。", true);
+    if(typeof openKey === "function") openKey();
     return null;
   }
   if(!oid || oid === "undefined" || oid === "null"){
@@ -3352,9 +3322,41 @@ async function switchTf(newTf){
   if($("#shList").classList.contains("on")) list();
 }
 
-// 顶部币种与周期点击交互
-$("#nS").addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
-$("#nTf").addEventListener("click", (e)=>{e.stopPropagation(); switchTf(S.tf === "15m" ? "1h" : "15m");});
+async function switchOpportunityPool(){
+  const nextTf = S.tf === "15m" ? "1h" : "15m";
+  S.tf = nextTf;
+  savePref();
+  applyPrefUI();
+
+  // 获取新周期下的机会池
+  const l = pool();
+  let targetSym = null;
+  if(l.length > 0){
+    targetSym = l[0].n;
+  }
+  if(targetSym && targetSym !== S.sym){
+    S.sym = targetSym;
+    if(F.on) endFlow();
+    useMaxLev();
+    savePref();
+  }
+
+  await kline(true);
+  head();
+  wSync();
+  refreshNatrs(S.tf, false).catch(()=>{});
+  if(S.tf === "1h") refreshNatrs("15m", false).catch(()=>{});
+  if($("#shList").classList.contains("on")) list();
+  toast("已切换至 " + nextTf + " 机会标的：" + disp(S.sym) + (l.length ? "（共 " + l.length + " 个）" : ""));
+}
+
+// 顶部币种与周期点击交互：
+// 点击品种名称 (#nS) 或周期徽章 (#nTf)：一键切换 15m / 1h 筛选机会标的
+$("#nS").addEventListener("click", (e)=>{e.stopPropagation(); switchOpportunityPool();});
+$("#nTf").addEventListener("click", (e)=>{e.stopPropagation(); switchOpportunityPool();});
+// 点击列表图标 (#nListBtn) 或名称栏背景：打开免挂单费品种抽屉
+const nListBtn = $("#nListBtn");
+if(nListBtn) nListBtn.addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
 $("#name").addEventListener("click", ()=>open("shList"));
 
 // 抽屉内部 15m / 1h 快速分段切换
@@ -3479,7 +3481,7 @@ $("#wlist").addEventListener("click",e=>{
   close();wJump(sym,tf);});
 
 avHint();
-$("#av").addEventListener("click",()=>{const r=readRec();openKey(!HASKEY&&r&&r.mode==="aes"?"unlock":"set");});
+$("#av").addEventListener("click",()=>{openKey();});
 $("#kX").addEventListener("click",closeKey);
 $("#kSave").addEventListener("click",submitKey);
 $("#kTest").addEventListener("click",testKeyConnection);
@@ -3630,14 +3632,14 @@ addEventListener("keydown",e=>{
 window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,load,reconcile,
   findOrphans,sweepOrphans,subCoin,startUserStream,applyAcct},
   TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice,
-    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,flowRrInfo,
+    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,flowRrInfo,switchOpportunityPool,
     dryRun:(on=true)=>{DRY_RUN=!!on;toast("DRY_RUN = "+DRY_RUN);return DRY_RUN;},
     setTestnet:async (on=true)=>{await switchTestnet(on);return IS_TESTNET;}},
   ver:VER,LOG,log,dump:()=>LOG.join("\n"),
   debug:(v=true)=>{window.__BNDEBUG=!!v;return "debug="+!!v;},
   time:()=>({offsetMs:TOFF,serverNow:now()}),
   pendbr:()=>PENDBR,
-  keys:()=>openKey("set"),
+  keys:()=>openKey(),
   $: $,
   chartView:()=>CHART_VIEW_STATE,
   tvChart:()=>tvChart,
