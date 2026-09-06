@@ -78,19 +78,9 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-
 #name .s{font-size:18px;font-weight:650;letter-spacing:-.01em;cursor:pointer;padding:2px 6px;border-radius:7px;transition:all .15s}
 #name .s:hover{background:var(--raised);color:var(--ink)}
 #name .s:active{transform:scale(0.96)}
-#name .tf-badge{font-size:12px;font-family:var(--mono);font-weight:700;padding:2px 7px;border-radius:6px;background:var(--raised);color:var(--dim);cursor:pointer;transition:all .15s}
-#name .tf-badge:hover{color:var(--text);background:var(--tint)}
-#name .tf-badge:active{transform:scale(0.96)}
-#name .caret{font-size:13px;color:var(--faint);margin-left:2px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:all .15s;line-height:1}
+#name .caret{font-size:14px;color:var(--faint);margin-left:2px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:all .15s;line-height:1}
 #name .caret:hover{color:var(--text);background:var(--raised)}
 #name .caret:active{transform:scale(0.94)}
-#bStar{height:32px;min-width:34px;padding:0 7px;border-radius:9px;font-size:16px;line-height:1;
-  color:var(--faint);background:var(--fabbg);box-shadow:0 2px 8px rgba(0,0,0,.04);backdrop-filter:blur(8px);
-  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s,transform .12s}
-#bStar:hover{background:var(--raised)}
-#bStar:active{transform:scale(0.94)}
-#bStar.on{color:var(--amber);background:var(--raised)}
-#bAudio{display:none !important}
 
 #lockbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:30;display:none;
   background:var(--ink);border:none;color:var(--onink);
@@ -145,7 +135,6 @@ body.locked #tv_chart{opacity:.42}
 .ci .r .a{display:block;font-size:13px}
 .ci .r .b{display:block;font-size:11px}
 .hold{font-size:10px;padding:1px 5px;border-radius:5px;background:var(--raised);color:var(--text)}
-#nNatr{font-size:11px;font-family:var(--mono);font-weight:600;padding:2px 6px;border-radius:6px;background:var(--raised);color:var(--dim);margin-left:2px}
 
 .wi{display:flex;align-items:center;gap:10px;padding:10px;border-radius:9px;cursor:pointer}
 .wi:hover{background:var(--raised)}
@@ -290,12 +279,8 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 <div id="tl">
   <div id="name" title="点击展开免挂单费品种列表">
     <span class="s" id="nS">BTC</span>
-    <span class="tf-badge" id="nTf">15m</span>
-    <span class="natr-badge" id="nNatr" style="display:none">15m NATR --</span>
     <span class="caret" id="nListBtn" title="打开免挂单费品种列表">☰</span>
   </div>
-  <button id="bStar" title="标记这个机会（W）：等这根 K 线收盘再下单">☆</button>
-  <button id="bAudio" style="display:none" aria-hidden="true">🔔</button>
 </div>
 
 <div id="br">
@@ -2100,7 +2085,6 @@ function savePref(){
   try{localStorage.setItem(PKEY,JSON.stringify(PREF));}catch(e){}
 }
 function applyPrefUI(){
-  const nb=$("#nTf");if(nb)nb.textContent="15m";
   try{const fb=$("#fBtn");if(fb){fb.classList.toggle("on",S.filter);
     fb.textContent=S.filter?"15m NATR > 0.5% · 额 > $20M":"全部 0 挂单费品种";}}catch(e){}
 }
@@ -2739,10 +2723,6 @@ function updateTvBtn(){
 }
 
 function wSync(){
-  const st=$("#bStar");
-  if(st){const on=wFind(S.sym,S.tf)>=0;
-    st.classList.toggle("on",on);st.textContent=on?"★":"☆";
-    st.title=(on?"取消标记":"标记这个机会")+"（W）：等这根 K 线收盘再下单";}
   updateTvBtn();
   const sh=$("#shTv");
   if(sh&&sh.classList.contains("on"))wList(true);
@@ -2759,8 +2739,8 @@ function wList(soft){
         dd.textContent=(ch>=0?"+":"")+ch.toFixed(2)+"%";dd.className="dd "+(ch>=0?"up":"down");}});
     return;}
   _wsig=sig;
-  if(!rows.length){box.innerHTML='<div class="none">还没有标记机会。<br>看到机会但 K 线还没收盘时，点顶栏的 ☆（或按快捷键 W）记录，'
-    +"收盘会响铃提醒下单。</div>";return;}
+  if(!rows.length){box.innerHTML='<div class="none">还没有标记机会。<br>看到机会但 K 线还没收盘时，可按快捷键 W 记录，'
+    +"收盘会提醒下单。</div>";return;}
   box.innerHTML=rows.map(w=>{const l=wLeft(w),p=mid(w.sym),ch=w.px>0&&p>0?(p-w.px)/w.px*100:0;
     return '<div class="wi'+(l<=0?" due":"")+'" data-c="'+w.sym+'" data-tf="'+w.tf+'">'
       +'<span><span class="n">'+disp(w.sym)+'</span> <span class="hold">'+w.tf+'</span>'
@@ -3658,21 +3638,10 @@ function schedule(){
 
 function head(){
   const p=mid(S.sym);
-  $("#nS").textContent=disp(S.sym);
-  $("#nTf").textContent=S.tf;
-  const curNatr=getNatr(S.sym, S.tf);
-  const elNatr=$("#nNatr");
-  if(elNatr){
-    if(curNatr!=null){
-      elNatr.style.display="inline-block";
-      elNatr.textContent=S.tf+" NATR "+curNatr.toFixed(2)+"%";
-      elNatr.style.color=curNatr>=NATR_MIN?"var(--up)":"var(--dim)";
-    }else{
-      elNatr.style.display="none";
-    }
-  }
+  const nSEl = $("#nS");
+  if(nSEl) nSEl.textContent=disp(S.sym);
   const bell=WATCH.some(w=>w.fired&&Date.now()-w.due<3e5);
-  document.title=(bell?"🔔 ":"")+px(p)+" "+disp(S.sym)+" ("+S.tf+")";
+  document.title=(bell?"🔔 ":"")+px(p)+" "+disp(S.sym)+" (15m)";
 }
 
 /* ================= 主题切换 ================= */
@@ -3695,9 +3664,8 @@ function cycleTheme(){
 try{THMQ.addEventListener("change",()=>{if(THMODE==="auto")applyTheme();});}catch(e){}
 
 // 顶部币种与名称点击交互：打开免挂单费品种抽屉
-$("#name").addEventListener("click", ()=>open("shList"));
-$("#nS").addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
-$("#nTf").addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
+$("#name")?.addEventListener("click", ()=>open("shList"));
+$("#nS")?.addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
 const nListBtn = $("#nListBtn");
 if(nListBtn) nListBtn.addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
 
@@ -3806,12 +3774,6 @@ $("#tabWatBtn").addEventListener("click",()=>{
 $("#mask").addEventListener("click",close);
 $$("[data-close]").forEach(b=>b.addEventListener("click",close));
 
-$("#bStar")?.addEventListener("click",()=>wToggle());
-$("#bAudio")?.addEventListener("click", () => {
-  unlockAudio();
-  play15mAlert(false);
-  toast("🔔 提示音已就绪：已试听 15m (叮咚)");
-});
 $("#wlist").addEventListener("click",e=>{
   const row=e.target.closest(".wi");if(!row)return;
   const sym=row.dataset.c,tf=row.dataset.tf;

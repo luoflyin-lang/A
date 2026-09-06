@@ -184,14 +184,18 @@
       },
       {
         id: "nav_tf",
-        name: "2. 周期标识 (#nTf) 始终固定为单一 15m 周期",
+        name: "2. 左上角按钮极简精简（仅保留品种名称 #nS 与列表按钮 #nListBtn）",
         test: async () => {
-          assert(w.S.tf === "15m", `周期应为 15m，实际为 ${w.S.tf}`);
-          const tfEl = w.$("#nTf");
-          assert(tfEl && tfEl.textContent.trim() === "15m", "周期徽章文本应固定为 15m");
-          tfEl.click();
+          assert(w.$("#nS"), "左上角必须保留品种名称 #nS");
+          assert(w.$("#nListBtn"), "左上角必须保留列表入口 #nListBtn");
+          assert(!w.$("#nTf"), "左上角冗余周期徽章 #nTf 应彻底删除");
+          assert(!w.$("#bStar"), "左上角星号按钮 #bStar 应彻底删除");
+          assert(!w.$("#bAudio"), "左上角铃铛按钮 #bAudio 应彻底删除");
+          assert(!w.$("#nNatr"), "左上角 NATR 徽章 #nNatr 应彻底删除");
+          // 点击列表入口验证交互
+          w.$("#nListBtn").click();
           await sleep(200);
-          assert(w.$("#shList").classList.contains("on"), "#nTf 点击未能打开抽屉");
+          assert(w.$("#shList").classList.contains("on"), "#nListBtn 点击未能打开抽屉");
           w.$("#mask").click();
           await sleep(150);
         }
