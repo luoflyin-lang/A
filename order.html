@@ -288,9 +288,9 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 <div id="nakedAlert" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:100;background:#A85244;color:#FFF;padding:8px 16px;border-radius:10px;font-weight:600;font-size:12.5px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:center;pointer-events:none"></div>
 
 <div id="tl">
-  <div id="name" title="点击展开品种列表">
-    <span class="s" id="nS" title="点击一键切换 15m / 1h 机会标的">BTC</span>
-    <span class="tf-badge" id="nTf" title="点击一键切换 15m / 1h 机会标的">15m</span>
+  <div id="name" title="点击展开免挂单费品种列表">
+    <span class="s" id="nS">BTC</span>
+    <span class="tf-badge" id="nTf">15m</span>
     <span class="natr-badge" id="nNatr" style="display:none">15m NATR --</span>
     <span class="caret" id="nListBtn" title="打开免挂单费品种列表">☰</span>
   </div>
@@ -309,11 +309,7 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 <!-- 品种列表抽屉 -->
 <aside class="sheet" id="shList">
   <div class="sh">
-    <b>免挂单费品种</b>
-    <div class="tf-seg" id="listTfSeg" style="display:inline-flex;background:var(--raised);padding:2px;border-radius:8px;gap:2px;margin-left:6px">
-      <button class="tf-btn" data-tf="15m" style="border:none;background:transparent;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--faint);cursor:pointer;transition:all .15s">15m</button>
-      <button class="tf-btn" data-tf="1h" style="border:none;background:transparent;padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:600;color:var(--faint);cursor:pointer;transition:all .15s">1h</button>
-    </div>
+    <b>免挂单费品种 (15m)</b>
     <span class="num" style="font-size:11.5px;color:var(--faint);margin-left:auto" id="cnt"></span>
     <button class="x" data-close>✕</button>
   </div>
@@ -380,7 +376,7 @@ try{const _px=JSON.parse(localStorage.getItem("bn_proxy")||"null");
   if(_px&&_px.ws)WSU=_px.ws+"/ws";}catch(e){}
 const QUOTE="USDC";             // 默认基准报价资产
 const VOL_MIN=20e6;             // 品种筛选：24h 成交额阈值 = 20M (2000 万美元)
-const NATR_MIN=0.5;             // 品种筛选：当前活跃周期 (15m/1h) NATR 阈值 = 0.5%
+const NATR_MIN=0.5;             // 品种筛选：15m NATR 阈值 = 0.5%
 const NATR_LEN=14;              // NATR 计算周期 (过去 14 根 K 线)
 /* ---- 交易参数 ---- */
 const TIF="GTX";                        // 只挂单（Post Only）
@@ -393,7 +389,7 @@ const PENDBR_TTL=864e5;                 // 待补挂记录保质期 (24h)
 const ALIVE_MS=15000;                   // 心跳落盘间隔
 const WATCH_KEEP=36e5;                  // 机会标记保留 1 小时
 const WATCH_MAX=20;                     // 最多 20 条
-const TFMS={"15m":9e5,"1h":36e5};
+const TFMS={"15m":9e5};
 const LOCK_CANCEL_ENTRY=false;          // 断线/锁定时不自动撤销挂单
 const LOCK_CANCEL_COLDSTART=false;
 const WS_SILENT=90000;
@@ -984,14 +980,14 @@ function calcNatrFromCandles(klineList){
   return close > 0 ? +((atr / close) * 100).toFixed(3) : null;
 }
 
-function getNatr(sym, tf = S.tf){
+function getNatr(sym, tf = "15m"){
   const c = S.ctx[sym];
   if(!c) return null;
-  return c["natr_" + tf] != null ? c["natr_" + tf] : null;
+  return c["natr_15m"] != null ? c["natr_15m"] : null;
 }
 
-const _natrFetching = { "15m": false, "1h": false };
-const _natrAt = { "15m": 0, "1h": 0 };
+let _natrFetching = false;
+let _natrAt = 0;
 const NATR_REFRESH_MS = 300000; // 5 分钟刷新一次，彻底减少 REST 请求频率
 
 function loadNatrCache(){
@@ -1000,7 +996,6 @@ function loadNatrCache(){
     Object.keys(cached).forEach(sym => {
       if(!S.ctx[sym]) S.ctx[sym] = {};
       if(cached[sym]["15m"] != null) S.ctx[sym]["natr_15m"] = cached[sym]["15m"];
-      if(cached[sym]["1h"] != null) S.ctx[sym]["natr_1h"] = cached[sym]["1h"];
     });
   }catch(e){}
 }
@@ -1011,64 +1006,60 @@ function saveNatrCache(){
     const cached = {};
     Object.keys(S.ctx).forEach(sym => {
       const c = S.ctx[sym];
-      if(c && (c["natr_15m"] != null || c["natr_1h"] != null)){
-        cached[sym] = {
-          "15m": c["natr_15m"],
-          "1h": c["natr_1h"]
-        };
+      if(c && c["natr_15m"] != null){
+        cached[sym] = { "15m": c["natr_15m"] };
       }
     });
     localStorage.setItem("bn_natr_cache_v2", JSON.stringify(cached));
   }catch(e){}
 }
 
-async function fetchSymbolNatr(sym, tf = S.tf){
+async function fetchSymbolNatr(sym, tf = "15m"){
   if(Date.now() < backoffUntil) return null;
   try{
-    if(sym === S.sym && S.tf === tf && S.kc[sym + "|" + tf]?.k?.length >= 20){
-      const natr = calcNatrFromCandles(S.kc[sym + "|" + tf].k);
+    if(sym === S.sym && S.kc[sym + "|15m"]?.k?.length >= 20){
+      const natr = calcNatrFromCandles(S.kc[sym + "|15m"].k);
       if(!S.ctx[sym]) S.ctx[sym] = {};
-      S.ctx[sym]["natr_" + tf] = natr;
+      S.ctx[sym]["natr_15m"] = natr;
       return natr;
     }
-    const r = await pub("/fapi/v1/klines", { symbol: sym, interval: tf, limit: 30 }, 8000);
+    const r = await pub("/fapi/v1/klines", { symbol: sym, interval: "15m", limit: 30 }, 8000);
     if(Array.isArray(r) && r.length >= 16){
       const natr = calcNatrFromCandles(r);
       if(!S.ctx[sym]) S.ctx[sym] = {};
-      S.ctx[sym]["natr_" + tf] = natr;
+      S.ctx[sym]["natr_15m"] = natr;
       return natr;
     }
   }catch(e){}
   return null;
 }
 
-async function refreshNatrs(tf = S.tf, force = false){
-  if(tf !== "15m" && tf !== "1h") tf = "15m";
+async function refreshNatrs(tf = "15m", force = false){
   if(Date.now() < backoffUntil) return;
-  if(_natrFetching[tf]) return;
-  if(!force && Date.now() - (_natrAt[tf] || 0) < NATR_REFRESH_MS) return;
-  _natrFetching[tf] = true;
+  if(_natrFetching) return;
+  if(!force && Date.now() - _natrAt < NATR_REFRESH_MS) return;
+  _natrFetching = true;
   try{
     const targets = S.uni.filter(u => {
       const c = S.ctx[u.name] || {};
       return (+c.volUsd >= VOL_MIN) || (u.name === S.sym) || (posOf(u.name).length > 0) || wHas(u.name);
     });
     if(!targets.length) return;
-    const CONCURRENCY = 2; // 降为 2 个并发，杜绝冲击交易所限频
+    const CONCURRENCY = 2; // 2 个并发平滑请求
     for(let i = 0; i < targets.length; i += CONCURRENCY){
       if(Date.now() < backoffUntil) break;
       const chunk = targets.slice(i, i + CONCURRENCY);
-      await Promise.all(chunk.map(u => fetchSymbolNatr(u.name, tf)));
+      await Promise.all(chunk.map(u => fetchSymbolNatr(u.name, "15m")));
       if(i + CONCURRENCY < targets.length){
         await new Promise(r => setTimeout(r, 60)); // 60ms 缓冲平滑
       }
     }
-    _natrAt[tf] = Date.now();
+    _natrAt = Date.now();
     saveNatrCache();
     head();
     if($("#shList").classList.contains("on")) list(true);
   } finally {
-    _natrFetching[tf] = false;
+    _natrFetching = false;
   }
 }
 
@@ -1079,10 +1070,7 @@ async function tickers(){
     S.ctx[x.symbol]=Object.assign({},S.ctx[x.symbol]||{},
       {last:+x.lastPrice,chg:+x.priceChangePercent,volUsd:+x.quoteVolume});
     if(S.mid[x.symbol]==null)S.mid[x.symbol]=+x.lastPrice;});
-  refreshNatrs(S.tf).then(()=>{
-    const altTf = (S.tf === "15m" ? "1h" : "15m");
-    refreshNatrs(altTf).catch(()=>{});
-  }).catch(()=>{});
+  refreshNatrs("15m").catch(()=>{});
 }
 async function loadBrackets(){
   try{const b=await priv("GET","/fapi/v1/leverageBracket",{});
@@ -1171,9 +1159,9 @@ async function kline(force){
       if(S.sym === reqSym && S.tf === reqTf){
         // 若已用缓存绘制过，网络拉回时仅静默更新数据，绝不破坏用户刚刚调整的视口位置
         useCandles(raw, !hasDrawn);
-        if((reqTf === "15m" || reqTf === "1h") && raw.length >= 16){
+        if(reqTf === "15m" && raw.length >= 16){
           if(!S.ctx[reqSym]) S.ctx[reqSym] = {};
-          S.ctx[reqSym]["natr_" + reqTf] = calcNatrFromCandles(raw);
+          S.ctx[reqSym]["natr_15m"] = calcNatrFromCandles(raw);
           head();
         }
       }
@@ -1241,9 +1229,9 @@ function sock(){
           const liveEma = b.c * k + lastEmaValue * (1 - k);
           emaSeries.update({ time: timeSec, value: liveEma });
         }
-        if((S.tf === "15m" || S.tf === "1h") && c.k.length >= 16){
+        if(S.tf === "15m" && c.k.length >= 16){
           if(!S.ctx[S.sym]) S.ctx[S.sym] = {};
-          S.ctx[S.sym]["natr_" + S.tf] = calcNatrFromCandles(c.k);
+          S.ctx[S.sym]["natr_15m"] = calcNatrFromCandles(c.k);
           head();
         }
       }
@@ -2112,29 +2100,15 @@ function savePref(){
   try{localStorage.setItem(PKEY,JSON.stringify(PREF));}catch(e){}
 }
 function applyPrefUI(){
-  const nb=$("#nTf");if(nb)nb.textContent=S.tf;
+  const nb=$("#nTf");if(nb)nb.textContent="15m";
   try{const fb=$("#fBtn");if(fb){fb.classList.toggle("on",S.filter);
-    fb.textContent=S.filter?(S.tf+" NATR > 0.5% · 额 > $20M"):"全部 0 挂单费品种";}}catch(e){}
-  $$("#listTfSeg .tf-btn").forEach(b=>{
-    const on = b.dataset.tf === S.tf;
-    b.classList.toggle("on", on);
-    b.style.background = on ? "var(--surface)" : "transparent";
-    b.style.color = on ? "var(--text)" : "var(--faint)";
-    b.style.boxShadow = on ? "0 1px 3px rgba(0,0,0,.15)" : "none";
-  });
+    fb.textContent=S.filter?"15m NATR > 0.5% · 额 > $20M":"全部 0 挂单费品种";}}catch(e){}
 }
 function loadPref(){
   try{PREF=JSON.parse(localStorage.getItem(PKEY)||"{}")||{};}catch(e){PREF={};}
-  const curVer = localStorage.getItem("bn_ver");
-  if(curVer !== VER){
-    S.tf = "15m";
-    S.filter = true;
-    try{localStorage.setItem("bn_ver", VER);}catch(e){}
-  } else {
-    if(PREF.tf === "1h") S.tf = "1h";
-    else S.tf = "15m";
-    if(typeof PREF.filter === "boolean") S.filter = PREF.filter;
-  }
+  S.tf = "15m";
+  if(typeof PREF.filter === "boolean") S.filter = PREF.filter;
+  else S.filter = true;
   if(+PREF.lev>0){LEVWANT=Math.max(1,Math.round(+PREF.lev));S.lev=LEVWANT;}
   if(+PREF.risk>0)F.risk=+PREF.risk;
   if(typeof PREF.sym==="string"&&PREF.sym)S.sym=PREF.sym;
@@ -2708,14 +2682,11 @@ function play1hAlert(showToast = true){
 }
 
 let _alert15mKey = null;
-let _alert1hKey = null;
 (function initAlertKeys(){
   const t = Date.now() + TOFF;
   const left15m = 900000 - (t % 900000);
-  const left1h = 3600000 - (t % 3600000);
   // 仅当距离收盘不足 15 秒时才视为已错过，防止刚进页面在最后几秒误响
   if(left15m < 15000) _alert15mKey = Math.floor(t / 900000);
-  if(left1h < 15000) _alert1hKey = Math.floor(t / 3600000);
 })();
 
 function checkCandleAlerts(){
@@ -2726,14 +2697,6 @@ function checkCandleAlerts(){
   if(left15m <= 180000 && left15m > 10000 && _alert15mKey !== period15m){
     _alert15mKey = period15m;
     play15mAlert();
-  }
-
-  const period1h = Math.floor(t / 3600000);
-  const left1h = 3600000 - (t % 3600000);
-  // 1小时收盘前 5 分钟（<= 300,000ms 且 > 10,000ms）
-  if(left1h <= 300000 && left1h > 10000 && _alert1hKey !== period1h){
-    _alert1hKey = period1h;
-    play1hAlert();
   }
 }
 
@@ -2823,17 +2786,11 @@ addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"
 /* ================= 品种列表 ================= */
 function pool(){
   return S.uni.map(u=>{const c=S.ctx[u.name]||{},f=S.f[u.name]||{};
-    const natr = getNatr(u.name, S.tf);
+    const natr = getNatr(u.name, "15m");
     return{n:u.name,d:disp(u.name),p:mid(u.name),ch:+c.chg||0,vol:+c.volUsd||0,
       natr:natr!=null?+natr:null,type:f.type||"USDC",h:!!posOf(u.name).length};})
     .filter(x=>{
       if(!S.filter)return true;
-      // 若当前为 1h 周期且开启筛选：已经显示在 15m 的标的（包括持仓标的或满足 15m 筛选的标的），1h 中彻底去重不显示
-      if(S.tf === "1h"){
-        const natr15m = getNatr(x.n, "15m");
-        const in15m = x.h || (x.vol >= VOL_MIN && natr15m != null && natr15m >= NATR_MIN);
-        if(in15m) return false;
-      }
       if(x.h)return true;
       if(x.vol < VOL_MIN)return false;
       if(x.natr == null)return false;
@@ -2844,7 +2801,7 @@ function pool(){
 }
 let _sig="";
 function list(soft){
-  const l=pool(),sig=l.map(x=>x.n+"_"+(x.natr!=null?x.natr.toFixed(2):"")).join(",")+"|"+S.sym+"|"+S.tf+"|"+WATCH.map(w=>w.sym).join(",");
+  const l=pool(),sig=l.map(x=>x.n+"_"+(x.natr!=null?x.natr.toFixed(2):"")).join(",")+"|"+S.sym+"|15m|"+WATCH.map(w=>w.sym).join(",");
   if(soft&&sig===_sig){
     const box=$("#clist");
     l.forEach(x=>{const el=box.querySelector('.ci[data-c="'+x.n+'"]');if(!el)return;
@@ -2853,13 +2810,13 @@ function list(soft){
       if(b){b.textContent=(x.ch>=0?"+":"")+x.ch.toFixed(2)+"%";b.className="b "+(x.ch>=0?"up":"down");}});
     return;}
   _sig=sig;
-  const isFetching=_natrFetching[S.tf];
+  const isFetching=_natrFetching;
   $("#cnt").textContent=l.length+" 个"+(isFetching?" (筛选中…)":"");
   $("#clist").innerHTML=l.map(x=>'<div class="ci'+(x.n===S.sym?" on":"")+'" data-c="'+x.n+'">'+
     '<span><span class="n">'+x.d+'</span><span class="ttag '+(x.type==="TradFi"?"tradfi":"usdc")+'">'+x.type+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+(wHas(x.n)?' <span class="hold">★</span>':"")+
-    '<span class="v">Vol $'+ab(x.vol)+(x.natr!=null?' · '+S.tf+' NATR <b class="'+(x.natr>=NATR_MIN?'natr-hot':'')+'">'+x.natr.toFixed(2)+'%</b>':'')+'</span></span>'+
+    '<span class="v">Vol $'+ab(x.vol)+(x.natr!=null?' · 15m NATR <b class="'+(x.natr>=NATR_MIN?'natr-hot':'')+'">'+x.natr.toFixed(2)+'%</b>':'')+'</span></span>'+
     '<span class="r"><span class="a">'+px(x.p,x.n)+'</span><span class="b '+(x.ch>=0?"up":"down")+'">'+(x.ch>=0?"+":"")+x.ch.toFixed(2)+'%</span></span></div>').join("")
-    ||'<div class="none">暂无满足【'+S.tf+' NATR &gt; 0.5% 且 24h成交额 &gt; $20M'+(S.tf==='1h'?'（已自动剔除15m已显示标的）':'')+'】的标的。<br>可点击上方切换至 '+(S.tf==='15m'?'1h':'15m')+' 周期，或点击上方按钮查看全部免挂单费品种。</div>';
+    ||'<div class="none">暂无满足【15m NATR &gt; 0.5% 且 24h成交额 &gt; $20M】的标的。<br>可点击上方按钮查看全部免挂单费品种。</div>';
 }
 let posPollT=null;
 function stopPosPoll(){if(posPollT){clearInterval(posPollT);posPollT=null;}}
@@ -2868,8 +2825,7 @@ function open(id){$$(".sheet").forEach(s=>s.classList.toggle("on",s.id===id));$(
   if(id!=="shTv")stopPosPoll();
   if(id==="shList"){
     list();
-    refreshNatrs(S.tf,false).catch(()=>{});
-    if(S.tf === "1h") refreshNatrs("15m", false).catch(()=>{});
+    refreshNatrs("15m",false).catch(()=>{});
   }
   if(id==="shTv"){posView();wList();}
 }
@@ -3641,7 +3597,7 @@ async function onLocked(){
 }
 
 function lockCheck(){
-  const t=Date.now(),ivl=(S.tf==="1h"?36e5:9e5);
+  const t=Date.now(),ivl=9e5;
   const age=NET.mid?t-NET.mid:Infinity;
   let why="";
   if(!S.uni.length)why="行情未加载";
@@ -3738,64 +3694,12 @@ function cycleTheme(){
 }
 try{THMQ.addEventListener("change",()=>{if(THMODE==="auto")applyTheme();});}catch(e){}
 
-async function switchTf(newTf){
-  if(newTf === S.tf) return;
-  S.tf = newTf;
-  savePref();
-  applyPrefUI();
-  await kline(true);
-  head();
-  wSync();
-  refreshNatrs(S.tf, false).catch(()=>{});
-  if(S.tf === "1h") refreshNatrs("15m", false).catch(()=>{});
-  if($("#shList").classList.contains("on")) list();
-}
-
-async function switchOpportunityPool(){
-  const nextTf = S.tf === "15m" ? "1h" : "15m";
-  S.tf = nextTf;
-  savePref();
-  applyPrefUI();
-
-  // 获取新周期下的机会池
-  const l = pool();
-  let targetSym = null;
-  if(l.length > 0){
-    targetSym = l[0].n;
-  }
-  if(targetSym && targetSym !== S.sym){
-    S.sym = targetSym;
-    if(F.on) endFlow();
-    useMaxLev();
-    savePref();
-  }
-
-  await kline(true);
-  head();
-  wSync();
-  refreshNatrs(S.tf, false).catch(()=>{});
-  if(S.tf === "1h") refreshNatrs("15m", false).catch(()=>{});
-  if($("#shList").classList.contains("on")) list();
-  toast("已切换至 " + nextTf + " 机会标的：" + disp(S.sym) + (l.length ? "（共 " + l.length + " 个）" : ""));
-}
-
-// 顶部币种与周期点击交互：
-// 点击品种名称 (#nS) 或周期徽章 (#nTf)：一键切换 15m / 1h 筛选机会标的
-$("#nS").addEventListener("click", (e)=>{e.stopPropagation(); switchOpportunityPool();});
-$("#nTf").addEventListener("click", (e)=>{e.stopPropagation(); switchOpportunityPool();});
-// 点击列表图标 (#nListBtn) 或名称栏背景：打开免挂单费品种抽屉
+// 顶部币种与名称点击交互：打开免挂单费品种抽屉
+$("#name").addEventListener("click", ()=>open("shList"));
+$("#nS").addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
+$("#nTf").addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
 const nListBtn = $("#nListBtn");
 if(nListBtn) nListBtn.addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
-$("#name").addEventListener("click", ()=>open("shList"));
-
-// 抽屉内部 15m / 1h 快速分段切换
-const tfSeg = $("#listTfSeg");
-if(tfSeg){
-  tfSeg.addEventListener("click", e=>{
-    const btn = e.target.closest(".tf-btn");
-    if(btn && btn.dataset.tf) switchTf(btn.dataset.tf);
-  });
-}
 
 function initLeaderElection(){
   if(!BC_CH){
@@ -3906,8 +3810,7 @@ $("#bStar")?.addEventListener("click",()=>wToggle());
 $("#bAudio")?.addEventListener("click", () => {
   unlockAudio();
   play15mAlert(false);
-  setTimeout(() => play1hAlert(false), 550);
-  toast("🔔 提示音已就绪：已试听 15m (叮咚) & 1h (钟声)");
+  toast("🔔 提示音已就绪：已试听 15m (叮咚)");
 });
 $("#wlist").addEventListener("click",e=>{
   const row=e.target.closest(".wi");if(!row)return;
@@ -4116,7 +4019,7 @@ addEventListener("keydown",e=>{
 window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,load,reconcile,
   findOrphans,sweepOrphans,subCoin,startUserStream,applyAcct},
   TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice,
-    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,flowRrInfo,switchOpportunityPool,
+    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,flowRrInfo,
     dryRun:(on=true)=>{DRY_RUN=!!on;toast("DRY_RUN = "+DRY_RUN);return DRY_RUN;},
     setTestnet:async (on=true)=>{await switchTestnet(on);return IS_TESTNET;}},
   ver:VER,LOG,log,dump:()=>LOG.join("\n"),

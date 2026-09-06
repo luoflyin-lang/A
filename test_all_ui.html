@@ -161,7 +161,7 @@
       // 1. 顶部导航栏按钮测试
       {
         id: "nav_symbol",
-        name: "1. 顶部抽屉按钮 (#nListBtn) 与币种 (#nS) 切机会池",
+        name: "1. 顶部抽屉按钮 (#nListBtn) 与币种 (#nS) 打开抽屉",
         test: async () => {
           const listBtn = w.$("#nListBtn") || w.$("#name");
           assert(listBtn, "未找到列表按钮");
@@ -173,32 +173,27 @@
           await sleep(150);
           assert(!w.$("#shList").classList.contains("on"), "遮罩点击未关闭 #shList");
 
-          // 测试点击 #nS 一键切换机会池周期
-          const curTf = w.S.tf;
+          // 测试点击 #nS 打开抽屉
           w.$("#nS").click();
-          await sleep(250);
-          const nextTf = curTf === "15m" ? "1h" : "15m";
-          assert(w.S.tf === nextTf, `#nS 点击未能切换机会池周期为 ${nextTf}`);
-          // 再次点击切回
-          w.$("#nS").click();
-          await sleep(250);
-          assert(w.S.tf === curTf, `#nS 再次点击未能切回 ${curTf}`);
+          await sleep(200);
+          assert(w.$("#shList").classList.contains("on"), "#nS 点击未能打开抽屉");
+          w.$("#mask").click();
+          await sleep(150);
+          assert(!w.$("#shList").classList.contains("on"), "遮罩点击未关闭 #shList");
         }
       },
       {
         id: "nav_tf",
-        name: "2. 周期切换按钮 (#nTf) 15m / 1h 互切",
+        name: "2. 周期标识 (#nTf) 始终固定为单一 15m 周期",
         test: async () => {
-          const curTf = w.S.tf;
-          const wantTf = curTf === "15m" ? "1h" : "15m";
-          w.$("#nTf").click();
+          assert(w.S.tf === "15m", `周期应为 15m，实际为 ${w.S.tf}`);
+          const tfEl = w.$("#nTf");
+          assert(tfEl && tfEl.textContent.trim() === "15m", "周期徽章文本应固定为 15m");
+          tfEl.click();
           await sleep(200);
-          assert(w.S.tf === wantTf, `周期切换失败：期望 ${wantTf}，实际 ${w.S.tf}`);
-          // 切回 15m
-          if (w.S.tf !== "15m") {
-            w.$("#nTf").click();
-            await sleep(200);
-          }
+          assert(w.$("#shList").classList.contains("on"), "#nTf 点击未能打开抽屉");
+          w.$("#mask").click();
+          await sleep(150);
         }
       },
       {
@@ -220,20 +215,13 @@
       },
       {
         id: "nav_list_tf",
-        name: "4. 清单内周期分段按钮 ([data-tf]) 点击",
+        name: "4. 清单内周期已精简，固定为 15m 单一周期",
         test: async () => {
           w.open("shList");
           await sleep(150);
-          const btn1h = w.$('#listTfSeg .tf-btn[data-tf="1h"]');
-          if (btn1h) {
-            btn1h.click();
-            await sleep(200);
-            assert(w.S.tf === "1h", "点击 1h 分段按钮未切换到 1h");
-            const btn15m = w.$('#listTfSeg .tf-btn[data-tf="15m"]');
-            btn15m.click();
-            await sleep(200);
-            assert(w.S.tf === "15m", "点击 15m 分段按钮未切回 15m");
-          }
+          const tfSeg = w.$("#listTfSeg");
+          assert(!tfSeg, "#listTfSeg 1h分段切换应已彻底移除");
+          assert(w.S.tf === "15m", "系统周期应保持 15m");
           w.close();
         }
       },
@@ -579,20 +567,20 @@
         }
       },
 
-      // 12. 双周期 2000 万成交额门槛与 15m/1h 去重联动
+      // 12. 15m 周期 2000 万成交额门槛与 NATR>0.5% 筛选校验
       {
         id: "filter_dedup_20m",
-        name: "15. 双周期 2000 万门槛与 15m 标的在 1h 中自动去重",
+        name: "15. 15m 周期 2000 万门槛与 NATR>0.5% 筛选校验",
         test: async () => {
           w.S.filter = true;
           w.S.uni = [
-            { name: "COIN_A" }, // 25M, 15m NATR 0.8%, 1h NATR 0.9% -> 15m入选, 1h应被去重
-            { name: "COIN_B" }, // 25M, 15m NATR 0.3%, 1h NATR 0.7% -> 15m不选, 1h应入选
-            { name: "COIN_C" }  // 15M (< 20M), 15m NATR 1.0%, 1h NATR 1.0% -> 均不入选
+            { name: "COIN_A" }, // 25M, 15m NATR 0.8% -> 15m入选
+            { name: "COIN_B" }, // 25M, 15m NATR 0.3% -> 15m不选(NATR不足)
+            { name: "COIN_C" }  // 15M (< 20M), 15m NATR 1.0% -> 均不入选(成交额不足)
           ];
-          w.S.ctx["COIN_A"] = { volUsd: 25e6, natr_15m: 0.8, natr_1h: 0.9 };
-          w.S.ctx["COIN_B"] = { volUsd: 25e6, natr_15m: 0.3, natr_1h: 0.7 };
-          w.S.ctx["COIN_C"] = { volUsd: 15e6, natr_15m: 1.0, natr_1h: 1.0 };
+          w.S.ctx["COIN_A"] = { volUsd: 25e6, natr_15m: 0.8 };
+          w.S.ctx["COIN_B"] = { volUsd: 25e6, natr_15m: 0.3 };
+          w.S.ctx["COIN_C"] = { volUsd: 15e6, natr_15m: 1.0 };
           w.S.f["COIN_A"] = { type: "USDC" };
           w.S.f["COIN_B"] = { type: "USDC" };
           w.S.f["COIN_C"] = { type: "USDC" };
@@ -604,26 +592,14 @@
           assert(!list15m.includes("COIN_B"), "15m 下错误包含了 NATR<0.5% 的 COIN_B");
           assert(!list15m.includes("COIN_C"), "15m 下错误包含了成交额 < 20M 的 COIN_C");
 
-          // 2. 验证 1h 周期下的筛选与 15m 去重结果
-          w.S.tf = "1h";
-          let list1h = w.pool().map(x => x.n);
-          assert(!list1h.includes("COIN_A"), "1h 下未能剔除已在 15m 满足条件的 COIN_A（去重失效）");
-          assert(list1h.includes("COIN_B"), "1h 下未能展示 1h 独有的新增机会标的 COIN_B");
-          assert(!list1h.includes("COIN_C"), "1h 下错误包含了成交额 < 20M 的 COIN_C");
-
-          // 3. 验证持仓标的 (x.h) 在 15m 显示，但在 1h 坚决去重不重复展示
+          // 2. 验证持仓标的 (x.h) 即使成交额或 NATR 不足也保留显示在列表中
           w.S.pos["COIN_HOLD"] = { sym: "COIN_HOLD", amt: 1.0, entry: 100 };
           w.S.uni.push({ name: "COIN_HOLD" });
-          w.S.ctx["COIN_HOLD"] = { volUsd: 10e6, natr_15m: 0.2, natr_1h: 0.8 };
+          w.S.ctx["COIN_HOLD"] = { volUsd: 10e6, natr_15m: 0.2 };
           w.S.f["COIN_HOLD"] = { type: "USDC" };
 
-          w.S.tf = "15m";
           list15m = w.pool().map(x => x.n);
           assert(list15m.includes("COIN_HOLD"), "持仓标的 COIN_HOLD 应显示在 15m 列表中");
-
-          w.S.tf = "1h";
-          list1h = w.pool().map(x => x.n);
-          assert(!list1h.includes("COIN_HOLD"), "持仓标的 COIN_HOLD 已在 15m 显示，不得重复出现在 1h 列表中");
           delete w.S.pos["COIN_HOLD"];
         }
       },
