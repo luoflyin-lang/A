@@ -78,9 +78,6 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-
 #name .s{font-size:18px;font-weight:650;letter-spacing:-.01em;cursor:pointer;padding:2px 6px;border-radius:7px;transition:all .15s}
 #name .s:hover{background:var(--raised);color:var(--ink)}
 #name .s:active{transform:scale(0.96)}
-#name .caret{font-size:14px;color:var(--faint);margin-left:2px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:all .15s;line-height:1}
-#name .caret:hover{color:var(--text);background:var(--raised)}
-#name .caret:active{transform:scale(0.94)}
 
 #lockbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:30;display:none;
   background:var(--ink);border:none;color:var(--onink);
@@ -279,7 +276,6 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 <div id="tl">
   <div id="name" title="点击展开免挂单费品种列表">
     <span class="s" id="nS">BTC</span>
-    <span class="caret" id="nListBtn" title="打开免挂单费品种列表">☰</span>
   </div>
 </div>
 
@@ -3666,8 +3662,6 @@ try{THMQ.addEventListener("change",()=>{if(THMODE==="auto")applyTheme();});}catc
 // 顶部币种与名称点击交互：打开免挂单费品种抽屉
 $("#name")?.addEventListener("click", ()=>open("shList"));
 $("#nS")?.addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
-const nListBtn = $("#nListBtn");
-if(nListBtn) nListBtn.addEventListener("click", (e)=>{e.stopPropagation(); open("shList");});
 
 function initLeaderElection(){
   if(!BC_CH){

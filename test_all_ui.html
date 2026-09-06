@@ -161,11 +161,11 @@
       // 1. 顶部导航栏按钮测试
       {
         id: "nav_symbol",
-        name: "1. 顶部抽屉按钮 (#nListBtn) 与币种 (#nS) 打开抽屉",
+        name: "1. 顶部币种栏 (#name) 与币种名称 (#nS) 打开抽屉",
         test: async () => {
-          const listBtn = w.$("#nListBtn") || w.$("#name");
-          assert(listBtn, "未找到列表按钮");
-          listBtn.click();
+          const nameBtn = w.$("#name") || w.$("#nS");
+          assert(nameBtn, "未找到币种名称元素");
+          nameBtn.click();
           await sleep(200);
           assert(w.$("#shList").classList.contains("on"), "#shList 未能正常弹出");
           // 点击遮罩关闭
@@ -173,7 +173,7 @@
           await sleep(150);
           assert(!w.$("#shList").classList.contains("on"), "遮罩点击未关闭 #shList");
 
-          // 测试点击 #nS 打开抽屉
+          // 测试直接点击 #nS 打开抽屉
           w.$("#nS").click();
           await sleep(200);
           assert(w.$("#shList").classList.contains("on"), "#nS 点击未能打开抽屉");
@@ -184,18 +184,18 @@
       },
       {
         id: "nav_tf",
-        name: "2. 左上角按钮极简精简（仅保留品种名称 #nS 与列表按钮 #nListBtn）",
+        name: "2. 左上角极简化（仅保留品种名称 #nS，彻底删除三条杠 #nListBtn 等冗余按钮）",
         test: async () => {
           assert(w.$("#nS"), "左上角必须保留品种名称 #nS");
-          assert(w.$("#nListBtn"), "左上角必须保留列表入口 #nListBtn");
+          assert(!w.$("#nListBtn"), "左上角三条杠 #nListBtn 应已彻底删除");
           assert(!w.$("#nTf"), "左上角冗余周期徽章 #nTf 应彻底删除");
           assert(!w.$("#bStar"), "左上角星号按钮 #bStar 应彻底删除");
           assert(!w.$("#bAudio"), "左上角铃铛按钮 #bAudio 应彻底删除");
           assert(!w.$("#nNatr"), "左上角 NATR 徽章 #nNatr 应彻底删除");
-          // 点击列表入口验证交互
-          w.$("#nListBtn").click();
+          // 验证点击品种名称可以直接唤出抽屉
+          w.$("#nS").click();
           await sleep(200);
-          assert(w.$("#shList").classList.contains("on"), "#nListBtn 点击未能打开抽屉");
+          assert(w.$("#shList").classList.contains("on"), "#nS 点击未能打开抽屉");
           w.$("#mask").click();
           await sleep(150);
         }
