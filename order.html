@@ -86,28 +86,6 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-
 #name .s:hover{background:var(--raised);color:var(--ink)}
 #name .s:active{transform:scale(0.96)}
 
-/* ---- 右上角：API Key / 扫码入口按钮 ---- */
-#tr{position:fixed;top:16px;right:20px;z-index:15;display:flex;align-items:center;gap:8px}
-.b-key-nav{
-  display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;
-  border-radius:10px;font-size:12.5px;font-weight:600;
-  background:var(--surface);border:1px solid var(--border);
-  color:var(--text);cursor:pointer;user-select:none;-webkit-user-select:none;
-  box-shadow:0 2px 10px rgba(0,0,0,0.12);
-  transition:all .15s ease;
-}
-.b-key-nav:hover{background:var(--raised);border-color:var(--tint);transform:translateY(-1px)}
-.b-key-nav:active{transform:scale(0.96)}
-.b-key-nav svg{flex-shrink:0}
-.b-key-nav.need-key{
-  background:rgba(217,143,44,0.14);border-color:var(--amber);color:var(--amber);
-  animation:pulseKey 2.4s infinite;
-}
-@keyframes pulseKey{
-  0%,100%{box-shadow:0 0 0 0 rgba(217,143,44,0.35)}
-  50%{box-shadow:0 0 0 7px rgba(217,143,44,0)}
-}
-
 #lockbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:30;display:none;
   background:var(--ink);border:none;color:var(--onink);
   padding:7px 14px;border-radius:9px;font-size:12.5px}
@@ -188,19 +166,6 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 /* ---- 下单 HUD 面板 ---- */
 .rrbar{display:flex;height:5px;border-radius:3px;overflow:hidden;margin-top:3px}
 #av{cursor:pointer}
-.av-btn{
-  margin-left:auto;margin-right:8px;
-  display:inline-flex;align-items:center;gap:5px;
-  padding:4px 10px;border-radius:6px;
-  font-size:11.5px;font-weight:550;
-  background:var(--raised);border:1px solid var(--border);
-  color:var(--text);cursor:pointer;
-  transition:all .15s ease;
-}
-.av-btn:hover{background:var(--tint);border-color:var(--dim)}
-.av-btn.need-key{
-  background:rgba(217,143,44,0.15);color:var(--amber);border-color:var(--amber);
-}
 #khud{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;width:380px;max-width:92vw;
   display:none;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;
   box-shadow:0 18px 60px rgba(0,0,0,.28);touch-action:auto}
@@ -306,8 +271,6 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 
 @media(max-width:640px){
   #tl{top:14px;left:16px}
-  #tr{top:12px;right:14px}
-  .b-key-nav{height:32px;font-size:12px;padding:0 10px}
   #br{left:12px;bottom:14px}
   .fab{height:38px;font-size:13px;padding:0 12px}
   #ohud{left:12px;bottom:80px;width:calc(100vw - 24px);padding:14px 16px}
@@ -360,13 +323,6 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
   </div>
 </div>
 
-<div id="tr">
-  <button type="button" id="bKeyNav" class="b-key-nav need-key" title="扫码 / 配置 API Key">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-    <span id="bKeyNavTxt">扫码填 Key</span>
-  </button>
-</div>
-
 <div id="br">
   <button class="fab tv-btn" id="bTv" title="持仓 & 机会">
     <span class="tv-dot" id="tvDot"></span>
@@ -393,10 +349,7 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
       <button class="tab-btn on" id="tabPosBtn">持仓</button>
       <button class="tab-btn" id="tabWatBtn">机会 <span class="num" id="wCntTab" style="font-size:11px"></span></button>
     </div>
-    <button type="button" class="av-btn need-key" id="av" title="点击扫码或配置 API Key">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-      <span id="avTxt">扫码配置 Key</span>
-    </button>
+    <span class="num" style="font-size:11.5px;color:var(--faint);margin-left:auto;margin-right:8px;cursor:pointer" id="av" title="点击配置 API 密钥">未配置 API Key</span>
     <button class="x" data-close>✕</button>
   </div>
   <div class="tab-content on" id="tabPosContent">
@@ -686,7 +639,7 @@ async function priv(method,path,params,ms,opt){
 /* ================= API 密钥安全存储 ================= */
 let KKEY="bn_key";
 let PRIVON=false;
-function setKeys(k,s){API_KEY=k||"";API_SECRET=s||"";HASKEY=!!(API_KEY&&API_SECRET);updateKeyNavUI();}
+function setKeys(k,s){API_KEY=k||"";API_SECRET=s||"";HASKEY=!!(API_KEY&&API_SECRET);}
 function readRec(){
   try{
     const r=JSON.parse(localStorage.getItem(KKEY)||"null");
@@ -739,36 +692,9 @@ function wipeKeys(){
   avHint();toast("已清除本机保存的密钥，账户连接已断开");
   try{posView();render();syncTradeLines();}catch(e){}
 }
-function updateKeyNavUI(){
-  const btn = $("#bKeyNav");
-  const txt = $("#bKeyNavTxt");
-  const avBtn = $("#av");
-  const avTxt = $("#avTxt");
-  if(HASKEY){
-    if(btn){
-      btn.classList.remove("need-key");
-      btn.title = "已配置 API Key (点击可修改或重新扫码)";
-    }
-    if(txt) txt.textContent = "API 密钥";
-    if(avBtn) avBtn.classList.remove("need-key");
-  } else {
-    if(btn){
-      btn.classList.add("need-key");
-      btn.title = "未配置 API Key，点击快速扫码或填入";
-    }
-    if(txt) txt.textContent = "扫码填 Key";
-    if(avBtn) avBtn.classList.add("need-key");
-    if(avTxt) avTxt.textContent = "扫码配置 Key";
-  }
-}
 function avHint(){
-  updateKeyNavUI();
-  const avTxt = $("#avTxt");
-  const el = $("#av");
-  if(!HASKEY){
-    if(avTxt) avTxt.textContent = "扫码配置 Key";
-    else if(el) el.textContent = "扫码配置 Key";
-  }
+  const el=$("#av");if(!el||HASKEY)return;
+  el.textContent="未配置 API Key";
 }
 function openKey(){
   const box=$("#khud");if(!box)return;
@@ -1802,18 +1728,7 @@ function ordAge(o){const t=+o.time||+o.updateTime||0;if(!t)return "—";
 function posView(){
   const el=$("#pb"),rows=Object.entries(S.pos);
   const a=acctView();
-  const avEl=$("#av"),avTxt=$("#avTxt");
-  if(HASKEY){
-    const s="$"+money(a.equity)+" · 可用 $"+money(a.avail);
-    if(avTxt) avTxt.textContent=s;
-    else if(avEl) avEl.textContent=s;
-    if(avEl) avEl.classList.remove("need-key");
-  } else {
-    if(avTxt) avTxt.textContent="扫码配置 Key";
-    else if(avEl) avEl.textContent="未配置 API Key";
-    if(avEl) avEl.classList.add("need-key");
-  }
-  updateKeyNavUI();
+  $("#av").textContent=HASKEY?("$"+money(a.equity)+" · 可用 $"+money(a.avail)):"未配置 API Key";
   if(!S.acct){el.innerHTML='<div class="none">'+(ACCT_LOADING?"账户数据加载中…":"暂无账户数据。请检查 API Key 权限与 IP 白名单。")+"</div>";return;}
   el.innerHTML=acctWarn()+(rows.length?'<table><thead><tr><th>币种</th><th>数量</th><th>开仓价</th><th>盈亏</th><th>强平</th><th></th></tr></thead><tbody>'+
     rows.map(([k,x])=>{const lg=x.amt>0,p=+x.upnl;
@@ -3696,7 +3611,7 @@ function resetPress(){
 
 function onChart(t){
   if(!t||!t.closest)return false;
-  if(t.closest(".grip")||t.closest(".xbtn")||t.closest(".sheet")||t.closest("#ohud")||t.closest("#khud")||t.closest("#tl")||t.closest("#tr")||t.closest("#br"))return false;
+  if(t.closest(".grip")||t.closest(".xbtn")||t.closest(".sheet")||t.closest("#ohud")||t.closest("#khud")||t.closest("#tl")||t.closest("#br"))return false;
   if(t.closest("#tv_chart")||t.closest(".edge-zone"))return true;
   return t===document.body||t===document.documentElement;
 }
@@ -4100,7 +4015,6 @@ $("#wlist").addEventListener("click",e=>{
 
 avHint();
 $("#av").addEventListener("click",()=>{openKey();});
-$("#bKeyNav")?.addEventListener("click",()=>{openKey();});
 $("#kX").addEventListener("click",closeKey);
 $("#kSave").addEventListener("click",submitKey);
 $("#kTest").addEventListener("click",testKeyConnection);
@@ -4416,16 +4330,8 @@ async function boot(){
   await kInit;head();
   await bootKeys();
   avHint();
-  updateKeyNavUI();
-  if(HASKEY){
-    await startPrivate();
-  } else {
-    setTimeout(()=>{
-      if(!HASKEY && (!window.BC_CH || IS_LEADER)){
-        openKey();
-      }
-    }, 450);
-  }
+  if(HASKEY)await startPrivate();
+  else if(!readRec())toast("未配置 API Key：只看行情。点持仓面板右上角就能填");
   ACCT_LOADING=false;
   setInterval(syncTime,3e5);
   posView();render();
