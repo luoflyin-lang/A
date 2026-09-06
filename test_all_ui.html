@@ -130,6 +130,7 @@
     w.setTestnet = w.BN.TRADE.setTestnet;
     w.CHART_VIEW_STATE = w.CHART_VIEW_STATE || (w.BN && w.BN.chartView && w.BN.chartView());
     w.tvChart = w.tvChart || (w.BN && w.BN.tvChart && w.BN.tvChart());
+    w.pool = w.BN.TRADE.pool;
     
     // 强制开启 DRY_RUN 演练模式，保证绝对不消耗一分钱真实资金！
     w.DRY_RUN = true;
@@ -534,6 +535,40 @@
           
           assert(Math.abs(count - 60) <= 2, `切币后缩放根数被意外重置: 期望约 60，实际 ${count}`);
           assert(Math.abs(rightOffset - (-20)) <= 2, `切币后右侧偏移被意外右对齐: 期望约 -20，实际 ${rightOffset}`);
+        }
+      },
+
+      // 12. 双周期 2000 万成交额门槛与 15m/1h 去重联动
+      {
+        id: "filter_dedup_20m",
+        name: "15. 双周期 2000 万门槛与 15m 标的在 1h 中自动去重",
+        test: async () => {
+          w.S.filter = true;
+          w.S.uni = [
+            { name: "COIN_A" }, // 25M, 15m NATR 0.8%, 1h NATR 0.9% -> 15m入选, 1h应被去重
+            { name: "COIN_B" }, // 25M, 15m NATR 0.3%, 1h NATR 0.7% -> 15m不选, 1h应入选
+            { name: "COIN_C" }  // 15M (< 20M), 15m NATR 1.0%, 1h NATR 1.0% -> 均不入选
+          ];
+          w.S.ctx["COIN_A"] = { volUsd: 25e6, natr_15m: 0.8, natr_1h: 0.9 };
+          w.S.ctx["COIN_B"] = { volUsd: 25e6, natr_15m: 0.3, natr_1h: 0.7 };
+          w.S.ctx["COIN_C"] = { volUsd: 15e6, natr_15m: 1.0, natr_1h: 1.0 };
+          w.S.f["COIN_A"] = { type: "USDC" };
+          w.S.f["COIN_B"] = { type: "USDC" };
+          w.S.f["COIN_C"] = { type: "USDC" };
+
+          // 1. 验证 15m 周期下的筛选结果
+          w.S.tf = "15m";
+          let list15m = w.pool().map(x => x.n);
+          assert(list15m.includes("COIN_A"), "15m 下未能筛选出满足 20M 与 NATR>0.5% 的 COIN_A");
+          assert(!list15m.includes("COIN_B"), "15m 下错误包含了 NATR<0.5% 的 COIN_B");
+          assert(!list15m.includes("COIN_C"), "15m 下错误包含了成交额 < 20M 的 COIN_C");
+
+          // 2. 验证 1h 周期下的筛选与 15m 去重结果
+          w.S.tf = "1h";
+          let list1h = w.pool().map(x => x.n);
+          assert(!list1h.includes("COIN_A"), "1h 下未能剔除已在 15m 满足条件的 COIN_A（去重失效）");
+          assert(list1h.includes("COIN_B"), "1h 下未能展示 1h 独有的新增机会标的 COIN_B");
+          assert(!list1h.includes("COIN_C"), "1h 下错误包含了成交额 < 20M 的 COIN_C");
         }
       }
     ];
