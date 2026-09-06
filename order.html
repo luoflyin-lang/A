@@ -357,9 +357,9 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
   <div class="t"><b>API 密钥</b><span id="kSt"></span><button class="x" id="kX">✕</button></div>
   <input id="kK" type="password" placeholder="API Key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
   <input id="kS" type="password" placeholder="Secret" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-  <input id="kP" type="password" placeholder="口令（留空 = 不加密）" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+  <input id="kP" type="password" placeholder="口令（必填，本地 AES-GCM 加密）" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
   <div id="kHint"></div>
-  <div class="obar"><button id="kSave" class="b">保存</button><button id="kWipe">清除</button></div>
+  <div class="obar"><button id="kSave" class="b">保存</button><button id="kTest">测试连接</button><button id="kWipe">清除</button></div>
 </div>
 <div id="toast"></div>
 
@@ -700,6 +700,44 @@ async function submitKey(){
   }catch(e){toast("存不进去："+((e&&e.message)||e));return;}
   setKeys(k,s);closeKey();toast("已高强度加密保存到本机，正在读账户");
   await startPrivate();
+}
+async function testKeyConnection(){
+  let k = API_KEY, s = API_SECRET;
+  const inK = $("#kK").value.trim(), inS = $("#kS").value.trim();
+  if(inK && inS){ k = inK; s = inS; }
+  if(!k || !s){
+    toast("请先填写 API Key 和 Secret 后再测试", true);
+    return;
+  }
+  const btn = $("#kTest");
+  const orig = btn ? btn.textContent : "测试连接";
+  if(btn){ btn.disabled = true; btn.textContent = "正在探测…"; }
+  try{
+    const oldK = API_KEY, oldS = API_SECRET;
+    API_KEY = k; API_SECRET = s;
+    let res = null, err = null;
+    try {
+      res = await priv("GET", "/fapi/v2/account", {});
+    } catch(e){
+      err = e;
+    } finally {
+      if(!HASKEY){ API_KEY = oldK; API_SECRET = oldS; }
+    }
+    const hint = $("#kHint");
+    if(res && res.totalMarginBalance != null){
+      const eq = (+res.totalMarginBalance).toFixed(2);
+      toast("✔ API 连通成功！读取到合约总资金：$" + eq, true);
+      if(hint) hint.innerHTML = "<span style='color:var(--up);font-weight:600'>✔ 连通成功！合约总净值: $" + eq + "</span>";
+      return;
+    }
+    if(err){
+      const hintMsg = keyHint(err);
+      toast(hintMsg || ("连接失败：" + err.message), true);
+      if(hint) hint.innerHTML = "<span style='color:var(--down);font-weight:600'>" + (hintMsg || err.message) + "</span>";
+    }
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = orig; }
+  }
 }
 async function keyReq(method,path){
   const ctl=typeof AbortController!=="undefined"?new AbortController():null;
@@ -3397,6 +3435,7 @@ avHint();
 $("#av").addEventListener("click",()=>{const r=readRec();openKey(!HASKEY&&r&&r.mode==="aes"?"unlock":"set");});
 $("#kX").addEventListener("click",closeKey);
 $("#kSave").addEventListener("click",submitKey);
+$("#kTest").addEventListener("click",testKeyConnection);
 $("#kWipe").addEventListener("click",wipeKeys);
 $("#mask").addEventListener("click",closeKey);
 $("#khud").addEventListener("keydown",e=>{

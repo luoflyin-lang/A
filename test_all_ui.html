@@ -232,7 +232,8 @@
         id: "key_modal",
         name: "5. API Key 弹窗 (#av) 与强制加密校验",
         test: async () => {
-          w.$("#av").click();
+          localStorage.removeItem(w.KKEY);
+          w.openKey("set");
           await sleep(200);
           assert(w.$("#khud").classList.contains("on"), "密钥弹窗未能正常弹出");
           // 测试清空并尝试保存明文（应被拦截提示必须设置口令）
