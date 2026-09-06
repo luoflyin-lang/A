@@ -84,11 +84,11 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-
 #name .caret{font-size:13px;color:var(--faint);margin-left:2px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:all .15s;line-height:1}
 #name .caret:hover{color:var(--text);background:var(--raised)}
 #name .caret:active{transform:scale(0.94)}
-#bStar{height:32px;min-width:34px;padding:0 7px;border-radius:9px;font-size:16px;line-height:1;
+#bStar,#bAudio{height:32px;min-width:34px;padding:0 7px;border-radius:9px;font-size:16px;line-height:1;
   color:var(--faint);background:var(--fabbg);box-shadow:0 2px 8px rgba(0,0,0,.04);backdrop-filter:blur(8px);
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s,transform .12s}
-#bStar:hover{background:var(--raised)}
-#bStar:active{transform:scale(0.94)}
+#bStar:hover,#bAudio:hover{background:var(--raised)}
+#bStar:active,#bAudio:active{transform:scale(0.94)}
 #bStar.on{color:var(--amber);background:var(--raised)}
 
 #lockbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:30;display:none;
@@ -294,6 +294,7 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
     <span class="caret" id="nListBtn" title="打开免挂单费品种列表">☰</span>
   </div>
   <button id="bStar" title="标记这个机会（W）：等这根 K 线收盘再下单">☆</button>
+  <button id="bAudio" title="提示音（15m 前 3 分 / 1h 前 5 分），点击试听">🔔</button>
 </div>
 
 <div id="br">
@@ -443,7 +444,7 @@ function log(m){const s=new Date().toISOString().slice(11,23)+"  "+m;
 let tt;const TSEEN=new Map();
 const toast=(m, force = false)=>{
   const now=Date.now();
-  const isCrucial = force || (typeof m === "string" && (m.includes("⚠") || m.includes("裸仓") || m.includes("强平") || m.includes("警告") || m.includes("被拒") || m.includes("风险") || m.includes("熔断") || m.includes("冷静期")));
+  const isCrucial = force || (typeof m === "string" && (m.includes("🔔") || m.includes("⚠") || m.includes("裸仓") || m.includes("强平") || m.includes("警告") || m.includes("被拒") || m.includes("风险") || m.includes("熔断") || m.includes("冷静期")));
   if(!isCrucial && now-(TSEEN.get(m)||0)<TOAST_DEDUP)return;
   TSEEN.set(m,now);
   if(TSEEN.size>60)TSEEN.forEach((v,k)=>{if(now-v>TOAST_DEDUP)TSEEN.delete(k);});
@@ -2479,65 +2480,197 @@ function wPrune(){const n=Date.now(),b=WATCH.length;
   WATCH=WATCH.filter(w=>w&&w.sym&&w.tf&&n-w.due<WATCH_KEEP);
   if(WATCH.length>WATCH_MAX)WATCH=WATCH.slice(-WATCH_MAX);
   return WATCH.length!==b;}
-function wAudioInit(){try{if(!WAC)WAC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+let _pendingAlert = null;
 
-// 15分钟收盘前 3 分钟提示音：清脆高阶双音阶（叮-咚）
-function play15mAlert(){
+// 动态生成标准 WAV Data URI，作为 HTML5 <audio> 双重保障
+function createWavDataUri(notes, totalSec = 1.0) {
+  try {
+    const sampleRate = 22050;
+    const numSamples = Math.floor(sampleRate * totalSec);
+    const buffer = new Int16Array(numSamples);
+
+    notes.forEach(n => {
+      const start = Math.floor(sampleRate * (n.delay || 0));
+      const len = Math.floor(sampleRate * (n.dur || 0.3));
+      const freq = n.freq;
+      const gain = n.gain || 0.6;
+      for (let i = 0; i < len && start + i < numSamples; i++) {
+        const t = i / sampleRate;
+        const env = Math.min(1, i / (sampleRate * 0.015)) * Math.exp(-4.0 * (i / len));
+        const sample = (Math.sin(2 * Math.PI * freq * t) * 0.85 + Math.sin(4 * Math.PI * freq * t) * 0.15) * env * gain;
+        buffer[start + i] += Math.floor(sample * 16000);
+      }
+    });
+
+    const header = new ArrayBuffer(44);
+    const view = new DataView(header);
+    function writeStr(offset, str) {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    const wavBytes = new Uint8Array(44 + numSamples * 2);
+    wavBytes.set(new Uint8Array(header), 0);
+    wavBytes.set(new Uint8Array(buffer.buffer), 44);
+
+    let binary = '';
+    for (let i = 0; i < wavBytes.length; i++) binary += String.fromCharCode(wavBytes[i]);
+    return 'data:audio/wav;base64,' + btoa(binary);
+  } catch(e) {
+    return "";
+  }
+}
+
+const WAV_15M = createWavDataUri([
+  { freq: 1046.5, delay: 0, dur: 0.22, gain: 0.6 },
+  { freq: 1318.5, delay: 0.14, dur: 0.32, gain: 0.6 }
+], 0.5);
+
+const WAV_1H = createWavDataUri([
+  { freq: 523.25, delay: 0, dur: 0.32, gain: 0.65 },
+  { freq: 659.25, delay: 0.14, dur: 0.38, gain: 0.65 },
+  { freq: 783.99, delay: 0.28, dur: 0.60, gain: 0.70 }
+], 0.9);
+
+function wAudioInit(){
+  try{
+    if(!WAC) WAC = new (window.AudioContext || window.webkitAudioContext)();
+    if(WAC && WAC.state === "suspended"){
+      WAC.resume().catch(()=>{});
+    }
+  }catch(e){}
+}
+
+function unlockAudio(){
   try{
     wAudioInit();
+    if(WAC && WAC.state === "suspended"){
+      WAC.resume().then(()=>{
+        WGEST = true;
+        if(_pendingAlert){
+          const p = _pendingAlert; _pendingAlert = null;
+          if(p === "15m") play15mAlert();
+          else if(p === "1h") play1hAlert();
+        }
+      }).catch(()=>{});
+    } else if(WAC && WAC.state === "running"){
+      WGEST = true;
+      if(_pendingAlert){
+        const p = _pendingAlert; _pendingAlert = null;
+        if(p === "15m") play15mAlert();
+        else if(p === "1h") play1hAlert();
+      }
+    }
+  }catch(e){}
+}
+
+// 持续捕获用户手势以确保随时处于已解锁状态
+["pointerdown", "click", "touchstart", "keydown"].forEach(ev => {
+  window.addEventListener(ev, unlockAudio, { passive: true, capture: true });
+  document.addEventListener(ev, unlockAudio, { passive: true, capture: true });
+});
+
+// 15分钟收盘前 3 分钟提示音：清脆高阶双音阶（叮-咚）
+function play15mAlert(showToast = true){
+  let played = false;
+  try{
+    unlockAudio();
     if(WAC){
-      if(WAC.state==="suspended") WAC.resume();
+      if(WAC.state === "suspended") WAC.resume().catch(()=>{});
       const notes = [
-        { freq: 1046.5, delay: 0, dur: 0.12 },    // C6
-        { freq: 1318.5, delay: 0.11, dur: 0.18 }  // E6
+        { freq: 1046.5, delay: 0, dur: 0.22, gain: 0.55 },    // C6
+        { freq: 1318.5, delay: 0.14, dur: 0.32, gain: 0.55 }  // E6
       ];
+      const t0 = WAC.currentTime || 0;
       notes.forEach(n => {
         const o = WAC.createOscillator(), g = WAC.createGain();
-        const t = WAC.currentTime + n.delay;
+        const t = t0 + n.delay;
         o.type = "sine";
         o.frequency.setValueAtTime(n.freq, t);
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.24, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(n.gain, t + 0.015);
         g.gain.exponentialRampToValueAtTime(0.0001, t + n.dur);
         o.connect(g);
         g.connect(WAC.destination);
         o.start(t);
-        o.stop(t + n.dur + 0.02);
+        o.stop(t + n.dur + 0.05);
       });
+      played = true;
     }
-  }catch(e){ log("15m alert err " + e.message); }
-  try{ if(navigator.vibrate) navigator.vibrate([60, 40, 60]); }catch(e){}
-  toast("🔔 15分钟 K 线还有 3 分钟收盘");
+  }catch(e){ log("15m webAudio err " + e.message); }
+
+  // 双保险：同时调用 HTML5 Audio
+  if(WAV_15M){
+    try{
+      const aud = new Audio(WAV_15M);
+      aud.volume = 0.85;
+      aud.play().then(()=>{ played = true; }).catch(()=>{
+        if(!played) _pendingAlert = "15m";
+      });
+    }catch(_){}
+  }
+
+  try{ if(navigator.vibrate) navigator.vibrate([80, 50, 80]); }catch(e){}
+  if(showToast) toast("🔔 15分钟 K 线还有 3 分钟收盘", true);
+  log("[AUDIO] 15m alert fired (3 min before close)");
 }
 
 // 1小时收盘前 5 分钟提示音：浑厚大周期三和弦钟声（和鸣三音）
-function play1hAlert(){
+function play1hAlert(showToast = true){
+  let played = false;
   try{
-    wAudioInit();
+    unlockAudio();
     if(WAC){
-      if(WAC.state==="suspended") WAC.resume();
+      if(WAC.state === "suspended") WAC.resume().catch(()=>{});
       const notes = [
-        { freq: 523.25, delay: 0, dur: 0.22 },    // C5
-        { freq: 659.25, delay: 0.12, dur: 0.24 },  // E5
-        { freq: 783.99, delay: 0.24, dur: 0.38 }   // G5
+        { freq: 523.25, delay: 0, dur: 0.32, gain: 0.65 },    // C5
+        { freq: 659.25, delay: 0.14, dur: 0.38, gain: 0.65 },  // E5
+        { freq: 783.99, delay: 0.28, dur: 0.60, gain: 0.70 }   // G5
       ];
+      const t0 = WAC.currentTime || 0;
       notes.forEach(n => {
         const o = WAC.createOscillator(), g = WAC.createGain();
-        const t = WAC.currentTime + n.delay;
+        const t = t0 + n.delay;
         o.type = "triangle";
         o.frequency.setValueAtTime(n.freq, t);
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.26, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(n.gain, t + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, t + n.dur);
         o.connect(g);
         g.connect(WAC.destination);
         o.start(t);
-        o.stop(t + n.dur + 0.02);
+        o.stop(t + n.dur + 0.05);
       });
+      played = true;
     }
-  }catch(e){ log("1h alert err " + e.message); }
-  try{ if(navigator.vibrate) navigator.vibrate([100, 80, 150]); }catch(e){}
-  toast("🔔 1小时 K 线还有 5 分钟收盘");
+  }catch(e){ log("1h webAudio err " + e.message); }
+
+  // 双保险：HTML5 Audio
+  if(WAV_1H){
+    try{
+      const aud = new Audio(WAV_1H);
+      aud.volume = 0.9;
+      aud.play().then(()=>{ played = true; }).catch(()=>{
+        if(!played) _pendingAlert = "1h";
+      });
+    }catch(_){}
+  }
+
+  try{ if(navigator.vibrate) navigator.vibrate([120, 80, 180]); }catch(e){}
+  if(showToast) toast("🔔 1小时 K 线还有 5 分钟收盘", true);
+  log("[AUDIO] 1h alert fired (5 min before close)");
 }
 
 let _alert15mKey = null;
@@ -2546,24 +2679,25 @@ let _alert1hKey = null;
   const t = Date.now() + TOFF;
   const left15m = 900000 - (t % 900000);
   const left1h = 3600000 - (t % 3600000);
-  if(left15m < 175000) _alert15mKey = Math.floor(t / 900000);
-  if(left1h < 295000) _alert1hKey = Math.floor(t / 3600000);
+  // 仅当距离收盘不足 15 秒时才视为已错过，防止刚进页面在最后几秒误响
+  if(left15m < 15000) _alert15mKey = Math.floor(t / 900000);
+  if(left1h < 15000) _alert1hKey = Math.floor(t / 3600000);
 })();
 
 function checkCandleAlerts(){
   const t = Date.now() + TOFF;
   const period15m = Math.floor(t / 900000);
   const left15m = 900000 - (t % 900000);
-  // 15分钟收盘前 3 分钟（<= 180,000ms）
-  if(left15m <= 180000 && _alert15mKey !== period15m){
+  // 15分钟收盘前 3 分钟（<= 180,000ms 且 > 10,000ms）
+  if(left15m <= 180000 && left15m > 10000 && _alert15mKey !== period15m){
     _alert15mKey = period15m;
     play15mAlert();
   }
 
   const period1h = Math.floor(t / 3600000);
   const left1h = 3600000 - (t % 3600000);
-  // 1小时收盘前 5 分钟（<= 300,000ms）
-  if(left1h <= 300000 && _alert1hKey !== period1h){
+  // 1小时收盘前 5 分钟（<= 300,000ms 且 > 10,000ms）
+  if(left1h <= 300000 && left1h > 10000 && _alert1hKey !== period1h){
     _alert1hKey = period1h;
     play1hAlert();
   }
@@ -3726,6 +3860,12 @@ $("#mask").addEventListener("click",close);
 $$("[data-close]").forEach(b=>b.addEventListener("click",close));
 
 $("#bStar")?.addEventListener("click",()=>wToggle());
+$("#bAudio")?.addEventListener("click", () => {
+  unlockAudio();
+  play15mAlert(false);
+  setTimeout(() => play1hAlert(false), 550);
+  toast("🔔 提示音已就绪：已试听 15m (叮咚) & 1h (钟声)");
+});
 $("#wlist").addEventListener("click",e=>{
   const row=e.target.closest(".wi");if(!row)return;
   const sym=row.dataset.c,tf=row.dataset.tf;
