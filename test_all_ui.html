@@ -777,6 +777,48 @@
           delete pendbr["BTCUSDC"];
           w.endFlow();
         }
+      },
+
+      // 16. API Key 二维码扫描与解析导入
+      {
+        id: "qr_key_scan",
+        name: "19. API Key 二维码多格式识别与自动填入校验",
+        test: async () => {
+          const qr = w.BN && w.BN.QR;
+          assert(qr, "未找到 BN.QR 二维码解析模块");
+          assert(typeof qr.parseKeyQrData === "function", "缺少 parseKeyQrData 函数");
+          assert(typeof qr.fillDecodedKey === "function", "缺少 fillDecodedKey 函数");
+
+          // 1. 测试用户实际上传的 JSON 格式二维码文本解析
+          const userQrRaw = '{"apiKey":"RmD7rAhUQvDUjvKa3WziTHjZaH1A9EPd3TD2xtZe3fX9m3mf6wFxCQCiBUmMZl5A","secretKey":"lDxVXr9hhhaJNclFAMBnN2e6eWk4sLv53enz3CnD97xZvch3bEMiMtkn89BVe2C6","comment":"BBBB"}';
+          const p1 = qr.parseKeyQrData(userQrRaw);
+          assert(p1 && p1.key === "RmD7rAhUQvDUjvKa3WziTHjZaH1A9EPd3TD2xtZe3fX9m3mf6wFxCQCiBUmMZl5A", "用户 JSON 格式 apiKey 解析错误");
+          assert(p1 && p1.secret === "lDxVXr9hhhaJNclFAMBnN2e6eWk4sLv53enz3CnD97xZvch3bEMiMtkn89BVe2C6", "用户 JSON 格式 secretKey 解析错误");
+
+          // 2. 测试键名变体与查询参数格式解析
+          const p2 = qr.parseKeyQrData('{"key":"TEST_KEY_12345678901234567890","secret":"TEST_SEC_12345678901234567890"}');
+          assert(p2 && p2.key === "TEST_KEY_12345678901234567890" && p2.secret === "TEST_SEC_12345678901234567890", "key/secret 变体解析错误");
+
+          const p3 = qr.parseKeyQrData("apiKey=QUERY_KEY_12345678901234567890&secretKey=QUERY_SEC_12345678901234567890");
+          assert(p3 && p3.key.startsWith("QUERY_KEY_"), "URL 查询串解析错误");
+
+          // 3. 测试自动填入输入框
+          w.openKey();
+          await sleep(100);
+          qr.fillDecodedKey(p1);
+          await sleep(100);
+          assert(w.$("#kK").value === p1.key, "fillDecodedKey 未正确填入 #kK");
+          assert(w.$("#kS").value === p1.secret, "fillDecodedKey 未正确填入 #kS");
+
+          // 4. 测试界面元素存在
+          assert(w.$("#kScanBtn"), "未找到 #kScanBtn 扫码按钮");
+          assert(w.$("#kQrFile"), "未找到 #kQrFile 文件上传输入");
+          assert(w.$("#kCameraBox"), "未找到 #kCameraBox 摄像头扫描取景框");
+
+          w.closeKey();
+          await sleep(100);
+          assert(!w.$("#kCameraBox").classList.contains("on"), "closeKey 后未停止/隐藏摄像头视窗");
+        }
       }
     ];
 
