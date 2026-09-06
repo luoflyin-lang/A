@@ -416,6 +416,26 @@
           assert(slOrd.type === "STOP_MARKET", `止损单类型不正确: ${slOrd.type}`);
           assert(slOrd.closePosition === "true", `单向持仓未设 closePosition="true": ${slOrd.closePosition}`);
 
+          // 核心校验 2：做空在现价下方（K线底部跌破做空），必须提交 STOP_MARKET 突破条件单，价格不能被篡改
+          placedOrders.length = 0;
+          w.F.on = true;
+          w.F.step = 4;
+          w.F.e = 78800; // 低于 mid (80000)
+          w.F.sl = 80500; // 止损高于 entry，确定做空
+          w.F.tp = 75000;
+          w.render();
+          await sleep(150);
+          assert(w.$("#ohGo").textContent.includes("跌破做空"), "做空低于市价按钮未显示【跌破做空】");
+          assert(w.sizing().isBreakout === true, "做空低于市价未标记为 isBreakout");
+          assert(Math.abs(w.sizing().e - 78800) < 1e-4, `入场价被非法篡改！期望 78800，实际 ${w.sizing().e}`);
+          await goBtn.click();
+          await sleep(300);
+          assert(placedOrders.length >= 1, "跌破做空未提交订单");
+          const bkEntry = placedOrders[0];
+          assert(bkEntry.type === "STOP_MARKET", `跌破做空入场单类型不正确，期望 STOP_MARKET，实际: ${bkEntry.type}`);
+          assert(Math.abs(+bkEntry.stopPrice - 78800) < 1e-4, `跌破做空触发价不正确: ${bkEntry.stopPrice}`);
+          assert(!bkEntry.reduceOnly, "开仓突破单不能带 reduceOnly");
+
           w.placeOrder = origPlace;
           w.endFlow();
         }
