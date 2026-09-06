@@ -590,6 +590,21 @@
           assert(!list1h.includes("COIN_A"), "1h 下未能剔除已在 15m 满足条件的 COIN_A（去重失效）");
           assert(list1h.includes("COIN_B"), "1h 下未能展示 1h 独有的新增机会标的 COIN_B");
           assert(!list1h.includes("COIN_C"), "1h 下错误包含了成交额 < 20M 的 COIN_C");
+
+          // 3. 验证持仓标的 (x.h) 在 15m 显示，但在 1h 坚决去重不重复展示
+          w.S.pos["COIN_HOLD"] = { sym: "COIN_HOLD", amt: 1.0, entry: 100 };
+          w.S.uni.push({ name: "COIN_HOLD" });
+          w.S.ctx["COIN_HOLD"] = { volUsd: 10e6, natr_15m: 0.2, natr_1h: 0.8 };
+          w.S.f["COIN_HOLD"] = { type: "USDC" };
+
+          w.S.tf = "15m";
+          list15m = w.pool().map(x => x.n);
+          assert(list15m.includes("COIN_HOLD"), "持仓标的 COIN_HOLD 应显示在 15m 列表中");
+
+          w.S.tf = "1h";
+          list1h = w.pool().map(x => x.n);
+          assert(!list1h.includes("COIN_HOLD"), "持仓标的 COIN_HOLD 已在 15m 显示，不得重复出现在 1h 列表中");
+          delete w.S.pos["COIN_HOLD"];
         }
       },
 

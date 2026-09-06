@@ -2476,16 +2476,17 @@ function pool(){
     return{n:u.name,d:disp(u.name),p:mid(u.name),ch:+c.chg||0,vol:+c.volUsd||0,
       natr:natr!=null?+natr:null,type:f.type||"USDC",h:!!posOf(u.name).length};})
     .filter(x=>{
-      if(x.h)return true;
       if(!S.filter)return true;
+      // 若当前为 1h 周期且开启筛选：已经显示在 15m 的标的（包括持仓标的或满足 15m 筛选的标的），1h 中彻底去重不显示
+      if(S.tf === "1h"){
+        const natr15m = getNatr(x.n, "15m");
+        const in15m = x.h || (x.vol >= VOL_MIN && natr15m != null && natr15m >= NATR_MIN);
+        if(in15m) return false;
+      }
+      if(x.h)return true;
       if(x.vol < VOL_MIN)return false;
       if(x.natr == null)return false;
       if(x.natr < NATR_MIN)return false;
-      // 若当前为 1h 周期，且该品种已满足 15m 筛选标准（15m NATR >= 0.5%），则在 1h 中自动去重不显示
-      if(S.tf === "1h"){
-        const natr15m = getNatr(x.n, "15m");
-        if(natr15m != null && natr15m >= NATR_MIN) return false;
-      }
       return true;
     })
     .sort((a,b)=>(b.h-a.h)||(b.vol-a.vol));
