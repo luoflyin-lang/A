@@ -248,9 +248,14 @@
           const stored = localStorage.getItem(w.KKEY);
           assert(stored && stored.includes("test_key_ok"), "Key 未能成功保存至 localStorage");
           assert(!stored.includes('mode":"aes'), "不应再包含口令加密 aes 结构");
+          // 校验主界面右上角 #bKeyNav 状态
+          const bKeyNav = w.$("#bKeyNav");
+          assert(bKeyNav, "未找到右上角 #bKeyNav 入口按钮");
+          assert(!bKeyNav.classList.contains("need-key"), "配置 Key 后 #bKeyNav 不应带 need-key 警示状态");
           // 打开并关闭弹窗
-          w.openKey();
+          bKeyNav.click();
           await sleep(150);
+          assert(w.$("#khud").classList.contains("on"), "点击 #bKeyNav 未能唤起密钥与扫码弹窗");
           w.$("#kX").click();
           await sleep(150);
           assert(!w.$("#khud").classList.contains("on"), "#kX 关闭按钮失效");
