@@ -672,7 +672,7 @@ function openKey(mode){
   $("#kSt").textContent=unlock?"已加密存在本机":(HASKEY?"已配置":"只存这台设备");
   $("#kHint").innerHTML=unlock
     ?"输错口令只是解不开，不会弄丢密钥。忘了口令就点清除，重新填一遍。"
-    :("密钥只写进这台设备的浏览器，采用 PBKDF2+AES-GCM 加密，不进代码、不上传。创建时只勾「允许合约」，永远不要勾提现。");
+    :("密钥只加密保存在本机浏览器。请确认币安后台 API 权限：<br><b>① 必须勾选「允许合约」(Enable Futures)</b>；<br>② IP 限制建议选「无限制」(90天有效)；<br>③ 绝不勾选提现。");
   setTimeout(()=>{const el=unlock?$("#kP"):$("#kK");if(el)el.focus();},60);
 }
 function closeKey(){
@@ -1355,7 +1355,12 @@ async function load(silent, symOnly){
 
 function keyHint(e){
   const c=+((e||{}).code||0);
-  if(c===-2015)return "API Key 无效 / 未开合约权限 / IP 不在白名单（-2015）";
+  const msg=String((e||{}).message || (e||{}).msg || "");
+  if(c===-2015){
+    const ipMatch = msg.match(/request ip:\s*([0-9a-fA-F.:]+)/i);
+    const ipTip = ipMatch ? "（请求IP: " + ipMatch[1] + "）" : "";
+    return "API Key 无效 / 未开合约权限 / IP 不在白名单 " + ipTip + "（-2015）";
+  }
   if(c===-2014||c===-1022)return "签名不通过：检查 Secret 是否粘错（-1022）";
   if(c===-1021)return "本机时间与交易所偏差过大，已重新校时，请重试（-1021）";
   return "";
