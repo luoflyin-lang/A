@@ -1350,7 +1350,7 @@ function posKey(sym,side){return (!side||side==="BOTH")?sym:sym+":"+side;}
 function posOf(sym){return Object.values(S.pos).filter(p=>p.sym===sym);}
 function curPos(){return posOf(S.sym)[0]||null;}
 function applyAcct(acc,pos,od){
-  if(acc)S.acct={equity:+acc.totalMarginBalance||+acc.totalWalletBalance||0,
+  if(acc && !Array.isArray(acc) && (+acc.totalMarginBalance > 0 || +acc.totalWalletBalance > 0))S.acct={equity:+acc.totalMarginBalance||+acc.totalWalletBalance||0,
     avail:+acc.availableBalance||0,used:+acc.totalInitialMargin||0,
     wallet:+acc.totalWalletBalance||0,upnl:+acc.totalUnrealizedProfit||0};
   if(pos){S.pos={};
@@ -1470,10 +1470,25 @@ function ordInfo(o){
   }
 
   const trail=/TRAILING/.test(t);
-  const tp=/TAKE_PROFIT/.test(t),sl=/STOP/.test(t)&&!trail;
+  const isAlgoTp=/TAKE_PROFIT/.test(t);
+  const isCidTp=String(o.clientOrderId||o.newClientOrderId||"").startsWith("tp_");
+  const isSl=/STOP/.test(t)&&!trail;
+  const isProfitLimit=ro&&!isSl&&!trail&&lim>0&&(()=>{
+    const p=posOf(o.symbol)[0];
+    const curM=mid(o.symbol);
+    if(p&&Math.abs(p.amt)>0){
+      return p.amt>0?(side==="SELL"&&lim>p.entry):(side==="BUY"&&lim<p.entry);
+    }
+    if(curM>0){
+      return side==="SELL"?lim>curM:lim<curM;
+    }
+    return false;
+  })();
+  const tp=isAlgoTp||isCidTp||isProfitLimit;
+  const sl=isSl;
   const trig=trail||stop>0||/STOP|TAKE_PROFIT/.test(t);
   const isEntry=trig&&!ro;
-  const kind=trail?"追踪止损":trig?(isEntry?"触发入场":tp?"止盈":(/MARKET/.test(t)?"市价止损 (MARK)":"止损 (MARK)")):(ro?"限价平仓":"限价");
+  const kind=trail?"追踪止损":trig?(isEntry?"触发入场":tp?"止盈":(/MARKET/.test(t)?"市价止损 (MARK)":"止损 (MARK)")):(tp?"止盈":ro?"限价平仓":"限价");
   const size=Math.abs(+o.origQty||+o.quantity||+o.totalQty||0);
   const sizeTxt=closeAll?"全平":size>0?sz(size,o.symbol):"—";
   const price=trig?stop:lim;
@@ -2129,15 +2144,39 @@ function savePendBr(){try{localStorage.setItem("bn_pendbr",JSON.stringify(PENDBR
 function prunePendBr(){
   if(!S.acct||!S.ordsAt)return;
   let ch=false;
+  const now = Date.now();
   Object.keys(PENDBR).forEach(sym=>{
     const b=PENDBR[sym]||{};
-    if(posOf(sym).length)return;
-    if(S.ordsAt<=(b.ts||0)+20000)return;
-    const hasEntry=(S.ords[sym]||[]).filter(Boolean).some(o=>!ordInfo(o).ro);
-    const stale=Date.now()-(b.ts||0)>PENDBR_TTL;
-    if(hasEntry&&!stale)return;
-    delete PENDBR[sym];ch=true;
-    log("pendbr pruned "+sym+(stale?" (ttl)":" (entry gone)"));});
+    if(!Array.isArray(b.items)){
+      const oldB = Object.assign({}, b);
+      delete oldB.items;
+      b.items = (oldB.oid || oldB.tp != null || oldB.sl != null) ? [oldB] : [];
+    }
+    const hasPos = posOf(sym).length > 0;
+    const openOids = new Set((S.ords[sym]||[]).map(o => String(o.orderId || o.algoId)));
+
+    if(!hasPos){
+      if(S.ordsAt <= (b.ts||0) + 20000) return;
+      const hasEntry = (S.ords[sym]||[]).filter(Boolean).some(o=>!ordInfo(o).ro);
+      const stale = now - (b.ts||0) > PENDBR_TTL;
+      if(hasEntry && !stale) return;
+      delete PENDBR[sym]; ch=true;
+      log("pendbr pruned "+sym+(stale?" (ttl)":" (entry gone)"));
+    } else {
+      const origLen = b.items.length;
+      b.items = b.items.filter(it => {
+        const entryStillPending = it.oid && openOids.has(String(it.oid));
+        const tpPending = it.tp != null && !it.tpFbDone && !it.tpOid;
+        const slPending = it.sl != null && !it.slDone;
+        return entryStillPending || tpPending || slPending;
+      });
+      if(b.items.length !== origLen) ch = true;
+      if(b.items.length === 0){
+        delete PENDBR[sym]; ch = true;
+        log("pendbr all items done for "+sym);
+      }
+    }
+  });
   if(ch)savePendBr();
 }
 
@@ -2194,7 +2233,8 @@ function tpPostOnlyOrder(sym,lg,tp,ps,qty){
     side:lg?"SELL":"BUY",
     type:"LIMIT",
     price:pxStr,
-    timeInForce:"GTX"
+    timeInForce:"GTX",
+    newClientOrderId: "tp_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
   };
   let q=qty;
   if(!(q>0)){
@@ -2224,61 +2264,114 @@ async function firePendingBracket(sym){
     const hasLiveSl = live.some(i=>i.sl && i.ro);
     b.slDone = hasLiveSl;
 
-    const hasLiveTp = live.some(i=>i.tp && i.ro);
+    const liveTps = live.filter(i=>i.tp && i.ro);
+    const hasLiveTp = liveTps.length > 0;
     if(hasLiveTp) b.tpFbDone = true;
 
-    const orders=[];let iSl=-1,iTp=-1,iFb=-1,tpQty=0;
-    if(b.sl!=null&&!hasLiveSl){
-      iSl=orders.length;
-      orders.push(exitOrder(sym,lg,alignPx(b.sl,sym,lg?1:-1),ps,Math.abs(p.amt)));
+    if(!Array.isArray(b.items)){
+      const oldB = Object.assign({}, b);
+      delete oldB.items;
+      b.items = (oldB.oid || oldB.tp != null || oldB.sl != null) ? [oldB] : [];
     }
-    if(b.tp!=null&&!left&&!b.tpOid){
-      tpQty=alignSz(Math.abs(p.amt),sym);
-      if(tpQty>0&&tpQty>(+b.tpQty||0)*1.000001){
-        const t={symbol:sym,side:lg?"SELL":"BUY",type:"LIMIT",timeInForce:TIF,
-          quantity:fmtSz(tpQty,sym),price:fmtPx(alignPx(b.tp,sym,lg?1:-1),sym)};
-        if(S.dual)t.positionSide=ps;else t.reduceOnly="true";
-        iTp=orders.length;orders.push(t);
+
+    // 1. 止损补挂：若当前无有效实况止损单，挂出保护全仓的止损（取各单中最保守价）
+    let slOrder = null;
+    if(b.sl!=null && !hasLiveSl){
+      const safeSl = b.items.reduce((acc, it) => {
+        if(it.sl == null) return acc;
+        if(acc == null) return +it.sl;
+        return lg ? Math.min(acc, +it.sl) : Math.max(acc, +it.sl);
+      }, +b.sl);
+      slOrder = exitOrder(sym, lg, alignPx(safeSl, sym, lg?1:-1), ps, Math.abs(p.amt));
+    }
+
+    // 2. 独立止盈补挂：多笔不同入场独立按其自身数量与止盈价补挂
+    const totalLiveTpQty = liveTps.reduce((sum, o) => sum + (+o.size || 0), 0);
+    const totalPosQty = Math.abs(p.amt);
+    let remainingCapacity = Math.max(0, alignSz(totalPosQty - totalLiveTpQty, sym));
+
+    const tpTasks = [];
+    const openOids = new Set((S.ords[sym]||[]).map(o => String(o.orderId || o.algoId)));
+
+    for(const it of b.items){
+      if(it.tp == null) continue;
+      // 检查此 item 是否已在币安挂出
+      const itemLive = liveTps.some(o => (it.tpOid && String(o.oid || o.orderId) === String(it.tpOid)) || Math.abs(o.price - it.tp) < 1e-6);
+      if(itemLive){
+        it.tpFbDone = true;
+        continue;
+      }
+      // 若该 item 对应的入场单还在未成交挂单中且容量不足，则等待成交
+      const entryStillPending = it.oid && openOids.has(String(it.oid));
+      if(entryStillPending && remainingCapacity < (+it.qty || 0)){
+        continue;
+      }
+      const reqQty = alignSz(+it.qty || remainingCapacity, sym);
+      const curQty = Math.min(reqQty, remainingCapacity);
+      if(curQty > 0){
+        const tpOrd = {
+          symbol: sym,
+          side: lg ? "SELL" : "BUY",
+          type: "LIMIT",
+          timeInForce: TIF,
+          quantity: fmtSz(curQty, sym),
+          price: fmtPx(alignPx(it.tp, sym, lg ? 1 : -1), sym),
+          newClientOrderId: "tp_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+        };
+        if(S.dual) tpOrd.positionSide = ps;
+        else tpOrd.reduceOnly = "true";
+        tpTasks.push({ item: it, ord: tpOrd, qty: curQty });
+        remainingCapacity = Math.max(0, alignSz(remainingCapacity - curQty, sym));
       }
     }
-    if(b.tp!=null&&PREATTACH_TP&&!b.tpFbDone&&!hasLiveTp){
-      iFb=orders.length;
-      orders.push(tpPostOnlyOrder(sym,lg,b.tp,ps,tpQty||Math.abs(p.amt)));
-    }
-    const done=()=>!left && hasLiveSl && (b.tp==null || !!b.tpOid || !PREATTACH_TP || hasLiveTp);
-    if(!orders.length){
-      if(done()){delete PENDBR[sym];savePendBr();}
+
+    if(!slOrder && !tpTasks.length){
+      const allItemsDone = b.items.every(it => {
+        const entryGone = !it.oid || !openOids.has(String(it.oid));
+        const tpDone = it.tp == null || it.tpFbDone || !!it.tpOid;
+        return entryGone && tpDone;
+      });
+      if(allItemsDone && hasLiveSl){
+        delete PENDBR[sym];
+        savePendBr();
+      }
       return;
     }
-    const what=[iSl>=0?"止损市价单":"",iTp>=0?"止盈挂单":"",iFb>=0?"兜底止盈挂单":""].filter(Boolean).join("/");
-    
-    const results=[];
-    for(const ord of orders){
-      const res=await placeOrder(ord,"入场已成交，自动挂"+(ord.type.includes("STOP")?"止损":"止盈"),true,{escapeLock:true});
-      results.push(res);
+
+    const good = x => x && (x.orderId != null || x.algoId != null) && !(x.code != null && +x.code < 0);
+
+    // 挂止损
+    if(slOrder){
+      const res = await placeOrder(slOrder, "入场已成交，自动挂止损", true, {escapeLock: true});
+      if(good(res)){
+        b.slDone = true;
+        b.items.forEach(it => it.slDone = true);
+        savePendBr();
+      }
     }
-    const good=x=>x&&(x.orderId!=null||x.algoId!=null)&&!(x.code!=null&&+x.code<0);
-    if(iSl>=0&&good(results[iSl]))b.slDone=true;
-    if(iTp>=0&&good(results[iTp])){b.tpOid=results[iTp].algoId||results[iTp].orderId;b.tpQty=tpQty;}
-    if(iFb>=0&&good(results[iFb])){b.tpFbDone=true;b.tpFbOid=results[iFb].algoId||results[iFb].orderId;}
+
+    // 挂各笔独立止盈
+    for(const task of tpTasks){
+      const res = await placeOrder(task.ord, "入场已成交，自动挂独立止盈", true, {escapeLock: true});
+      if(good(res)){
+        task.item.tpFbDone = true;
+        task.item.tpOid = res.algoId || res.orderId;
+        task.item.tpQty = task.qty;
+        savePendBr();
+        toast(disp(sym) + " 独立止盈 " + sz(task.qty, sym) + " @" + px(task.item.tp, sym) + " 已挂入");
+      }
+    }
     savePendBr();
-    if(done()||(iSl>=0&&b.slDone)){
-      delete PENDBR[sym];savePendBr();
-      log("bracket ok "+sym);toast(disp(sym)+" "+what+"已挂上");
-      return;
-    }
-    const errs=errsOf(results);
-    if(errs.some(e=>+e.code===-2021)){
-      delete PENDBR[sym];savePendBr();
-      toast("⚠ "+disp(sym)+" 止损价已被行情穿透，交易所拒挂，当前是裸仓，请立即手动处理！");return;}
-    b.tries=(b.tries||0)+1;savePendBr();
-    log("bracket FAIL "+sym+" tries="+b.tries);
-    if(b.tries>=BRACKET_MAX_TRY){
-      delete PENDBR[sym];savePendBr();
-      toast("⚠ "+disp(sym)+" 止损补挂已失败 "+b.tries+" 次，当前是裸仓，请立即手动挂止损！");
-    }else{
-      toast("⚠ "+disp(sym)+" 止损补挂失败（当前裸仓），"+Math.round(BRACKET_RETRY/1000)+"s 后重试");
-      setTimeout(()=>{try{firePendingBracket(sym);}catch(e){log("bracket retry err "+e);}},BRACKET_RETRY);
+
+    const allItemsDone = b.items.every(it => {
+      const entryGone = !it.oid || !openOids.has(String(it.oid));
+      const tpDone = it.tp == null || it.tpFbDone || !!it.tpOid;
+      return entryGone && tpDone;
+    });
+    if(allItemsDone && hasLiveSl){
+      delete PENDBR[sym];
+      savePendBr();
+      log("bracket all ok for " + sym);
     }
   }catch(e){
     b.tries=(b.tries||0)+1;savePendBr();log("bracket throw "+sym+" "+e);
@@ -2715,7 +2808,7 @@ function llSig(){
   (S.ords[S.sym]||[]).forEach(o=>{if(!o)return;const oi=ordInfo(o);
     a.push("O"+(o.orderId||o.algoId)+":"+(oi.price||+(o.price||0))+":"+oi.kind+":"+oi.sizeTxt);});
   const pb = PENDBR[S.sym];
-  if(pb) a.push("PB:" + pb.sl + ":" + pb.tp + ":" + pb.qty);
+  if(pb) a.push("PB:" + pb.sl + ":" + pb.tp + ":" + pb.qty + ":" + (pb.items ? pb.items.map(i=>i.tp).join(",") : ""));
   return a.join("|");
 }
 
@@ -2872,57 +2965,69 @@ function liveLines(force){
       }
 
       d.querySelector(".xbtn").addEventListener("click",ev=>{ev.stopPropagation();
-        pb.sl=null;savePendBr();syncTradeLines();toast("已取消待挂止损");
+        pb.sl=null;
+        if(Array.isArray(pb.items)) pb.items.forEach(it => it.sl = null);
+        savePendBr();syncTradeLines();toast("已取消待挂止损");
       });
     }
-    const hasLiveTp = (S.ords[S.sym]||[]).some(o=>ordInfo(o).tp);
-    if(pb.tp != null && !hasLiveTp){
-      const d=document.createElement("div");
-      d.className="dl dyn tp";
-      d.innerHTML='<span class="grip">待挂止盈 @ '+px(pb.tp,S.sym)+'</span><span class="xbtn" title="取消待挂止盈">✕</span>';
-      lay.appendChild(d);
-      const itObj = {el:d, v:+pb.tp, dragging:false};
-      LL_ITEMS.push(itObj);
 
-      const grip = d.querySelector(".grip");
-      if(grip){
-        let isDragging = false, curP = +pb.tp;
-        grip.addEventListener("pointerdown", ev => {
-          isDragging = true; itObj.dragging = true; 
-          d.classList.add("dragging"); grip.classList.add("dragging");
-          try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
-          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
-        }, { passive: false });
-        grip.addEventListener("pointermove", ev => {
-          if(!isDragging) return;
-          const p = y2p(ev.clientY);
-          if(p > 0){
-            curP = alignPx(p, S.sym);
-            d.style.top = ev.clientY + "px";
-            grip.textContent = "待挂止盈 → " + px(curP, S.sym);
-          }
-          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
-        }, { passive: false });
-        const onUp = ev => {
-          if(!isDragging) return;
-          isDragging = false; itObj.dragging = false; 
-          d.classList.remove("dragging"); grip.classList.remove("dragging");
-          try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
-          ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
-          if(curP > 0){
-            pb.tp = curP; savePendBr(); syncTradeLines();
-            toast("已修改待挂止盈价格至 " + px(curP, S.sym));
-          }
-        };
-        grip.addEventListener("pointerup", onUp, { passive: false });
-        grip.addEventListener("pointercancel", onUp, { passive: false });
-        grip.addEventListener("touchstart", e => e.stopPropagation(), { passive: false });
+    // 独立待挂止盈线（支持多笔入场各自的止盈）
+    const pbItems = Array.isArray(pb.items) ? pb.items : [pb];
+    pbItems.forEach(it => {
+      const isLive = (S.ords[S.sym]||[]).some(o => (it.tpOid && String(o.orderId||o.algoId) === String(it.tpOid)) || Math.abs((o.price||0) - it.tp) < 1e-6);
+      if(it.tp != null && !isLive && !it.tpFbDone){
+        const d=document.createElement("div");
+        d.className="dl dyn tp";
+        const itQtyTxt = it.qty ? sz(it.qty, S.sym) + " " : "";
+        d.innerHTML='<span class="grip">待挂止盈 ' + itQtyTxt + '@ '+px(it.tp,S.sym)+'</span><span class="xbtn" title="取消待挂止盈">✕</span>';
+        lay.appendChild(d);
+        const itObj = {el:d, v:+it.tp, dragging:false};
+        LL_ITEMS.push(itObj);
+
+        const grip = d.querySelector(".grip");
+        if(grip){
+          let isDragging = false, curP = +it.tp;
+          grip.addEventListener("pointerdown", ev => {
+            isDragging = true; itObj.dragging = true; 
+            d.classList.add("dragging"); grip.classList.add("dragging");
+            try{ grip.setPointerCapture(ev.pointerId); }catch(e){}
+            ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+          }, { passive: false });
+          grip.addEventListener("pointermove", ev => {
+            if(!isDragging) return;
+            const p = y2p(ev.clientY);
+            if(p > 0){
+              curP = alignPx(p, S.sym);
+              d.style.top = ev.clientY + "px";
+              grip.textContent = "待挂止盈 " + itQtyTxt + "→ " + px(curP, S.sym);
+            }
+            ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+          }, { passive: false });
+          const onUp = ev => {
+            if(!isDragging) return;
+            isDragging = false; itObj.dragging = false; 
+            d.classList.remove("dragging"); grip.classList.remove("dragging");
+            try{ grip.releasePointerCapture(ev.pointerId); }catch(e){}
+            ev.stopPropagation(); if(ev.cancelable) ev.preventDefault();
+            if(curP > 0){
+              it.tp = curP;
+              pb.tp = curP;
+              savePendBr(); syncTradeLines();
+              toast("已修改待挂止盈价格至 " + px(curP, S.sym));
+            }
+          };
+          grip.addEventListener("pointerup", onUp, { passive: false });
+          grip.addEventListener("pointercancel", onUp, { passive: false });
+          grip.addEventListener("touchstart", e => e.stopPropagation(), { passive: false });
+        }
+
+        d.querySelector(".xbtn").addEventListener("click",ev=>{ev.stopPropagation();
+          it.tp=null;
+          if(pb.items && pb.items.every(x => x.tp == null)) pb.tp = null;
+          savePendBr();syncTradeLines();toast("已取消该笔待挂止盈");
+        });
       }
-
-      d.querySelector(".xbtn").addEventListener("click",ev=>{ev.stopPropagation();
-        pb.tp=null;savePendBr();syncTradeLines();toast("已取消待挂止盈");
-      });
-    }
+    });
   }
 
   llPlace();
@@ -2978,21 +3083,26 @@ function syncTradeLines(){
     }
   }
 
-  tradeLines.pos.forEach(l => candleSeries.removePriceLine(l));
-  tradeLines.pos = [];
-  tradeLines.ords.forEach(l => candleSeries.removePriceLine(l));
-  tradeLines.ords = [];
+  // 绘制仓位与挂单线
+  if(tradeLines.pos && tradeLines.pos.length){
+    tradeLines.pos.forEach(l => candleSeries.removePriceLine(l));
+    tradeLines.pos = [];
+  }
+  if(tradeLines.ords && tradeLines.ords.length){
+    tradeLines.ords.forEach(l => candleSeries.removePriceLine(l));
+    tradeLines.ords = [];
+  }
 
-  const pp = curPos();
-  if(pp && +pp.entry > 0){
-    const lg = pp.amt > 0;
+  const p = posOf(S.sym)[0];
+  if(p && Math.abs(p.amt) > 0){
+    const lg = p.amt > 0;
     const posLine = candleSeries.createPriceLine({
-      price: +pp.entry,
+      price: p.entry,
       color: blueColor,
       lineWidth: 2,
       lineStyle: LightweightCharts.LineStyle.Solid,
       axisLabelVisible: false,
-      title: "持仓 " + (lg ? "多 " : "空 ") + sz(Math.abs(pp.amt), pp.sym) + " @" + px(pp.entry, pp.sym)
+      title: (lg ? "多仓 " : "空仓 ") + sz(Math.abs(p.amt), S.sym) + " @" + px(p.entry, S.sym)
     });
     tradeLines.pos.push(posLine);
   }
@@ -3027,18 +3137,21 @@ function syncTradeLines(){
       });
       tradeLines.ords.push(slLine);
     }
-    const hasLiveTp = (S.ords[S.sym]||[]).some(o=>ordInfo(o).tp);
-    if(pb.tp != null && !hasLiveTp){
-      const tpLine = candleSeries.createPriceLine({
-        price: pb.tp,
-        color: upColor,
-        lineWidth: 1.5,
-        lineStyle: LightweightCharts.LineStyle.Dashed,
-        axisLabelVisible: false,
-        title: "待挂止盈 @" + px(pb.tp, S.sym)
-      });
-      tradeLines.ords.push(tpLine);
-    }
+    const pbItems = Array.isArray(pb.items) ? pb.items : [pb];
+    pbItems.forEach(it => {
+      const isLive = (S.ords[S.sym]||[]).some(o => (it.tpOid && String(o.orderId||o.algoId) === String(it.tpOid)) || Math.abs((o.price||0) - it.tp) < 1e-6);
+      if(it.tp != null && !isLive && !it.tpFbDone){
+        const tpLine = candleSeries.createPriceLine({
+          price: it.tp,
+          color: upColor,
+          lineWidth: 1.5,
+          lineStyle: LightweightCharts.LineStyle.Dashed,
+          axisLabelVisible: false,
+          title: "待挂止盈 " + (it.qty ? sz(it.qty, S.sym) + " " : "") + "@" + px(it.tp, S.sym)
+        });
+        tradeLines.ords.push(tpLine);
+      }
+    });
   }
 
   syncHandles();
@@ -3749,9 +3862,42 @@ $("#ohGo").addEventListener("click",async()=>{
       if(!tpOk) toast("⚠ 止盈单未能立刻挂入，成交后会自动补挂");
     }
 
-    PENDBR[sym]={side,sl:r.sl,tp:r.tp,qty:+qty,slDone:slOk,ts:Date.now(),
-      tpFbDone:tpOk,tpFbOid:oidOf(tpRes),
-      oid:oidOf(eRes)};
+    if(!PENDBR[sym]){
+      PENDBR[sym] = { side, sl: r.sl, tp: r.tp, qty: +qty, slDone: slOk, ts: Date.now(), tpFbDone: tpOk, tpFbOid: oidOf(tpRes), oid: oidOf(eRes), items: [] };
+    }
+    if(!Array.isArray(PENDBR[sym].items)){
+      const oldB = Object.assign({}, PENDBR[sym]);
+      delete oldB.items;
+      PENDBR[sym].items = (oldB.oid || oldB.tp != null || oldB.sl != null) ? [oldB] : [];
+    }
+    const bracketItem = {
+      id: "br_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6),
+      oid: oidOf(eRes),
+      side,
+      entry: +r.e,
+      sl: r.sl,
+      tp: r.tp,
+      qty: +qty,
+      slDone: slOk,
+      tpFbDone: tpOk,
+      tpFbOid: oidOf(tpRes),
+      tpOid: oidOf(tpRes),
+      ts: Date.now()
+    };
+    PENDBR[sym].items.push(bracketItem);
+    PENDBR[sym].side = side;
+    PENDBR[sym].ts = Date.now();
+    const safeSl = PENDBR[sym].items.reduce((acc, it) => {
+      if(it.sl == null) return acc;
+      if(acc == null) return +it.sl;
+      return buy ? Math.min(acc, +it.sl) : Math.max(acc, +it.sl);
+    }, r.sl != null ? +r.sl : null);
+    PENDBR[sym].sl = safeSl;
+    PENDBR[sym].tp = r.tp;
+    PENDBR[sym].qty = PENDBR[sym].items.reduce((sum, it) => sum + (+it.qty || 0), 0);
+    PENDBR[sym].oid = oidOf(eRes);
+    PENDBR[sym].slDone = slOk;
+    PENDBR[sym].tpFbDone = tpOk;
     savePendBr();endFlow();
   }finally{SUBMITTING=false;try{render();}catch(e){}load(true);}
 });

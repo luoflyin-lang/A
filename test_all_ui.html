@@ -667,6 +667,116 @@
           assert(typeof audio.checkCandleAlerts === "function", "缺少 checkCandleAlerts 调度函数");
           audio.checkCandleAlerts();
         }
+      },
+
+      // 15. 多笔独立入场止盈隔离与并存验证
+      {
+        id: "independent_multi_tp",
+        name: "18. 多笔独立入场止盈隔离与并存验证（两单独立止盈价、数量与补挂）",
+        test: async () => {
+          w.DRY_RUN = true;
+          w.LOCK = "";
+          w.ACCT_LOADING = false;
+          w.S.acct = { equity: 10000, avail: 10000, used: 0, wallet: 10000, upnl: 0 };
+          w.S.sym = "BTCUSDC";
+          w.S.mid["BTCUSDC"] = 80000;
+          const pendbr = w.BN.pendbr();
+          delete pendbr["BTCUSDC"];
+
+          // 拦截 placeOrder 返回模拟订单
+          let orderCounter = 100;
+          const placedHistory = [];
+          const origPlace = w.placeOrder;
+          w.placeOrder = async (ord, label, silent, opt) => {
+            orderCounter++;
+            const res = { orderId: orderCounter, algoId: orderCounter };
+            placedHistory.push({ ord, label, res });
+            return res;
+          };
+
+          // 1. 下第 1 笔单：入场 79500, 止损 79000, 止盈 81000
+          w.F.risk = 1;
+          w.F.e = 79500;
+          w.F.sl = 79000;
+          w.F.tp = 81000;
+          w.F.on = true;
+          w.render();
+          await sleep(100);
+          w.NET.info = Date.now();
+          w.NET.mid = Date.now();
+          w.setLock("");
+          await w.$("#ohGo").click();
+          await sleep(200);
+
+          const b1 = pendbr["BTCUSDC"];
+          assert(b1, "下单后未创建 PENDBR['BTCUSDC'] 记录");
+          assert(Array.isArray(b1.items) && b1.items.length === 1, `第 1 笔单 items 长度错误: ${b1.items?.length}`);
+          assert(b1.items[0].tp === 81000, `第 1 笔单止盈价记录错误: ${b1.items[0].tp}`);
+          const qty1 = b1.items[0].qty;
+          assert(qty1 > 0, "第 1 笔单数量未正确记录");
+
+          // 2. 下第 2 笔单：入场 79200, 止损 78800, 止盈 82500
+          w.F.risk = 1;
+          w.F.e = 79200;
+          w.F.sl = 78800;
+          w.F.tp = 82500;
+          w.F.on = true;
+          w.render();
+          await sleep(100);
+          w.NET.info = Date.now();
+          w.NET.mid = Date.now();
+          w.setLock("");
+          await w.$("#ohGo").click();
+          await sleep(300);
+          const b2 = pendbr["BTCUSDC"];
+          assert(b2.items && b2.items.length === 2, `第 2 笔单提交后 items 长度未增加至 2: ${b2.items?.length}`);
+          // 核心断言：旧单止盈价绝不被篡改！
+          assert(b2.items[0].tp === 81000, `第 1 笔旧单止盈被篡改！期望 81000，实际为 ${b2.items[0].tp}`);
+          assert(b2.items[1].tp === 82500, `第 2 笔新单止盈未正确记录！期望 82500，实际为 ${b2.items[1].tp}`);
+          const qty2 = b2.items[1].qty;
+          assert(qty2 > 0, "第 2 笔单数量未正确记录");
+
+          // 3. 模拟两笔订单均已成交，仓位为两者之和
+          w.S.pos["BTCUSDC"] = { sym: "BTCUSDC", amt: +(qty1 + qty2).toFixed(4), entry: 79350 };
+          w.S.ords["BTCUSDC"] = []; // 入场单已从挂单簿成交移除
+          placedHistory.length = 0; // 清空历史，专注观测 firePendingBracket
+
+          await w.firePendingBracket("BTCUSDC");
+          await sleep(200);
+
+          // 核心断言：firePendingBracket 必须为两笔单子分别独立挂出对应价格与数量的止盈单
+          const tpPlaced = placedHistory.filter(p => p.ord && p.ord.price && (p.ord.reduceOnly === "true" || p.ord.type === "LIMIT"));
+          assert(tpPlaced.length >= 2, `未能挂出 2 笔独立止盈单，实际挂出 ${tpPlaced.length} 笔`);
+          const tp1 = tpPlaced.find(p => Math.abs(+p.ord.price - 81000) < 1);
+          const tp2 = tpPlaced.find(p => Math.abs(+p.ord.price - 82500) < 1);
+          assert(tp1, "未找到第 1 笔单的独立止盈挂单 @81000");
+          assert(tp2, "未找到第 2 笔单的独立止盈挂单 @82500");
+          assert(Math.abs(+tp1.ord.quantity - qty1) < 1e-4, `第 1 笔止盈数量不匹配: 期望 ${qty1}, 实际 ${tp1.ord.quantity}`);
+          assert(Math.abs(+tp2.ord.quantity - qty2) < 1e-4, `第 2 笔止盈数量不匹配: 期望 ${qty2}, 实际 ${tp2.ord.quantity}`);
+
+          // 4. 校验 ordInfo 准确识别 limit reduceOnly 止盈单
+          const sampleTpOrd = {
+            symbol: "BTCUSDC",
+            side: "SELL",
+            type: "LIMIT",
+            price: "81000",
+            quantity: "0.1",
+            reduceOnly: "true"
+          };
+          const info = w.BN.TRADE.core ? w.BN.TRADE.core : null;
+          // 在 order.html 全局环境中检测 ordInfo
+          const oi = typeof w.ordInfo === "function" ? w.ordInfo(sampleTpOrd) : null;
+          if(oi){
+            assert(oi.tp === true, "ordInfo 未能识别 reduceOnly 限价止盈单为 oi.tp = true");
+            assert(oi.kind === "止盈", `ordInfo 限价止盈单 kind 期望「止盈」，实际「${oi.kind}」`);
+          }
+
+          // 恢复现场
+          w.placeOrder = origPlace;
+          delete w.S.pos["BTCUSDC"];
+          delete pendbr["BTCUSDC"];
+          w.endFlow();
+        }
       }
     ];
 
