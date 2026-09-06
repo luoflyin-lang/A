@@ -84,12 +84,13 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-
 #name .caret{font-size:13px;color:var(--faint);margin-left:2px;cursor:pointer;padding:3px 7px;border-radius:6px;transition:all .15s;line-height:1}
 #name .caret:hover{color:var(--text);background:var(--raised)}
 #name .caret:active{transform:scale(0.94)}
-#bStar,#bAudio{height:32px;min-width:34px;padding:0 7px;border-radius:9px;font-size:16px;line-height:1;
+#bStar{height:32px;min-width:34px;padding:0 7px;border-radius:9px;font-size:16px;line-height:1;
   color:var(--faint);background:var(--fabbg);box-shadow:0 2px 8px rgba(0,0,0,.04);backdrop-filter:blur(8px);
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s,transform .12s}
-#bStar:hover,#bAudio:hover{background:var(--raised)}
-#bStar:active,#bAudio:active{transform:scale(0.94)}
+#bStar:hover{background:var(--raised)}
+#bStar:active{transform:scale(0.94)}
 #bStar.on{color:var(--amber);background:var(--raised)}
+#bAudio{display:none !important}
 
 #lockbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:30;display:none;
   background:var(--ink);border:none;color:var(--onink);
@@ -294,7 +295,7 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
     <span class="caret" id="nListBtn" title="打开免挂单费品种列表">☰</span>
   </div>
   <button id="bStar" title="标记这个机会（W）：等这根 K 线收盘再下单">☆</button>
-  <button id="bAudio" title="提示音（15m 前 3 分 / 1h 前 5 分），点击试听">🔔</button>
+  <button id="bAudio" style="display:none" aria-hidden="true">🔔</button>
 </div>
 
 <div id="br">
@@ -2483,7 +2484,7 @@ function wPrune(){const n=Date.now(),b=WATCH.length;
 let _pendingAlert = null;
 
 // 动态生成标准 WAV Data URI，作为 HTML5 <audio> 双重保障
-function createWavDataUri(notes, totalSec = 1.0) {
+function createWavDataUri(notes, totalSec = 5.0) {
   try {
     const sampleRate = 22050;
     const numSamples = Math.floor(sampleRate * totalSec);
@@ -2493,12 +2494,14 @@ function createWavDataUri(notes, totalSec = 1.0) {
       const start = Math.floor(sampleRate * (n.delay || 0));
       const len = Math.floor(sampleRate * (n.dur || 0.3));
       const freq = n.freq;
-      const gain = n.gain || 0.6;
+      const gain = n.gain || 0.55;
       for (let i = 0; i < len && start + i < numSamples; i++) {
         const t = i / sampleRate;
-        const env = Math.min(1, i / (sampleRate * 0.015)) * Math.exp(-4.0 * (i / len));
+        const env = Math.min(1, i / (sampleRate * 0.015)) * Math.exp(-3.2 * (i / len));
         const sample = (Math.sin(2 * Math.PI * freq * t) * 0.85 + Math.sin(4 * Math.PI * freq * t) * 0.15) * env * gain;
-        buffer[start + i] += Math.floor(sample * 16000);
+        const cur = buffer[start + i];
+        const add = Math.floor(sample * 16000);
+        buffer[start + i] = Math.max(-32767, Math.min(32767, cur + add));
       }
     });
 
@@ -2526,23 +2529,46 @@ function createWavDataUri(notes, totalSec = 1.0) {
     wavBytes.set(new Uint8Array(buffer.buffer), 44);
 
     let binary = '';
-    for (let i = 0; i < wavBytes.length; i++) binary += String.fromCharCode(wavBytes[i]);
+    const chunk = 8192;
+    for (let i = 0; i < wavBytes.length; i += chunk) {
+      const sub = wavBytes.subarray(i, Math.min(i + chunk, wavBytes.length));
+      binary += String.fromCharCode.apply(null, sub);
+    }
     return 'data:audio/wav;base64,' + btoa(binary);
   } catch(e) {
     return "";
   }
 }
 
-const WAV_15M = createWavDataUri([
-  { freq: 1046.5, delay: 0, dur: 0.22, gain: 0.6 },
-  { freq: 1318.5, delay: 0.14, dur: 0.32, gain: 0.6 }
-], 0.5);
+// 15分钟收盘前 3 分钟（5 秒）：清脆灵动双音阶律动（叮-咚四重奏）
+const NOTES_15M = [
+  { freq: 1046.5, delay: 0.0,  dur: 0.35, gain: 0.55 }, // C6
+  { freq: 1318.5, delay: 0.18, dur: 0.65, gain: 0.55 }, // E6
+  { freq: 1046.5, delay: 1.25, dur: 0.35, gain: 0.55 },
+  { freq: 1318.5, delay: 1.43, dur: 0.65, gain: 0.55 },
+  { freq: 1046.5, delay: 2.50, dur: 0.35, gain: 0.55 },
+  { freq: 1318.5, delay: 2.68, dur: 0.65, gain: 0.55 },
+  { freq: 1046.5, delay: 3.75, dur: 0.35, gain: 0.55 },
+  { freq: 1318.5, delay: 3.93, dur: 1.05, gain: 0.55 }  // 余韵至 ~5.0s
+];
 
-const WAV_1H = createWavDataUri([
-  { freq: 523.25, delay: 0, dur: 0.32, gain: 0.65 },
-  { freq: 659.25, delay: 0.14, dur: 0.38, gain: 0.65 },
-  { freq: 783.99, delay: 0.28, dur: 0.60, gain: 0.70 }
-], 0.9);
+// 1小时收盘前 5 分钟（5 秒）：浑厚悠远大周期三和弦钟声（和鸣三重钟）
+const NOTES_1H = [
+  { freq: 523.25, delay: 0.0,  dur: 1.20, gain: 0.55 }, // C5
+  { freq: 659.25, delay: 0.14, dur: 1.20, gain: 0.55 }, // E5
+  { freq: 783.99, delay: 0.28, dur: 1.30, gain: 0.60 }, // G5
+
+  { freq: 523.25, delay: 1.65, dur: 1.20, gain: 0.55 },
+  { freq: 659.25, delay: 1.79, dur: 1.20, gain: 0.55 },
+  { freq: 783.99, delay: 1.93, dur: 1.30, gain: 0.60 },
+
+  { freq: 523.25, delay: 3.30, dur: 1.65, gain: 0.55 },
+  { freq: 783.99, delay: 3.44, dur: 1.55, gain: 0.60 },
+  { freq: 1046.5, delay: 3.58, dur: 1.40, gain: 0.60 }  // C6 长鸣余韵至 ~5.0s
+];
+
+const WAV_15M = createWavDataUri(NOTES_15M, 5.0);
+const WAV_1H = createWavDataUri(NOTES_1H, 5.0);
 
 function wAudioInit(){
   try{
@@ -2582,19 +2608,15 @@ function unlockAudio(){
   document.addEventListener(ev, unlockAudio, { passive: true, capture: true });
 });
 
-// 15分钟收盘前 3 分钟提示音：清脆高阶双音阶（叮-咚）
+// 15分钟收盘前 3 分钟提示音（5 秒持续）：清脆高阶双音阶四重律动
 function play15mAlert(showToast = true){
   let played = false;
   try{
     unlockAudio();
     if(WAC){
       if(WAC.state === "suspended") WAC.resume().catch(()=>{});
-      const notes = [
-        { freq: 1046.5, delay: 0, dur: 0.22, gain: 0.55 },    // C6
-        { freq: 1318.5, delay: 0.14, dur: 0.32, gain: 0.55 }  // E6
-      ];
       const t0 = WAC.currentTime || 0;
-      notes.forEach(n => {
+      NOTES_15M.forEach(n => {
         const o = WAC.createOscillator(), g = WAC.createGain();
         const t = t0 + n.delay;
         o.type = "sine";
@@ -2622,25 +2644,20 @@ function play15mAlert(showToast = true){
     }catch(_){}
   }
 
-  try{ if(navigator.vibrate) navigator.vibrate([80, 50, 80]); }catch(e){}
+  try{ if(navigator.vibrate) navigator.vibrate([100, 100, 100, 100, 100, 100, 100]); }catch(e){}
   if(showToast) toast("🔔 15分钟 K 线还有 3 分钟收盘", true);
-  log("[AUDIO] 15m alert fired (3 min before close)");
+  log("[AUDIO] 15m alert fired (3 min before close, 5s duration)");
 }
 
-// 1小时收盘前 5 分钟提示音：浑厚大周期三和弦钟声（和鸣三音）
+// 1小时收盘前 5 分钟提示音（5 秒持续）：浑厚大周期三和弦大钟鸣
 function play1hAlert(showToast = true){
   let played = false;
   try{
     unlockAudio();
     if(WAC){
       if(WAC.state === "suspended") WAC.resume().catch(()=>{});
-      const notes = [
-        { freq: 523.25, delay: 0, dur: 0.32, gain: 0.65 },    // C5
-        { freq: 659.25, delay: 0.14, dur: 0.38, gain: 0.65 },  // E5
-        { freq: 783.99, delay: 0.28, dur: 0.60, gain: 0.70 }   // G5
-      ];
       const t0 = WAC.currentTime || 0;
-      notes.forEach(n => {
+      NOTES_1H.forEach(n => {
         const o = WAC.createOscillator(), g = WAC.createGain();
         const t = t0 + n.delay;
         o.type = "triangle";
@@ -2668,9 +2685,9 @@ function play1hAlert(showToast = true){
     }catch(_){}
   }
 
-  try{ if(navigator.vibrate) navigator.vibrate([120, 80, 180]); }catch(e){}
+  try{ if(navigator.vibrate) navigator.vibrate([200, 150, 200, 150, 300]); }catch(e){}
   if(showToast) toast("🔔 1小时 K 线还有 5 分钟收盘", true);
-  log("[AUDIO] 1h alert fired (5 min before close)");
+  log("[AUDIO] 1h alert fired (5 min before close, 5s duration)");
 }
 
 let _alert15mKey = null;
