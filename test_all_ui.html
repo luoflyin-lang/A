@@ -128,6 +128,8 @@
     w.endFlow = w.BN.TRADE.endFlow;
     w.startFlow = w.BN.TRADE.startFlow;
     w.setTestnet = w.BN.TRADE.setTestnet;
+    w.CHART_VIEW_STATE = w.CHART_VIEW_STATE || (w.BN && w.BN.chartView && w.BN.chartView());
+    w.tvChart = w.tvChart || (w.BN && w.BN.tvChart && w.BN.tvChart());
     
     // 强制开启 DRY_RUN 演练模式，保证绝对不消耗一分钱真实资金！
     w.DRY_RUN = true;
@@ -458,10 +460,10 @@
         }
       },
 
-      // 9. 触屏切币横向滑动与 3 秒撤销
+      // 9. 触屏/按键切币平滑过渡与静默沉浸体验
       {
         id: "swipe_undo",
-        name: "12. 切换币种及 3 秒撤销交互 Toast",
+        name: "12. 切换币种平滑过渡与静默体验（无多余Toast）",
         test: async () => {
           w.S.filter = false;
           w.S.uni = [{ name: "BTCUSDC" }, { name: "ETHUSDC" }, { name: "SOLUSDC" }];
@@ -471,16 +473,15 @@
           const newSym = w.S.sym;
           assert(newSym !== oldSym, "step(1) 未能成功切换到下一个币种");
 
+          // 验证切币不弹噪音 Toast（保证沉浸式快速浏览，无多余弹窗遮挡）
           const toastEl = w.$("#toast");
-          assert(toastEl && toastEl.textContent.includes("点此撤销"), "切币后未提供撤销 Toast");
+          const isSpamming = toastEl && toastEl.classList.contains("on") && toastEl.textContent.includes("已切至");
+          assert(!isSpamming, "切币产生多余噪音 Toast 提示");
 
-          // 点击撤销链接切回
-          const undoLink = toastEl.querySelector("a");
-          if (undoLink) {
-            undoLink.click();
-            await sleep(200);
-            assert(w.S.sym === oldSym, "点击撤销链接未切回原币种");
-          }
+          // 测试反向切换 step(-1) 能够精确切回
+          w.step(-1);
+          await sleep(200);
+          assert(w.S.sym === oldSym, "step(-1) 未能准确切回原币种");
         }
       },
 
@@ -500,6 +501,39 @@
           await sleep(200);
           assert(w.IS_TESTNET === false, "未成功切回实盘");
           assert(w.KKEY === "bn_key", `实盘存储命名空间错误: ${w.KKEY}`);
+        }
+      },
+
+      // 11. K线图表视口记忆与平移跟踪（切换币种保留缩放与相对位置）
+      {
+        id: "chart_view_state",
+        name: "14. K线视口记忆与平移跟踪（切换币种保留缩放与相对位置）",
+        test: async () => {
+          assert(w.CHART_VIEW_STATE, "未定义 CHART_VIEW_STATE 视口管理对象");
+          
+          // 模拟用户缩放到 60 根，且向左拖拽留白 20 根
+          w.CHART_VIEW_STATE.count = 60;
+          w.CHART_VIEW_STATE.rightOffset = -20;
+          
+          // 准备虚拟币种与K线
+          w.S.uni = [{ name: "BTCUSDC" }, { name: "ETHUSDC" }, { name: "SOLUSDC" }];
+          w.S.kc["SOLUSDC|15m"] = {
+            k: Array.from({length: 150}, (_, i) => ({ t: 1700000000000 + i * 900000, o: 150, h: 152, l: 149, c: 151 })),
+            t: Date.now()
+          };
+          
+          // 切换到 SOLUSDC
+          await w.pick("SOLUSDC");
+          await sleep(250);
+          
+          // 验证视口没有被粗暴重置或强行右对齐 (避免旧代码的 to: total + 4, count: 100)
+          const range = w.tvChart.timeScale().getVisibleLogicalRange();
+          assert(range != null, "无法获取图表可视逻辑范围");
+          const count = Math.round(range.to - range.from);
+          const rightOffset = Math.round(w.S.k.length - range.to);
+          
+          assert(Math.abs(count - 60) <= 2, `切币后缩放根数被意外重置: 期望约 60，实际 ${count}`);
+          assert(Math.abs(rightOffset - (-20)) <= 2, `切币后右侧偏移被意外右对齐: 期望约 -20，实际 ${rightOffset}`);
         }
       }
     ];

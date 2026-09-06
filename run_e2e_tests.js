@@ -188,7 +188,7 @@ async function startBrowserAndRunTests() {
   } catch (e) {}
 
   if (summary.includes("全部通过")) {
-    console.log("✔ 全部 13 组测试用例 100% 通过！每个按钮与逻辑分支均经过真实运行时验证！\n");
+    console.log("✔ 全部 14 组测试用例 100% 通过！每个按钮与逻辑分支均经过真实运行时验证！\n");
     process.exit(0);
   } else {
     console.error("✘ 部分测试未通过，请检查上述详情！\n");

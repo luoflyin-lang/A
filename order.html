@@ -725,6 +725,30 @@ function errsOf(res){
 let tvChart=null, candleSeries=null, emaSeries=null;
 let tradeLines = { entry: null, sl: null, tp: null, pos: [], ords: [] };
 
+// K线图表视口记忆与平移跟踪（保存用户缩放根数与右侧/平移相对位置，防止切币强制右对齐）
+const CHART_VIEW_KEY = "bn_chart_view";
+let CHART_VIEW_STATE = { count: 100, rightOffset: -4 };
+try {
+  const saved = localStorage.getItem(CHART_VIEW_KEY);
+  if(saved){
+    const p = JSON.parse(saved);
+    if(p && typeof p.count === "number" && p.count >= 10 && p.count <= 1000) CHART_VIEW_STATE.count = Math.round(p.count);
+    if(p && typeof p.rightOffset === "number") CHART_VIEW_STATE.rightOffset = Math.round(p.rightOffset);
+  }
+} catch(e){}
+window.CHART_VIEW_STATE = CHART_VIEW_STATE;
+
+let _programmaticRangeTime = 0;
+let _saveChartTimer = null;
+function saveChartViewStateDebounced(){
+  if(_saveChartTimer) clearTimeout(_saveChartTimer);
+  _saveChartTimer = setTimeout(()=>{
+    try {
+      localStorage.setItem(CHART_VIEW_KEY, JSON.stringify(CHART_VIEW_STATE));
+    } catch(e){}
+  }, 300);
+}
+
 function initTradingViewChart(){
   const container = document.getElementById("tv_chart");
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -768,6 +792,7 @@ function initTradingViewChart(){
     handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
     handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true }
   });
+  window.tvChart = tvChart;
 
   candleSeries = tvChart.addCandlestickSeries({
     upColor: upColor,
@@ -803,7 +828,20 @@ function initTradingViewChart(){
   }
 
   tvChart.timeScale().subscribeVisibleTimeRangeChange(scheduleHandles);
-  tvChart.timeScale().subscribeVisibleLogicalRangeChange(scheduleHandles);
+  tvChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    scheduleHandles();
+    if(Date.now() < _programmaticRangeTime) return;
+    if(!range || range.from == null || range.to == null) return;
+    if(!S.k || !S.k.length) return;
+
+    const total = S.k.length;
+    const count = Math.max(15, Math.round(range.to - range.from));
+    const rightOffset = Math.round(total - range.to);
+
+    CHART_VIEW_STATE.count = count;
+    CHART_VIEW_STATE.rightOffset = rightOffset;
+    saveChartViewStateDebounced();
+  });
 
   window.addEventListener("resize", () => {
     if(tvChart) tvChart.resize(window.innerWidth, window.innerHeight);
@@ -1008,20 +1046,29 @@ function updateChartCandles(rawBars, resetRange){
     map.set(timeSec, { time: timeSec, open: x.o, high: x.h, low: x.l, close: x.c });
   });
   const data = Array.from(map.values()).sort((a, b) => a.time - b.time);
+
+  _programmaticRangeTime = Date.now() + 300;
   candleSeries.setData(data);
 
   if(data.length > 0){
     const emaData = calcEmaArray(data, 20);
     emaSeries.setData(emaData);
 
-    // K线默认显示数量 100 根
+    // K线视口：保持并记忆用户自定义的缩放根数与拖拽平移偏移量（绝不强制覆盖右对齐）
     if(resetRange && tvChart){
       const total = data.length;
-      const count = 100;
-      tvChart.timeScale().setVisibleLogicalRange({
-        from: Math.max(0, total - count),
-        to: total + 4
-      });
+      const count = Math.max(15, Math.min(total, CHART_VIEW_STATE.count || 100));
+      const rightOffset = (typeof CHART_VIEW_STATE.rightOffset === "number") ? CHART_VIEW_STATE.rightOffset : -4;
+
+      let to = total - rightOffset;
+      // 边界容错：防止因币种K线总数极少导致显示越界
+      if(to < 10 || to > total + Math.max(100, count * 2)){
+        to = total + 4;
+      }
+      const from = to - count;
+
+      _programmaticRangeTime = Date.now() + 300;
+      tvChart.timeScale().setVisibleLogicalRange({ from, to });
     }
   }
 }
@@ -1042,10 +1089,12 @@ async function kline(force){
     const r=await pub("/fapi/v1/klines",{symbol:reqSym,interval:reqTf,limit:500});
     const raw=(Array.isArray(r)?r:[]).map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
     if(raw.length){
+      const hasDrawn = !!(c && c.k && c.k.length > 0);
       S.kc[key]={k:raw,t:Date.now()};
       // 防切币竞态条件：确认当前仍是请求的币种和周期
       if(S.sym === reqSym && S.tf === reqTf){
-        useCandles(raw, true);
+        // 若已用缓存绘制过，网络拉回时仅静默更新数据，绝不破坏用户刚刚调整的视口位置
+        useCandles(raw, !hasDrawn);
         if((reqTf === "15m" || reqTf === "1h") && raw.length >= 16){
           if(!S.ctx[reqSym]) S.ctx[reqSym] = {};
           S.ctx[reqSym]["natr_" + reqTf] = calcNatrFromCandles(raw);
@@ -2376,10 +2425,8 @@ function step(n){
   const listToUse = l.length ? l : (S.uni || []).map(u => ({ n: u.name }));
   if(!listToUse.length) return;
   let i=listToUse.findIndex(x=>x.n===S.sym);if(i<0)i=0;
-  const prevSym = S.sym;
   const nextSym = listToUse[(i+n+listToUse.length)%listToUse.length].n;
   pick(nextSym);
-  toast("已切至 "+disp(nextSym)+" · <a href='javascript:void(0)' onclick='pick(\""+prevSym+"\")' style='color:#fff;text-decoration:underline;margin-left:4px'>3秒内点此撤销</a>", true);
 }
 
 /* ================= 下单：按止损自动算仓 ================= */
@@ -3202,7 +3249,6 @@ async function switchTf(newTf){
   wSync();
   refreshNatrs(S.tf, false).catch(()=>{});
   if($("#shList").classList.contains("on")) list();
-  toast("已切换为 "+S.tf+" 周期（筛选机制联动）");
 }
 
 // 顶部币种与周期点击交互
@@ -3491,6 +3537,8 @@ window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,l
   pendbr:()=>PENDBR,
   keys:()=>openKey("set"),
   $: $,
+  chartView:()=>CHART_VIEW_STATE,
+  tvChart:()=>tvChart,
   setProxy:(http,ws)=>{
     try{localStorage.setItem("bn_proxy",JSON.stringify({http:http||"",ws:ws||""}));}
     catch(e){return "存不进去："+e.message;}
