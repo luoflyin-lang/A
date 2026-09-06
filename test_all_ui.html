@@ -822,6 +822,57 @@
           await sleep(100);
           assert(!w.$("#kCameraBox").classList.contains("on"), "closeKey 后未停止/隐藏摄像头视窗");
         }
+      },
+      {
+        id: "candle_countdown",
+        name: "20. 右上角收盘倒计时（平常15:00/14:00不读秒，最后1分钟00:59读秒与高亮）",
+        test: async () => {
+          const cd = w.$("#cdTimer");
+          assert(cd, "右上角未找到 #cdTimer 倒计时元素");
+          assert(w.$("#tr"), "右上角未找到 #tr 容器元素");
+          
+          const cdFn = w.BN.countdown;
+          assert(typeof cdFn === "function", "未找到 countdown 函数");
+
+          // 模拟 15 分钟周期开始时刻（剩余 15 分钟）
+          const baseTime = 1700000000000 - (1700000000000 % 900000) - (w.BN.time().offsetMs || 0);
+          
+          // 刚开盘 10 秒（剩余 14分50秒，显示 15:00）
+          cdFn(baseTime + 10000);
+          assert(cd.textContent === "15:00", `刚开盘 10s 应显示 15:00，实际: ${cd.textContent}`);
+          assert(!cd.classList.contains("ending"), "15:00 不应带有 ending 高亮样式");
+
+          // 开盘 1 分 10 秒（剩余 13分50秒，显示 14:00）
+          cdFn(baseTime + 70000);
+          assert(cd.textContent === "14:00", `开盘 1分10s 应显示 14:00，实际: ${cd.textContent}`);
+          assert(!cd.classList.contains("ending"), "14:00 不应带有 ending 高亮样式");
+
+          // 开盘 13 分 30 秒（剩余 1分30秒，显示 02:00）
+          cdFn(baseTime + 810000);
+          assert(cd.textContent === "02:00", `剩余 1m30s 应显示 02:00，实际: ${cd.textContent}`);
+
+          // 开盘 14 分 00 秒（剩余 1分00秒整，显示 01:00）
+          cdFn(baseTime + 840000);
+          assert(cd.textContent === "01:00", `剩余 1m00s 应显示 01:00，实际: ${cd.textContent}`);
+          assert(!cd.classList.contains("ending"), "01:00 仍不应带有 ending 高亮");
+
+          // 核心验证：进入最后一分钟（剩余 59 秒，显示 00:59）
+          cdFn(baseTime + 841000);
+          assert(cd.textContent === "00:59", `剩余 59s 应精确显示 00:59，实际: ${cd.textContent}`);
+          assert(cd.classList.contains("ending"), "最后一分钟应带有 ending 视觉高亮");
+
+          // 剩余 10 秒
+          cdFn(baseTime + 890000);
+          assert(cd.textContent === "00:10", `剩余 10s 应精确显示 00:10，实际: ${cd.textContent}`);
+
+          // 剩余 1 秒
+          cdFn(baseTime + 899000);
+          assert(cd.textContent === "00:01", `剩余 1s 应精确显示 00:01，实际: ${cd.textContent}`);
+
+          // 恢复正常当前时间更新
+          cdFn();
+          assert(/^\d{2}:\d{2}$/.test(cd.textContent), "当前实际时间倒计时格式应为 MM:SS");
+        }
       }
     ];
 

@@ -86,6 +86,24 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-
 #name .s:hover{background:var(--raised);color:var(--ink)}
 #name .s:active{transform:scale(0.96)}
 
+/* ---- 右上角：K线收盘倒计时 ---- */
+#tr{position:fixed;top:18px;right:22px;z-index:5;display:flex;flex-direction:row;gap:8px;align-items:center}
+#cdTimer{
+  font-family:var(--mono);
+  font-variant-numeric:tabular-nums;
+  font-size:16px;
+  font-weight:650;
+  color:var(--faint);
+  letter-spacing:-.01em;
+  padding:2px 6px;
+  border-radius:7px;
+  user-select:none;
+  -webkit-user-select:none;
+  transition:all .15s;
+}
+#cdTimer:hover{background:var(--raised);color:var(--ink)}
+#cdTimer.ending{color:var(--amber);font-weight:700}
+
 #lockbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:30;display:none;
   background:var(--ink);border:none;color:var(--onink);
   padding:7px 14px;border-radius:9px;font-size:12.5px}
@@ -271,6 +289,7 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 
 @media(max-width:640px){
   #tl{top:14px;left:16px}
+  #tr{top:14px;right:16px}
   #br{left:12px;bottom:14px}
   .fab{height:38px;font-size:13px;padding:0 12px}
   #ohud{left:12px;bottom:80px;width:calc(100vw - 24px);padding:14px 16px}
@@ -321,6 +340,10 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
   <div id="name" title="点击展开免挂单费品种列表">
     <span class="s" id="nS">—</span>
   </div>
+</div>
+
+<div id="tr">
+  <div id="cdTimer" title="K线收盘倒计时">15:00</div>
 </div>
 
 <div id="br">
@@ -3004,11 +3027,33 @@ function wTick(){
     toast(ring.map(w=>disp(w.sym)+" "+w.tf).join("、")+(ring.length>1?" 都收盘了":" 收盘了")+"，可以下单了");}
   wSync();}
 wLoad();if(wPrune())wSave();wSync();
+/* ================= 右上角 K 线收盘倒计时 ================= */
+function updateCloseCountdown(forcedNow){
+  const el = $("#cdTimer");
+  if(!el) return;
+  const period = tfMs(S.tf || "15m");
+  const t = (forcedNow != null ? forcedNow : Date.now()) + TOFF;
+  const leftMs = period - (t % period);
+  const totalSec = Math.floor(leftMs / 1000);
+  if(totalSec >= 60){
+    const m = Math.ceil(totalSec / 60);
+    const mStr = (m < 10 ? "0" : "") + m + ":00";
+    if(el.textContent !== mStr) el.textContent = mStr;
+    el.classList.remove("ending");
+  } else {
+    const sStr = "00:" + (totalSec < 10 ? "0" : "") + totalSec;
+    if(el.textContent !== sStr) el.textContent = sStr;
+    el.classList.add("ending");
+  }
+}
+updateCloseCountdown();
+setInterval(updateCloseCountdown, 250);
+
 setTimeout(()=>{wTick();setInterval(wTick,1000);},2500);
 function wGest(){WGEST=true;wAudioInit();}
 addEventListener("pointerdown",wGest,{once:true});
 addEventListener("keydown",wGest,{once:true});
-addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")wTick();});
+addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){wTick();updateCloseCountdown();}});
 
 /* ================= 品种列表 ================= */
 function pool(){
@@ -4320,6 +4365,7 @@ window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,l
   chartView:()=>CHART_VIEW_STATE,
   tvChart:()=>tvChart,
   AUDIO:{play15mAlert,play1hAlert,checkCandleAlerts,wBeep},
+  countdown:updateCloseCountdown,
   QR:{parseKeyQrData,decodeQrFromCanvas,decodeQrFromImageBlob,fillDecodedKey,startCameraScan,stopCameraScan},
   setProxy:(http,ws)=>{
     try{localStorage.setItem("bn_proxy",JSON.stringify({http:http||"",ws:ws||""}));}
@@ -4336,6 +4382,7 @@ async function boot(){
   await syncTime();
   initTradingViewChart();
   applyTheme();
+  updateCloseCountdown();
   try{await loadUniverse();sock();setInterval(tick,TICKER_MS);}
   catch(e){toast("行情加载失败，交易已锁定");log("boot universe err "+e.message);}
   await kline(true);head();
