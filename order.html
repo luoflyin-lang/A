@@ -319,7 +319,7 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 
 <div id="tl">
   <div id="name" title="点击展开免挂单费品种列表">
-    <span class="s" id="nS">BTC</span>
+    <span class="s" id="nS">—</span>
   </div>
 </div>
 
@@ -463,6 +463,7 @@ let HASKEY=!!(API_KEY&&API_SECRET);
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const S={sym:"BTC"+QUOTE,tf:"15m",uni:[],f:{},ctx:{},mid:{},maxLev:{},brk:{},levSet:{},
   k:[],kc:{},pos:{},ords:{},ordsAt:0,acct:null,side:"buy",lev:LEV_DEF,filter:true,dual:null};
+let _initialBoot = true;
 
 /* ---- 小工具 ---- */
 const nf=(v,d=2)=>v==null||isNaN(v)?"—":(+v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -1169,8 +1170,18 @@ async function loadUniverse(){
   });
   if(!uni.length)throw new Error("exchangeInfo 无免挂单费可用标的");
   S.f=f;S.uni=uni;_uniAt=Date.now();
-  if(!S.f[S.sym])S.sym=S.f["BTC"+QUOTE]?"BTC"+QUOTE:uni[0].name;
   await tickers();
+  await refreshNatrs("15m", false);
+  const pList = pool();
+  if(_initialBoot || !S.f[S.sym] || (S.filter && !pList.some(x => x.n === S.sym))){
+    if(pList && pList.length > 0){
+      S.sym = pList[0].n;
+    } else if(S.uni && S.uni.length > 0){
+      const sorted = S.uni.slice().sort((a,b) => (+((S.ctx[b.name]||{}).volUsd)||0) - (+((S.ctx[a.name]||{}).volUsd)||0));
+      S.sym = sorted[0].name;
+    }
+  }
+  _initialBoot = false;
   return uni.length;
 }
 
@@ -1264,14 +1275,15 @@ async function refreshNatrs(tf = "15m", force = false){
       const c = S.ctx[u.name] || {};
       return (+c.volUsd >= VOL_MIN) || (u.name === S.sym) || (posOf(u.name).length > 0) || wHas(u.name);
     });
+    targets.sort((a,b) => (+((S.ctx[b.name]||{}).volUsd)||0) - (+((S.ctx[a.name]||{}).volUsd)||0));
     if(!targets.length) return;
-    const CONCURRENCY = 2; // 2 个并发平滑请求
+    const CONCURRENCY = 4; // 提升并发度快速获取头部标的 NATR
     for(let i = 0; i < targets.length; i += CONCURRENCY){
       if(Date.now() < backoffUntil) break;
       const chunk = targets.slice(i, i + CONCURRENCY);
       await Promise.all(chunk.map(u => fetchSymbolNatr(u.name, "15m")));
       if(i + CONCURRENCY < targets.length){
-        await new Promise(r => setTimeout(r, 60)); // 60ms 缓冲平滑
+        await new Promise(r => setTimeout(r, 40));
       }
     }
     _natrAt = Date.now();
@@ -4324,10 +4336,9 @@ async function boot(){
   await syncTime();
   initTradingViewChart();
   applyTheme();
-  const kInit = kline(true);
   try{await loadUniverse();sock();setInterval(tick,TICKER_MS);}
   catch(e){toast("行情加载失败，交易已锁定");log("boot universe err "+e.message);}
-  await kInit;head();
+  await kline(true);head();
   await bootKeys();
   avHint();
   if(HASKEY)await startPrivate();
