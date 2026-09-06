@@ -1801,6 +1801,7 @@ function ordAge(o){const t=+o.time||+o.updateTime||0;if(!t)return "—";
 
 function posView(){
   const el=$("#pb"),rows=Object.entries(S.pos);
+  const a=acctView();
   const avEl=$("#av"),avTxt=$("#avTxt");
   if(HASKEY){
     const s="$"+money(a.equity)+" · 可用 $"+money(a.avail);
