@@ -1430,6 +1430,7 @@ function keyHint(e){
   }
   if(c===-2014||c===-1022)return "签名不通过：检查 Secret 是否粘错（-1022）";
   if(c===-1021)return "本机时间与交易所偏差过大，已重新校时，请重试（-1021）";
+  if(c===-4411||/TradFi-Perps agreement/i.test(msg))return "未签署 TradFi 协议：该品种（如美股/大宗）需先在币安 App 或网页端打开并同意协议（-4411）";
   return "";
 }
 function acctView(){const a=S.acct||{};
@@ -1791,9 +1792,15 @@ const ERRH={"-5022":"只挂单（GTX）会立刻成交被拒（已自动调整�
   "-1102":"缺少必要参数或参数格式不符",
   "-2022":"ReduceOnly 减仓单冲突被拒",
   "-4028":"所选杠杆倍数超过该币种允许的最大上限",
-  "-4120":"请使用 Algo Order API 接口提交条件单"};
-function errText(e){const c=e&&e.code!=null?String(e.code):"";
-  return ERRH[c]?ERRH[c]+"（"+c+"）":((e&&(e.msg||e.message))||("错误 "+c));}
+  "-4120":"请使用 Algo Order API 接口提交条件单",
+  "-4411":"未签署 TradFi 协议：该品种（如美股/大宗）需先在币安 App 或网页端打开并同意协议"};
+function errText(e){
+  const c=e&&e.code!=null?String(e.code):"";
+  const m=(e&&(e.msg||e.message))||"";
+  if(ERRH[c]) return ERRH[c]+"（"+c+"）";
+  if(/TradFi-Perps agreement/i.test(m)) return "未签署 TradFi 协议：该品种需先在币安 App 或网页端同意协议（-4411）";
+  return m || ("错误 "+c);
+}
 
 async function send(method,path,params,msg,silent,opt={}){
   const isEscape = !!opt.escapeLock || opt.isExit || (params && (params.closePosition === "true" || params.reduceOnly === "true")) || method === "DELETE";
