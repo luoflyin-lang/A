@@ -571,6 +571,41 @@
           assert(list1h.includes("COIN_B"), "1h 下未能展示 1h 独有的新增机会标的 COIN_B");
           assert(!list1h.includes("COIN_C"), "1h 下错误包含了成交额 < 20M 的 COIN_C");
         }
+      },
+
+      // 13. 盈亏比显示与计算校验（Reward:Risk 规范与方向校验）
+      {
+        id: "risk_reward_ratio",
+        name: "16. 盈亏比显示与计算校验（Reward:Risk 规范与方向校验）",
+        test: async () => {
+          const fn = w.BN && w.BN.TRADE && w.BN.TRADE.flowRrInfo;
+          assert(typeof fn === "function", "未暴露 flowRrInfo 盈亏比计算函数");
+
+          // 1. 做多测试：入场 100，止损 95 (风险 5)，止盈 110 (盈利 10)
+          const longRes = fn(100, 95, 110);
+          assert(longRes && longRes.valid, "做多正常止盈未能通过校验");
+          assert(Math.abs(longRes.ratio - 2.0) < 1e-4, `做多盈亏比数值错误: 期望 2.0，实际 ${longRes.ratio}`);
+          assert(longRes.text.includes("2.00:1"), `做多盈亏比文案错误，不能是倒挂的 1:2: ${longRes.text}`);
+
+          // 2. 做空测试：入场 100，止损 105 (风险 5)，止盈 90 (盈利 10)
+          const shortRes = fn(100, 105, 90);
+          assert(shortRes && shortRes.valid, "做空正常止盈未能通过校验");
+          assert(Math.abs(shortRes.ratio - 2.0) < 1e-4, `做空盈亏比数值错误: 期望 2.0，实际 ${shortRes.ratio}`);
+          assert(shortRes.text.includes("2.00:1"), `做空盈亏比文案错误: ${shortRes.text}`);
+
+          // 3. 逆向错误测试：做多时止盈点在入场价下方 (例如 90)
+          const invalidRes = fn(100, 95, 90);
+          assert(invalidRes && !invalidRes.valid, "做多止盈低于入场价未标记方向错误");
+          assert(invalidRes.text.includes("方向错误"), `方向错误提示不明确: ${invalidRes.text}`);
+
+          // 4. TradeCore.sizing 盈亏比与预计盈利金额测试
+          const sizeRes = w.TradeCore.sizing({
+            entry: 100, sl: 95, tp: 110, equity: 10000, riskPct: 1, lev: 10, tick: 0.01, step: 0.001
+          });
+          assert(sizeRes.ok, "sizing 计算未通过");
+          assert(Math.abs(sizeRes.rr - 2.0) < 1e-4, `sizing rr 期望 2.0，实际 ${sizeRes.rr}`);
+          assert(sizeRes.profitUsd > 0, "未计算出预计盈利金额 profitUsd");
+        }
       }
     ];
 

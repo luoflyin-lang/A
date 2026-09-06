@@ -2569,7 +2569,8 @@ function render(){
   else{let h='<b>'+sz(r.size,S.sym)+" "+disp(S.sym)+'</b> · 名义 $'+nf(r.notional,0)+' · 保证金 $'+nf(r.margin,0)+' · '+r.lev+'x';
     h+='<div>风险 $'+nf(r.riskUsd,2)+' / 总资金 $'+money(equity())+' · 止损距 '+nf(r.dist/r.e*100,2)+'%</div>';
     if(r.rr!=null){const w=r.rr/(1+r.rr)*100;
-      h+='<div>盈亏比 <b style="color:'+(r.rr>=2?"var(--up)":"var(--dim)")+'">'+r.rr.toFixed(2)+'</b>'+
+      const pUsd = (r.profitUsd!=null && r.profitUsd>0) ? (' · 预计盈利 <b style="color:var(--up)">+$'+nf(r.profitUsd,2)+'</b>') : '';
+      h+='<div>盈亏比 <b style="color:'+(r.rr>=2?"var(--up)":"var(--dim)")+'">'+r.rr.toFixed(2)+' : 1</b>（+'+r.rr.toFixed(2)+'R）'+pUsd+
         '<div class="rrbar"><div style="width:'+(100-w)+'%;background:var(--down)"></div><div style="width:'+w+'%;background:var(--up)"></div></div></div>';}
     c.innerHTML=h;}
   $("#ohR").textContent="风险 $"+money(r.riskUsd!=null?r.riskUsd:equity()*F.risk/100)+" · "+F.risk+"%";
@@ -2813,6 +2814,17 @@ function liveLines(force){
   llPlace();
 }
 
+function flowRrInfo(e, sl, tp){
+  if(e == null || sl == null || tp == null) return null;
+  const dist = Math.abs(e - sl);
+  if(!(dist > 0)) return null;
+  const isLong = sl < e;
+  const isProfit = isLong ? (tp > e) : (tp < e);
+  if(!isProfit) return { valid: false, ratio: 0, text: "⚠ 止盈方向错误" };
+  const ratio = Math.abs(tp - e) / dist;
+  return { valid: true, ratio, text: "盈亏比 " + ratio.toFixed(2) + ":1" };
+}
+
 function syncTradeLines(){
   if(!candleSeries) return;
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -2828,7 +2840,6 @@ function syncTradeLines(){
   if(F.on){
     let dist = (F.e != null && F.sl != null) ? Math.abs(F.e - F.sl) : 0;
     let slPct = (F.e != null && F.sl != null && F.e > 0) ? (dist / F.e * 100) : 0;
-    let rr = (dist > 0 && F.tp != null && F.e != null) ? (Math.abs(F.tp - F.e) / dist) : null;
 
     if(F.e != null){
       tradeLines.entry = candleSeries.createPriceLine({
@@ -2844,7 +2855,8 @@ function syncTradeLines(){
       });
     }
     if(F.tp != null){
-      const tpTxt = "止盈 " + px(F.tp, S.sym) + (rr != null ? " (1:" + rr.toFixed(2) + ")" : "");
+      const rInfo = flowRrInfo(F.e, F.sl, F.tp);
+      const tpTxt = "止盈 " + px(F.tp, S.sym) + (rInfo ? " (" + rInfo.text + ")" : "");
       tradeLines.tp = candleSeries.createPriceLine({
         price: F.tp, color: upColor, lineWidth: 1.5,
         lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false, title: tpTxt
@@ -2922,11 +2934,11 @@ function syncTradeLines(){
 function syncHandles(){
   let dist = (F.e != null && F.sl != null) ? Math.abs(F.e - F.sl) : 0;
   let slPct = (F.e != null && F.sl != null && F.e > 0) ? (dist / F.e * 100) : 0;
-  let rr = (dist > 0 && F.tp != null && F.e != null) ? (Math.abs(F.tp - F.e) / dist) : null;
+  const rInfo = flowRrInfo(F.e, F.sl, F.tp);
 
   [["e","#hEn","入场",""],
    ["sl","#hSl","止损", slPct > 0 ? " (-" + slPct.toFixed(2) + "%)" : ""],
-   ["tp","#hTp","止盈", rr != null ? " · R:R 1:" + rr.toFixed(2) : ""]
+   ["tp","#hTp","止盈", rInfo ? " · " + rInfo.text : ""]
   ].forEach(([k,hd,lb,extra])=>{
     const el=$(hd);
     if(!el) return;
@@ -2963,9 +2975,9 @@ function pickPrice(p){
     toast("【止损已定】"+px(p,S.sym)+" (-"+dPct+"%) · 再次长按选【止盈】或点【跳过】");
   }else if(F.step===3){
     F.tp=p;F.step=4;
-    const dist = (F.e != null && F.sl != null) ? Math.abs(F.e - F.sl) : 0;
-    const rr = dist > 0 ? (Math.abs(p - F.e) / dist).toFixed(2) : "";
-    toast("【止盈已定】"+px(p,S.sym)+" (盈亏比 1:"+rr+") · 请在面板核对并点击【确认】");
+    const rInfo = flowRrInfo(F.e, F.sl, p);
+    const rrTip = rInfo ? " (" + rInfo.text + " · +" + (rInfo.ratio ? rInfo.ratio.toFixed(2) : 0) + "R)" : "";
+    toast("【止盈已定】"+px(p,S.sym)+rrTip+" · 请在面板核对并点击【确认】");
   }else{
     const d=[["e",F.e],["sl",F.sl],["tp",F.tp]].filter(x=>x[1]!=null)
       .sort((a,b)=>Math.abs(a[1]-p)-Math.abs(b[1]-p))[0];
@@ -2999,10 +3011,9 @@ function guide(clientY){
       const dPct=Math.abs(p - F.e)/F.e*100;
       extra = " (-" + dPct.toFixed(2) + "%)";
     }else if(F.step===3 && F.e!=null && F.sl!=null){
-      const dist = Math.abs(F.e - F.sl);
-      if(dist > 0){
-        const rr = Math.abs(p - F.e) / dist;
-        extra = " · R:R 1:" + rr.toFixed(2);
+      const rInfo = flowRrInfo(F.e, F.sl, p);
+      if(rInfo){
+        extra = " · " + rInfo.text;
       }
     }
   }
@@ -3612,7 +3623,7 @@ addEventListener("keydown",e=>{
 window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,load,reconcile,
   findOrphans,sweepOrphans,subCoin,startUserStream,applyAcct},
   TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice,
-    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,
+    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,flowRrInfo,
     dryRun:(on=true)=>{DRY_RUN=!!on;toast("DRY_RUN = "+DRY_RUN);return DRY_RUN;},
     setTestnet:async (on=true)=>{await switchTestnet(on);return IS_TESTNET;}},
   ver:VER,LOG,log,dump:()=>LOG.join("\n"),

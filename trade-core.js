@@ -231,6 +231,7 @@
           r.reasons.push("止盈方向错误（应在入场价的盈利一侧）");
         } else {
           r.rr = Math.abs(alignedTp - r.e) / dist;
+          r.profitUsd = Math.max(0, (size * Math.abs(alignedTp - r.e)) - r.fee);
         }
       }
 
