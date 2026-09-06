@@ -564,7 +564,12 @@ async function req(method,path,query,headers,ms,opt={}){
     const r=await fetch(BASE+path+(query?"?"+query:""),{method,headers:headers||{},signal:ctl?ctl.signal:undefined});
     const j=await r.json().catch(()=>null);
     if(r.status===429||r.status===418||r.status===403){NET.fail++;
-      backoffUntil=Math.max(backoffUntil,Date.now()+Math.min(60000,3000*NET.fail));
+      const banMatch = (j && j.msg) ? String(j.msg).match(/banned until (\d+)/) : null;
+      if(banMatch && +banMatch[1] > Date.now()){
+        backoffUntil = Math.max(backoffUntil, +banMatch[1]);
+      } else {
+        backoffUntil=Math.max(backoffUntil,Date.now()+Math.min(60000,3000*NET.fail));
+      }
       throw bnErr(j||{msg:"HTTP "+r.status,code:-r.status});}
     if(j&&j.msg&&j.msg.includes("restricted location")){
       toast("⚠ 币安区域限制：检测到美国/受限节点，请将梯子切换至【台湾/日本/韩国】等非美国节点！");
@@ -985,9 +990,38 @@ function getNatr(sym, tf = S.tf){
 
 const _natrFetching = { "15m": false, "1h": false };
 const _natrAt = { "15m": 0, "1h": 0 };
-const NATR_REFRESH_MS = 60000;
+const NATR_REFRESH_MS = 300000; // 5 分钟刷新一次，彻底减少 REST 请求频率
+
+function loadNatrCache(){
+  try{
+    const cached = JSON.parse(localStorage.getItem("bn_natr_cache_v2") || "{}");
+    Object.keys(cached).forEach(sym => {
+      if(!S.ctx[sym]) S.ctx[sym] = {};
+      if(cached[sym]["15m"] != null) S.ctx[sym]["natr_15m"] = cached[sym]["15m"];
+      if(cached[sym]["1h"] != null) S.ctx[sym]["natr_1h"] = cached[sym]["1h"];
+    });
+  }catch(e){}
+}
+loadNatrCache();
+
+function saveNatrCache(){
+  try{
+    const cached = {};
+    Object.keys(S.ctx).forEach(sym => {
+      const c = S.ctx[sym];
+      if(c && (c["natr_15m"] != null || c["natr_1h"] != null)){
+        cached[sym] = {
+          "15m": c["natr_15m"],
+          "1h": c["natr_1h"]
+        };
+      }
+    });
+    localStorage.setItem("bn_natr_cache_v2", JSON.stringify(cached));
+  }catch(e){}
+}
 
 async function fetchSymbolNatr(sym, tf = S.tf){
+  if(Date.now() < backoffUntil) return null;
   try{
     if(sym === S.sym && S.tf === tf && S.kc[sym + "|" + tf]?.k?.length >= 20){
       const natr = calcNatrFromCandles(S.kc[sym + "|" + tf].k);
@@ -1008,6 +1042,7 @@ async function fetchSymbolNatr(sym, tf = S.tf){
 
 async function refreshNatrs(tf = S.tf, force = false){
   if(tf !== "15m" && tf !== "1h") tf = "15m";
+  if(Date.now() < backoffUntil) return;
   if(_natrFetching[tf]) return;
   if(!force && Date.now() - (_natrAt[tf] || 0) < NATR_REFRESH_MS) return;
   _natrFetching[tf] = true;
@@ -1017,12 +1052,17 @@ async function refreshNatrs(tf = S.tf, force = false){
       return (+c.volUsd >= VOL_MIN) || (u.name === S.sym) || (posOf(u.name).length > 0) || wHas(u.name);
     });
     if(!targets.length) return;
-    const CONCURRENCY = 6;
+    const CONCURRENCY = 2; // 降为 2 个并发，杜绝冲击交易所限频
     for(let i = 0; i < targets.length; i += CONCURRENCY){
+      if(Date.now() < backoffUntil) break;
       const chunk = targets.slice(i, i + CONCURRENCY);
       await Promise.all(chunk.map(u => fetchSymbolNatr(u.name, tf)));
+      if(i + CONCURRENCY < targets.length){
+        await new Promise(r => setTimeout(r, 60)); // 60ms 缓冲平滑
+      }
     }
     _natrAt[tf] = Date.now();
+    saveNatrCache();
     head();
     if($("#shList").classList.contains("on")) list(true);
   } finally {
@@ -1390,6 +1430,12 @@ async function load(silent, symOnly){
 function keyHint(e){
   const c=+((e||{}).code||0);
   const msg=String((e||{}).message || (e||{}).msg || "");
+  if(msg.includes("banned until") || msg.includes("Way too many requests") || c===-1003 || c===-429 || c===-418){
+    const m = msg.match(/banned until (\d+)/);
+    const sec = m ? Math.max(0, Math.round((+m[1] - Date.now())/1000)) : 120;
+    const min = Math.ceil(sec / 60);
+    return "🚨 梯子节点请求过频被币安临时限流（约需等待 " + min + " 分钟解封，或在梯子/Clash切换到其他节点立即恢复）";
+  }
   if(c===-2015){
     if(CURRENT_NET_GEO && CURRENT_NET_GEO.loc === "US"){
       return "🚨 币安拒止（-2015）：当前梯子出口为【美国节点 (US / " + CURRENT_NET_GEO.ip + ")】！币安合约严禁美国 IP。请将梯子/Clash切换为【台湾/日本/香港】！";
@@ -2470,7 +2516,7 @@ function open(id){$$(".sheet").forEach(s=>s.classList.toggle("on",s.id===id));$(
   if(id!=="shTv")stopPosPoll();
   if(id==="shList"){
     list();
-    refreshNatrs(S.tf,true).catch(()=>{});
+    refreshNatrs(S.tf,false).catch(()=>{});
     if(S.tf === "1h") refreshNatrs("15m", false).catch(()=>{});
   }
   if(id==="shTv"){posView();wList();}
@@ -3195,6 +3241,8 @@ function setLock(why){
   try{render();}catch(e){}
   if(why&&!was)try{onLocked();}catch(e){log("onLocked err "+e.message);}
 }
+window.setLock = setLock;
+window.NET = NET;
 
 async function onLocked(){
   if(!NET.mid&&!LOCK_CANCEL_COLDSTART){log("cold start lock, skip cancel");return;}

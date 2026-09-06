@@ -398,6 +398,10 @@
           // 点击确认下单按钮 (#ohGo)
           const goBtn = w.$("#ohGo");
           assert(goBtn && !goBtn.disabled, "确认下单按钮 #ohGo 处于不可用状态");
+          w.NET.info = Date.now();
+          w.NET.mid = Date.now();
+          w.setLock("");
+          w.LOCK = "";
           await goBtn.click();
           await sleep(300);
 
