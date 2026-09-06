@@ -641,6 +641,32 @@
           assert(Math.abs(sizeRes.rr - 2.0) < 1e-4, `sizing rr 期望 2.0，实际 ${sizeRes.rr}`);
           assert(sizeRes.profitUsd > 0, "未计算出预计盈利金额 profitUsd");
         }
+      },
+
+      // 14. 周期收盘预警提示音（15m 前 3 分钟 & 1h 前 5 分钟双差异化提示音）
+      {
+        id: "candle_alerts",
+        name: "17. 周期收盘预警提示音（15m 前 3 分钟 & 1h 前 5 分钟两个不同提示音）",
+        test: async () => {
+          const audio = w.BN && w.BN.AUDIO;
+          assert(audio, "未找到 BN.AUDIO 音频模块");
+          assert(typeof audio.play15mAlert === "function", "缺少 play15mAlert 函数");
+          assert(typeof audio.play1hAlert === "function", "缺少 play1hAlert 函数");
+
+          // 1. 触发 15m 提示音测试
+          audio.play15mAlert();
+          await sleep(150);
+          assert(w.$("#toast").textContent.includes("15分钟") && w.$("#toast").textContent.includes("3 分钟"), "15m 提示音未正确触发对应 Toast 提示");
+
+          // 2. 触发 1h 提示音测试
+          audio.play1hAlert();
+          await sleep(150);
+          assert(w.$("#toast").textContent.includes("1小时") && w.$("#toast").textContent.includes("5 分钟"), "1h 提示音未正确触发对应 Toast 提示");
+
+          // 3. 校验调度函数可用
+          assert(typeof audio.checkCandleAlerts === "function", "缺少 checkCandleAlerts 调度函数");
+          audio.checkCandleAlerts();
+        }
       }
     ];
 

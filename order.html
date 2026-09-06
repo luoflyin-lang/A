@@ -2387,6 +2387,95 @@ function wPrune(){const n=Date.now(),b=WATCH.length;
   if(WATCH.length>WATCH_MAX)WATCH=WATCH.slice(-WATCH_MAX);
   return WATCH.length!==b;}
 function wAudioInit(){try{if(!WAC)WAC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+
+// 15分钟收盘前 3 分钟提示音：清脆高阶双音阶（叮-咚）
+function play15mAlert(){
+  try{
+    wAudioInit();
+    if(WAC){
+      if(WAC.state==="suspended") WAC.resume();
+      const notes = [
+        { freq: 1046.5, delay: 0, dur: 0.12 },    // C6
+        { freq: 1318.5, delay: 0.11, dur: 0.18 }  // E6
+      ];
+      notes.forEach(n => {
+        const o = WAC.createOscillator(), g = WAC.createGain();
+        const t = WAC.currentTime + n.delay;
+        o.type = "sine";
+        o.frequency.setValueAtTime(n.freq, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.24, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + n.dur);
+        o.connect(g);
+        g.connect(WAC.destination);
+        o.start(t);
+        o.stop(t + n.dur + 0.02);
+      });
+    }
+  }catch(e){ log("15m alert err " + e.message); }
+  try{ if(navigator.vibrate) navigator.vibrate([60, 40, 60]); }catch(e){}
+  toast("🔔 15分钟 K 线还有 3 分钟收盘");
+}
+
+// 1小时收盘前 5 分钟提示音：浑厚大周期三和弦钟声（和鸣三音）
+function play1hAlert(){
+  try{
+    wAudioInit();
+    if(WAC){
+      if(WAC.state==="suspended") WAC.resume();
+      const notes = [
+        { freq: 523.25, delay: 0, dur: 0.22 },    // C5
+        { freq: 659.25, delay: 0.12, dur: 0.24 },  // E5
+        { freq: 783.99, delay: 0.24, dur: 0.38 }   // G5
+      ];
+      notes.forEach(n => {
+        const o = WAC.createOscillator(), g = WAC.createGain();
+        const t = WAC.currentTime + n.delay;
+        o.type = "triangle";
+        o.frequency.setValueAtTime(n.freq, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.26, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + n.dur);
+        o.connect(g);
+        g.connect(WAC.destination);
+        o.start(t);
+        o.stop(t + n.dur + 0.02);
+      });
+    }
+  }catch(e){ log("1h alert err " + e.message); }
+  try{ if(navigator.vibrate) navigator.vibrate([100, 80, 150]); }catch(e){}
+  toast("🔔 1小时 K 线还有 5 分钟收盘");
+}
+
+let _alert15mKey = null;
+let _alert1hKey = null;
+(function initAlertKeys(){
+  const t = Date.now() + TOFF;
+  const left15m = 900000 - (t % 900000);
+  const left1h = 3600000 - (t % 3600000);
+  if(left15m < 175000) _alert15mKey = Math.floor(t / 900000);
+  if(left1h < 295000) _alert1hKey = Math.floor(t / 3600000);
+})();
+
+function checkCandleAlerts(){
+  const t = Date.now() + TOFF;
+  const period15m = Math.floor(t / 900000);
+  const left15m = 900000 - (t % 900000);
+  // 15分钟收盘前 3 分钟（<= 180,000ms）
+  if(left15m <= 180000 && _alert15mKey !== period15m){
+    _alert15mKey = period15m;
+    play15mAlert();
+  }
+
+  const period1h = Math.floor(t / 3600000);
+  const left1h = 3600000 - (t % 3600000);
+  // 1小时收盘前 5 分钟（<= 300,000ms）
+  if(left1h <= 300000 && _alert1hKey !== period1h){
+    _alert1hKey = period1h;
+    play1hAlert();
+  }
+}
+
 function wBeep(){
   if(!WGEST)return;
   try{wAudioInit();if(WAC){if(WAC.state==="suspended")WAC.resume();
@@ -2456,6 +2545,7 @@ function wList(soft){
       +'<span class="dd '+(ch>=0?"up":"down")+'">'+(ch>=0?"+":"")+ch.toFixed(2)+"%</span></span>"
       +'<button class="wx" title="移除">✕</button></div>';}).join("");}
 function wTick(){
+  try{ checkCandleAlerts(); }catch(e){ log("candle alert err " + e.message); }
   if(wPrune()){wSave();_wsig="";}
   const now=Date.now(),ring=[];
   WATCH.forEach(w=>{if(!w.fired&&now>=w.due){w.fired=true;ring.push(w);}});
@@ -3692,6 +3782,7 @@ window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,l
   $: $,
   chartView:()=>CHART_VIEW_STATE,
   tvChart:()=>tvChart,
+  AUDIO:{play15mAlert,play1hAlert,checkCandleAlerts,wBeep},
   setProxy:(http,ws)=>{
     try{localStorage.setItem("bn_proxy",JSON.stringify({http:http||"",ws:ws||""}));}
     catch(e){return "存不进去："+e.message;}
