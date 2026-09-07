@@ -4389,8 +4389,9 @@ function bindGrip(hd,key){
 bindGrip("#hEn","e");bindGrip("#hSl","sl");bindGrip("#hTp","tp");
 
 let lastMultiTouchTime = 0;
+let lastTapTime = 0;
 
-// 鼠标长按取价瞄准（彻底移除图表左右边缘点击切币，防止缩放与拖拽误切）
+// 鼠标长按取价瞄准与右边缘点击切币
 addEventListener("mousedown",e=>{
   if(e.button!==0||!onChart(e.target))return;
   if(Date.now() - lastMultiTouchTime < 600) return;
@@ -4412,11 +4413,24 @@ addEventListener("mouseup",e=>{
   if(Date.now() - lastMultiTouchTime < 600) return;
   const wasAim = aim && !pKill && onChart(e.target);
   const p = aimPrice || y2p(e.clientY);
+  const dt = Date.now() - touchStartTime;
+  const dx = Math.abs(e.clientX - touchStartX);
+  const dy = Math.abs(e.clientY - touchStartY);
   resetPress();
 
   if(wasAim && p != null && isFinite(p) && p > 0){
     pickPrice(p);
     return;
+  }
+
+  // 还原屏幕右侧点击切币（防二次触发与防拖拽：纯单指短点击，且不在触摸切币冷却内）
+  if(!F.on && onChart(e.target) && dt < 280 && dx < 10 && dy < 10 && Date.now() - lastTapTime > 600){
+    if(document.querySelector(".sheet.on")) return;
+    const w = window.innerWidth;
+    if(e.clientX > w * 0.82){
+      lastTapTime = Date.now();
+      step(1);
+    }
   }
 });
 addEventListener("contextmenu",e=>{
@@ -4427,7 +4441,7 @@ addEventListener("contextmenu",e=>{
   pickPrice(p);
 });
 
-// 触屏长按取价与多指双指缩放隔离防护（彻底移除图表滑动与边缘误切币）
+// 触屏长按取价、双指缩放隔离与右边缘轻点切币
 addEventListener("touchstart",e=>{
   if(!onChart(e.target))return;
   if(e.touches.length > 1){
@@ -4481,12 +4495,28 @@ addEventListener("touchend",e=>{
   }
   const wasAim = aim && !pKill;
   const p = aimPrice;
+  const dt = Date.now() - touchStartTime;
+  const t = e.changedTouches?.[0];
+  const dx = t ? Math.abs(t.clientX - touchStartX) : 0;
+  const dy = t ? Math.abs(t.clientY - touchStartY) : 0;
+  const cx = t ? t.clientX : touchStartX;
   resetPress();
 
   if(wasAim && p != null && isFinite(p) && p > 0){
     if(e.cancelable) e.preventDefault();
     pickPrice(p);
     return;
+  }
+
+  // 还原屏幕右边缘快速点击切币（防误触：必须为单指短点击，无滑动，且非缩放手势）
+  if(!F.on && onChart(e.target) && dt < 280 && dx < 10 && dy < 10 && Date.now() - lastMultiTouchTime >= 600){
+    if(document.querySelector(".sheet.on")) return;
+    const w = window.innerWidth;
+    if(cx > w * 0.82){
+      if(e.cancelable) e.preventDefault();
+      lastTapTime = Date.now();
+      step(1);
+    }
   }
 },{passive:false});
 addEventListener("touchcancel",()=>{
