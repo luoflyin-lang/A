@@ -3344,14 +3344,106 @@ function open(id){$$(".sheet").forEach(s=>s.classList.toggle("on",s.id===id));$(
   if(id==="shList"){
     list();
     refreshNatrs("15m",false).catch(()=>{});
+    setTimeout(preloadTopOpportunities, 80);
   }
   if(id==="shTv"){posView();wList();}
 }
 function close(){$$(".sheet").forEach(s=>s.classList.remove("on"));$("#mask").classList.remove("on");
   subArr(false);stopPosPoll();}
-async function pick(sym){if(!sym)return;close();if(sym===S.sym)return;
-  if(F.on)endFlow();clearTradeLines();S.sym=sym;
-  useMaxLev();savePref();await kline(true);head();wSync();syncTradeLines();}
+
+/* 智能预热：在后台预加载机会清单相邻标的的 500 根 K 线，彻底消灭切币网络卡顿 */
+function prefetchAdjacentCandidates(currentSym){
+  try{
+    const p = pool();
+    if(!p || !p.length) return;
+    const idx = p.findIndex(x => x.n === currentSym);
+    if(idx < 0) return;
+    const nextSym1 = p[(idx + 1) % p.length]?.n;
+    const nextSym2 = p[(idx + 2) % p.length]?.n;
+    const prevSym = p[(idx - 1 + p.length) % p.length]?.n;
+    const candidates = [nextSym1, prevSym, nextSym2].filter(Boolean);
+
+    candidates.forEach((sym, i) => {
+      const key = sym + "|15m";
+      const cached = S.kc[key];
+      if(!cached || Date.now() - cached.t > 120000){
+        setTimeout(() => {
+          if(S.sym === sym) return;
+          pub("/fapi/v1/klines", { symbol: sym, interval: "15m", limit: 500 }, 8000)
+            .then(r => {
+              if(Array.isArray(r) && r.length){
+                const raw = r.map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
+                S.kc[key] = { k: raw, t: Date.now() };
+              }
+            })
+            .catch(()=>{});
+        }, 200 + i * 350);
+      }
+    });
+  }catch(e){}
+}
+
+function preloadTopOpportunities(){
+  try{
+    const p = pool();
+    if(!p || !p.length) return;
+    const topCandidates = p.slice(0, 5).map(x => x.n);
+    topCandidates.forEach((sym, i) => {
+      const key = sym + "|15m";
+      if(!S.kc[key]){
+        setTimeout(() => {
+          pub("/fapi/v1/klines", { symbol: sym, interval: "15m", limit: 500 }, 8000)
+            .then(r => {
+              if(Array.isArray(r) && r.length){
+                const raw = r.map(x=>({t:+x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
+                S.kc[key] = { k: raw, t: Date.now() };
+              }
+            })
+            .catch(()=>{});
+        }, 150 + i * 300);
+      }
+    });
+  }catch(e){}
+}
+
+/* 智能切币：优先命中内存 K 线缓存实现 0ms 秒开，后台自动对齐与预加载 */
+async function pick(sym){
+  if(!sym) return;
+  close();
+  if(sym === S.sym) return;
+  if(F.on) endFlow();
+  clearTradeLines();
+  S.sym = sym;
+  useMaxLev();
+  savePref();
+  
+  // 1. 立即同步 UI（币种标题、自选星标状态等），实现 0ms 点击响应无卡顿
+  head();
+  wSync();
+
+  const key = S.sym + "|" + S.tf;
+  const c = S.kc[key];
+  const hasValidCache = !!(c && c.k && c.k.length > 0);
+
+  if(hasValidCache){
+    // 2. 命中缓存：立即绘制已记忆的 500 根 K 线与持仓挂单线，绝不等待网络阻塞 UI
+    useCandles(c.k, true);
+    syncTradeLines();
+    subCoin(S.sym, S.tf);
+    // 后台静默刷新以对齐最新数据，不阻塞主线程
+    kline(false).catch(()=>{});
+  } else {
+    // 3. 无缓存首屏：拉取 500 根数据并绘制
+    await kline(true);
+    head();
+    wSync();
+    syncTradeLines();
+  }
+
+  // 4. 智能预测预热：在后台静默拉取相邻标的 500 根 K 线，确保翻页与切币全流程极速秒开
+  prefetchAdjacentCandidates(sym);
+}
+
 function step(n){
   const l=pool();
   const listToUse = l.length ? l : (S.uni || []).map(u => ({ n: u.name }));
@@ -4680,6 +4772,7 @@ async function boot(){
   try{await loadUniverse();sock();setInterval(tick,TICKER_MS);}
   catch(e){toast("行情加载失败，交易已锁定");log("boot universe err "+e.message);}
   await kline(true);head();
+  setTimeout(preloadTopOpportunities, 500);
   await bootKeys();
   avHint();
   if(HASKEY)await startPrivate();
