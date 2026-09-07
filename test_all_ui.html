@@ -314,7 +314,7 @@
 
           // 触发市价强平 (Market)
           await w.closePos("BTCUSDC", true);
-          assert(sentOrder && sentOrder.params.type === "MARKET" && sentOrder.params.closePosition === "true", "市价强平未发出 MARKET closePosition 订单");
+          assert(sentOrder && sentOrder.params.type === "MARKET" && sentOrder.params.reduceOnly === "true" && +sentOrder.params.quantity > 0, "市价强平未正确发出带 quantity 与 reduceOnly 的 MARKET 订单");
 
           w.send = origSend;
           delete w.S.pos["BTCUSDC"];
@@ -1118,6 +1118,203 @@
           w.send = origSend;
           w.S.ords = {};
           w.BN.TRADE.clearTradeLines();
+        }
+      },
+
+      // 26. 平仓失败防乐观删除校验（平仓失败保留持仓并显示失败状态）
+      {
+        id: "closing_state_machine_failure_keep",
+        name: "26. 平仓失败防乐观删除校验（平仓失败保留持仓并标记失败）",
+        test: async () => {
+          w.S.pos["SOLUSDC"] = { sym: "SOLUSDC", side: "BOTH", amt: 5.0, entry: 140, upnl: 20 };
+          w.posView();
+
+          const origSend = w.send;
+          w.send = async (method, path, params, label, silent, opt) => {
+            return { code: -2019, msg: "Margin is insufficient." };
+          };
+
+          // 触发市价平仓
+          await w.closePos("SOLUSDC", true);
+          await sleep(50);
+
+          // 断言持仓未被乐观删除，且状态为 failed
+          assert(w.S.pos["SOLUSDC"], "平仓失败却乐观删除了本地持仓！");
+          assert(w.S.pos["SOLUSDC"].closing === "failed", "持仓未标记 closing === failed 状态");
+
+          // 校验界面徽标渲染
+          assert(w.document.body.innerHTML.includes("平仓失败"), "界面未显示「平仓失败」警示徽标");
+
+          // 恢复现场
+          w.send = origSend;
+          delete w.S.pos["SOLUSDC"];
+          w.posView();
+        }
+      },
+
+      // 27. 普通 LIMIT 入场单 isEntry 识别与改单先撤后挂校验（杜绝双单成交）
+      {
+        id: "limit_entry_classification_and_modify",
+        name: "27. 普通 LIMIT 入场单 isEntry 识别与改单先撤后挂校验（杜绝双单成交）",
+        test: async () => {
+          const ord = { symbol: "BTCUSDC", orderId: "limit_ent_1", type: "LIMIT", price: 60000, origQty: 0.1, reduceOnly: false };
+          const info = w.ordInfo(ord);
+          assert(info.isEntry === true, "普通 LIMIT 入场单 isEntry 未被识别为 true");
+          assert(info.kind === "限价入场", `普通 LIMIT 入场单 kind 错误: ${info.kind}`);
+
+          // 校验改单时严格执行【先撤旧单，再挂新单】
+          const callSeq = [];
+          const origCancel = w.cancelOrder;
+          const origPlace = w.placeOrder;
+
+          w.cancelOrder = async (sym, oid, isAlgo, opt) => {
+            callSeq.push({ act: "CANCEL", sym, oid, opt });
+            return { code: 200 };
+          };
+          w.placeOrder = async (order, label, silent, opt) => {
+            callSeq.push({ act: "PLACE", order });
+            return { orderId: 999123 };
+          };
+
+          w.S.sym = "BTCUSDC";
+          w.S.k = [{ c: 62000 }];
+          await w.modifyOrderPrice(ord, 61000);
+
+          assert(callSeq.length >= 2, "改单未调用撤单或挂单");
+          assert(callSeq[0].act === "CANCEL", `改单首步必须是撤销旧单，实际首步: ${callSeq[0].act}`);
+          assert(callSeq[0].opt && callSeq[0].opt.skipCascade === true, "改单撤旧单未传 skipCascade: true");
+          assert(callSeq[1].act === "PLACE", `改单第二步必须是挂入新单，实际第二步: ${callSeq[1].act}`);
+
+          // 恢复现场
+          w.cancelOrder = origCancel;
+          w.placeOrder = origPlace;
+        }
+      },
+
+      // 28. 突破入场 STOP_MARKET 成交不误删待挂止损校验（仅减仓止损成交才清理）
+      {
+        id: "breakout_fill_preserves_pendbr",
+        name: "28. 突破入场 STOP_MARKET 成交不误删待挂止损校验（仅减仓止损成交才清理）",
+        test: async () => {
+          const pendbr = w.BN.TRADE.pendbr();
+          pendbr["BTCUSDC"] = { side: "BUY", sl: 59000, tp: 68000, qty: 0.1, items: [] };
+
+          // 模拟突破入场成交回调：ot: "STOP_MARKET", R: false, cp: false
+          w.BN.DATA.handleUserStreamEvent({
+            e: "ORDER_TRADE_UPDATE",
+            o: { s: "BTCUSDC", X: "FILLED", ot: "STOP_MARKET", R: false, cp: false }
+          });
+          await sleep(50);
+
+          assert(pendbr["BTCUSDC"], "突破入场单成交误将 PENDBR 待挂止损记录删除了！");
+
+          // 模拟减仓止损单成交回调：ot: "STOP_MARKET", R: true
+          w.BN.DATA.handleUserStreamEvent({
+            e: "ORDER_TRADE_UPDATE",
+            o: { s: "BTCUSDC", X: "FILLED", ot: "STOP_MARKET", R: true }
+          });
+          await sleep(50);
+
+          assert(!pendbr["BTCUSDC"], "减仓止损单成交后未能正常清理 PENDBR！");
+        }
+      },
+
+      // 29. 挂单查询失败保留状态与 ordsStale 标记校验（防误判裸仓）
+      {
+        id: "ords_network_fault_tolerance",
+        name: "29. 挂单查询失败保留状态与 ordsStale 标记校验（防误判裸仓）",
+        test: async () => {
+          w.S.ords["BTCUSDC"] = [
+            { orderId: "sl_keep", symbol: "BTCUSDC", type: "STOP_MARKET", stopPrice: 59000, reduceOnly: true }
+          ];
+
+          const origPriv = w.priv;
+          w.priv = async (method, path, params, timeout, opt) => {
+            if (path.includes("account")) return { totalMarginBalance: 10000, availableBalance: 8000 };
+            if (path.includes("positionRisk")) return [{ symbol: "BTCUSDC", positionAmt: "0.1", entryPrice: "62000", leverage: "20" }];
+            if (path.includes("openOrders") || path.includes("openAlgoOrders")) {
+              throw new Error("Network timeout: 504 Gateway Timeout");
+            }
+            return origPriv(method, path, params, timeout, opt);
+          };
+
+          await w.load(true);
+          await sleep(50);
+
+          assert(w.S.ordsStale === true, "挂单接口失败后未标记 S.ordsStale = true");
+          assert(w.S.ords["BTCUSDC"] && w.S.ords["BTCUSDC"].length === 1, "挂单接口失败后将原有挂单缓存覆写为空了！");
+
+          // 恢复现场
+          w.priv = origPriv;
+          w.S.ordsStale = false;
+          w.S.ords = {};
+        }
+      },
+
+      // 30. 入场单挂入但止损单失败自动安全撤单校验（防脱机裸仓）
+      {
+        id: "entry_sl_failed_rollback",
+        name: "30. 入场单挂入但止损单挂入失败时自动安全撤单校验（防脱机裸仓）",
+        test: async () => {
+          const sentCalls = [];
+          const origSend = w.send;
+
+          w.send = async (method, path, params, label, silent, opt) => {
+            sentCalls.push({ method, path, params, label, opt });
+            if (path.includes("leverage")) return { leverage: 20 };
+            if (method === "POST" && path === "/fapi/v1/order" && params.type === "LIMIT") {
+              return { orderId: 777666, status: "NEW", symbol: "BTCUSDC" };
+            }
+            if (method === "POST" && (path.includes("algoOrder") || params.type === "STOP_MARKET")) {
+              return { code: -2019, msg: "Margin insufficient" };
+            }
+            if (method === "DELETE") {
+              return { code: 200, msg: "success" };
+            }
+            return { code: 200 };
+          };
+
+          // 触发提交下单流程
+          w.DRY_RUN = true;
+          w.ACCT_LOADING = false;
+          w.S.acct = { equity: 10000, avail: 10000, used: 0, wallet: 10000, upnl: 0 };
+          w.S.sym = "BTCUSDC";
+          w.S.side = "buy";
+          w.S.levSet["BTCUSDC"] = 20;
+          w.S.mid["BTCUSDC"] = 62000;
+          if (w.S.k && w.S.k.length) {
+            w.S.k[w.S.k.length - 1].t = Date.now();
+          }
+          w.NET.info = Date.now();
+          w.NET.mid = Date.now();
+          w.NET.kline = Date.now();
+          w.setLock("");
+          w.LOCK = "";
+          w.F.risk = 1;
+          w.F.e = 60000;
+          w.F.sl = 59000;
+          w.F.tp = null;
+          w.F.on = true;
+          w.F.step = 4;
+          w.S.pos = {};
+          w.render();
+          await sleep(50);
+
+          const goBtn = w.document.getElementById("ohGo");
+          assert(goBtn, "未找到确认下单按钮 #ohGo");
+          w.NET.mid = Date.now();
+          w.NET.kline = Date.now();
+          w.setLock("");
+          w.LOCK = "";
+          goBtn.click();
+          await sleep(2000);
+
+          const cancelCalls = sentCalls.filter(c => c.method === "DELETE" && String(c.params.orderId) === "777666");
+          assert(cancelCalls.length > 0, "止损单挂入失败后，未能自动撤销未成交的入场单！");
+
+          // 恢复现场
+          w.send = origSend;
+          w.F.on = false;
         }
       }
     ];
