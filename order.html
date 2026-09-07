@@ -1756,17 +1756,34 @@ function handleUserStreamEvent(d){
     const isExit = o.R===true || o.R==="true" || o.cp===true || o.cp==="true";
     const isEntry = !isExit;
     const isStopLoss = isExit && (o.ot==="STOP_MARKET" || o.ot==="STOP");
+    const isTakeProfit = isExit && (o.ot==="TAKE_PROFIT_MARKET" || o.ot==="TAKE_PROFIT" || String(o.c||"").startsWith("tp_"));
 
     // 1. 入场单（普通只挂单 LIMIT 或 突破追单 STOP_MARKET）成交：坚决保留待挂记录并触发补挂！
     if((o.X==="FILLED"||o.X==="PARTIALLY_FILLED") && isEntry && PENDBR[o.s]){
       setTimeout(()=>firePendingBracket(o.s),600);
     }
 
-    // 2. 止损成交保护：只有当明确为平仓止损单（减仓单）成交时，才判定仓位已止损清空，撤除同品种挂单并清理 PENDBR
+    // 2. 止损成交保护：只有当明确为平仓止损单（减仓单）成交时，才判定仓位已止损清空，撤除同品种全部残留挂单并清理 PENDBR
     if(o.X==="FILLED" && isStopLoss){
       cancelAllEntryOrders(o.s);
+      send("DELETE","/fapi/v1/allOpenOrders",{symbol:o.s},"止损触发，撤除残留挂单",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
+      send("DELETE","/fapi/v1/algoOpenOrders",{symbol:o.s},"止损触发，撤除残留条件单",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
       if(PENDBR[o.s]){ delete PENDBR[o.s]; savePendBr(); }
-      toast("✔ "+disp(o.s)+" 止损单已触发成交，已自动撤除同品种全部残留入场挂单", true);
+      delete S.ords[o.s];
+      clearTradeLines();
+      syncTradeLines();
+      toast("✔ "+disp(o.s)+" 止损单已触发成交，已自动撤除同品种全部残留挂单与止盈单", true);
+    }
+
+    // 2.1 止盈成交保护：若持仓已全部清空，自动撤销同品种残留的预挂止损单（防脱机后孤儿止损反向开仓）
+    if(o.X==="FILLED" && isTakeProfit){
+      setTimeout(() => {
+        if(posOf(o.s).length === 0){
+          send("DELETE","/fapi/v1/algoOpenOrders",{symbol:o.s},"止盈达成，撤除残留止损",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
+          if(PENDBR[o.s]){ delete PENDBR[o.s]; savePendBr(); }
+          toast("🎉 "+disp(o.s)+" 止盈单已全部成交，已自动清理关联预挂止损单", true);
+        }
+      }, 500);
     }
 
     // 3. 入场单撤销保护：入场单被撤销或过期时，若当前无持仓且无其他入场单，联动撤销预挂的止盈与止损单！
@@ -2274,7 +2291,12 @@ async function modifyOrderPrice(oldOrder, newPrice){
 
   if(oldOrder.positionSide) newOrd.positionSide = oldOrder.positionSide;
   
-  if(oldOrder.closePosition && !q){
+  if(!S.dual && (oi.sl || oldOrder.closePosition)){
+    // 单向持仓止损单：坚决锁定全平 closePosition="true"，绝不传固定数量，由币安撮合时动态全平，绝对杜绝反向开仓！
+    newOrd.closePosition = "true";
+    delete newOrd.quantity;
+    delete newOrd.reduceOnly;
+  } else if(oldOrder.closePosition && !q){
     newOrd.closePosition = "true";
   } else if(q > 0){
     newOrd.quantity = fmtSz(alignSz(q, sym), sym);
@@ -3835,10 +3857,16 @@ function render(){
     c.innerHTML=h;}
   $("#ohR").textContent="风险 $"+money(r.riskUsd!=null?r.riskUsd:equity()*F.risk/100)+" · "+F.risk+"%";
   $("#ohSkip").textContent=F.step===3?"跳过止盈":"重新选";
+  
+  const curPosList = posOf(S.sym);
+  const curPosItem = curPosList.find(p => p && Math.abs(p.amt) > 0);
+  const isOpposite = curPosItem && ((curPosItem.amt > 0) !== buy);
+
   const go=$("#ohGo");
   go.className=buy?"b":"s";
   const actionTx = buy ? (r.isBreakout ? "确认 · 突破做多" : "确认 · 做多") : (r.isBreakout ? "确认 · 跌破做空" : "确认 · 做空");
-  go.textContent = actionTx + (r.size ? " " + sz(r.size, S.sym) : "");
+  const oppLabel = isOpposite ? (" (反向新开仓)") : "";
+  go.textContent = actionTx + oppLabel + (r.size ? " " + sz(r.size, S.sym) : "");
   const busy=INFLIGHT||SUBMITTING;
   go.disabled=!r.ok||(!DRY_RUN&&!!LOCK)||busy||(!DRY_RUN&&!HASKEY);
   if(busy)go.textContent="提交中…";
@@ -3847,6 +3875,7 @@ function render(){
     :LOCK?("⚠ "+LOCK+"，已锁单")
     :ACCT_LOADING?"账户加载中…"
     :!hasAcct()?"未读到账户资金，暂不可下单"
+    :isOpposite?("⚠ 注意：当前持有"+(curPosItem.amt>0?"多仓":"空仓")+"！此为反向新单，请勿误当成止损！")
     :F.e==null?"点击图表选入场价"
     :F.sl==null?"再点一次选止损价"
     :(r.reasons&&r.reasons.length)?("⚠ "+r.reasons.join("；"))
