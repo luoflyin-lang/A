@@ -1396,6 +1396,7 @@ function useCandles(raw, resetRange){
   S.k=raw.slice();
   const i=S.k.length-1;if(i>=0)S.k[i]=Object.assign({},S.k[i]);
   updateChartCandles(S.k, resetRange);
+  syncTradeLines();
 }
 
 async function kline(force){
@@ -1655,7 +1656,15 @@ async function load(silent, symOnly){
     if(symOnly && S.ords){
       // 增量合并当前标的的挂单，同时绝不丢弃账户资金与持仓数据！
       applyAcct(acc,pos,null);
-      S.ords[symOnly] = od;
+      S.ords[symOnly] = od.filter(o => !o.symbol || o.symbol === symOnly);
+      od.forEach(o => {
+        if(o && o.symbol && o.symbol !== symOnly){
+          if(!S.ords[o.symbol]) S.ords[o.symbol] = [];
+          if(!S.ords[o.symbol].some(x => String(x.orderId||x.algoId) === String(o.orderId||o.algoId))){
+            S.ords[o.symbol].push(o);
+          }
+        }
+      });
       S.ordsAt = Date.now();
       try{prunePendBr();}catch(e){log("prune err "+e.message);}
       sweepStaleEntries().catch(e=>log("ttl err "+e.message));
@@ -3103,8 +3112,9 @@ function open(id){$$(".sheet").forEach(s=>s.classList.toggle("on",s.id===id));$(
 }
 function close(){$$(".sheet").forEach(s=>s.classList.remove("on"));$("#mask").classList.remove("on");
   subArr(false);stopPosPoll();}
-async function pick(sym){if(!sym)return;close();if(sym===S.sym)return;S.sym=sym;
-  if(F.on)endFlow();useMaxLev();savePref();await kline(true);head();wSync();}
+async function pick(sym){if(!sym)return;close();if(sym===S.sym)return;
+  if(F.on)endFlow();clearTradeLines();S.sym=sym;
+  useMaxLev();savePref();await kline(true);head();wSync();syncTradeLines();}
 function step(n){
   const l=pool();
   const listToUse = l.length ? l : (S.uni || []).map(u => ({ n: u.name }));
@@ -3210,7 +3220,8 @@ let LL_SIG="",LL_ITEMS=[];
 function llSig(){
   const a=[S.sym, F.on ? "F:" + F.e + ":" + F.sl + ":" + F.tp : ""];
   Object.entries(S.pos).forEach(([k,p])=>{if(p.sym===S.sym)a.push("P"+k+":"+p.amt+":"+p.entry);});
-  (S.ords[S.sym]||[]).forEach(o=>{if(!o)return;const oi=ordInfo(o);
+  const symOrds = (S.ords[S.sym]||[]).filter(o => o && (!o.symbol || o.symbol === S.sym));
+  symOrds.forEach(o=>{const oi=ordInfo(o);
     a.push("O"+(o.orderId||o.algoId)+":"+(oi.price||+(o.price||0))+":"+oi.kind+":"+oi.sizeTxt);});
   const pb = PENDBR[S.sym];
   if(pb) a.push("PB:" + pb.sl + ":" + pb.tp + ":" + pb.qty + ":" + (pb.items ? pb.items.map(i=>i.tp).join(",") : ""));
@@ -3220,6 +3231,10 @@ function llSig(){
 function llPlace(){
   LL_ITEMS.forEach(it=>{
     if(it.dragging) return;
+    if(it.sym && it.sym !== S.sym){
+      it.el.style.display="none";
+      return;
+    }
     const y=p2y(it.v);
     if(y==null || y < -30 || y > window.innerHeight + 30){
       it.el.style.display="none";
@@ -3242,22 +3257,25 @@ function liveLines(force){
   Object.entries(S.pos).filter(([k,p])=>p.sym===S.sym).forEach(([k,p])=>{
     const lg=p.amt>0,d=document.createElement("div");
     d.className="dl dyn pos en";
+    d.dataset.c=p.sym;
     d.innerHTML='<span class="grip" style="cursor:default">'+(lg?"多仓 ":"空仓 ")+sz(Math.abs(p.amt),p.sym)+" @ "+px(p.entry,p.sym)+'</span><span class="xbtn" title="平仓">✕</span>';
-    lay.appendChild(d);LL_ITEMS.push({el:d,v:+p.entry});
+    lay.appendChild(d);LL_ITEMS.push({el:d,v:+p.entry,sym:p.sym});
     d.querySelector(".xbtn").addEventListener("click",ev=>{ev.stopPropagation();
       if(confirm("挂单平仓 "+disp(p.sym)+"（"+(lg?"多仓 ":"空仓 ")+sz(Math.abs(p.amt),p.sym)+"）？"))closePos(k);
     });
   });
 
   // 2. 挂单线（绑定拖拽改单逻辑）
-  (S.ords[S.sym]||[]).forEach(o=>{
+  const symOrds = (S.ords[S.sym]||[]).filter(o => o && (!o.symbol || o.symbol === S.sym));
+  symOrds.forEach(o=>{
     const oi=ordInfo(o),v=oi.price||+(o.price||0);if(!v)return;
     const d=document.createElement("div");
     d.className="dl dyn "+(oi.isEntry?"en":oi.tp?"tp":oi.trig?"sl":"en");
-    d.innerHTML='<span class="grip">'+oi.kind+" "+oi.sizeTxt+" @ "+px(v,o.symbol)+'</span><span class="xbtn" title="撤单">✕</span>';
+    d.dataset.c=o.symbol||S.sym;
+    d.innerHTML='<span class="grip">'+oi.kind+" "+oi.sizeTxt+" @ "+px(v,o.symbol||S.sym)+'</span><span class="xbtn" title="撤单">✕</span>';
     lay.appendChild(d);
     
-    const itObj = {el:d, v:v, dragging:false};
+    const itObj = {el:d, v:v, sym:o.symbol||S.sym, dragging:false};
     LL_ITEMS.push(itObj);
 
     // 绑定挂单拖拽改价
@@ -3329,9 +3347,10 @@ function liveLines(force){
     if(pb.sl != null && !hasLiveSl){
       const d=document.createElement("div");
       d.className="dl dyn sl";
+      d.dataset.c=S.sym;
       d.innerHTML='<span class="grip">待挂止损 @ '+px(pb.sl,S.sym)+'</span><span class="xbtn" title="取消待挂止损">✕</span>';
       lay.appendChild(d);
-      const itObj = {el:d, v:+pb.sl, dragging:false};
+      const itObj = {el:d, v:+pb.sl, sym:S.sym, dragging:false};
       LL_ITEMS.push(itObj);
 
       const grip = d.querySelector(".grip");
@@ -3383,10 +3402,11 @@ function liveLines(force){
       if(it.tp != null && !isLive && !it.tpFbDone){
         const d=document.createElement("div");
         d.className="dl dyn tp";
+        d.dataset.c=S.sym;
         const itQtyTxt = it.qty ? sz(it.qty, S.sym) + " " : "";
         d.innerHTML='<span class="grip">待挂止盈 ' + itQtyTxt + '@ '+px(it.tp,S.sym)+'</span><span class="xbtn" title="取消待挂止盈">✕</span>';
         lay.appendChild(d);
-        const itObj = {el:d, v:+it.tp, dragging:false};
+        const itObj = {el:d, v:+it.tp, sym:S.sym, dragging:false};
         LL_ITEMS.push(itObj);
 
         const grip = d.querySelector(".grip");
@@ -3449,16 +3469,36 @@ function flowRrInfo(e, sl, tp){
   return { valid: true, ratio, text: "盈亏比 " + ratio.toFixed(2) + ":1" };
 }
 
+function clearTradeLines(){
+  if(candleSeries){
+    if(tradeLines.entry){ try{candleSeries.removePriceLine(tradeLines.entry);}catch(e){} tradeLines.entry = null; }
+    if(tradeLines.sl){ try{candleSeries.removePriceLine(tradeLines.sl);}catch(e){} tradeLines.sl = null; }
+    if(tradeLines.tp){ try{candleSeries.removePriceLine(tradeLines.tp);}catch(e){} tradeLines.tp = null; }
+    if(tradeLines.pos && tradeLines.pos.length){
+      tradeLines.pos.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+      tradeLines.pos = [];
+    }
+    if(tradeLines.ords && tradeLines.ords.length){
+      tradeLines.ords.forEach(l => { try{candleSeries.removePriceLine(l);}catch(e){} });
+      tradeLines.ords = [];
+    }
+  }
+  LL_SIG = "";
+  LL_ITEMS = [];
+  document.querySelectorAll(".dl.dyn").forEach(el => el.remove());
+  ["#hEn", "#hSl", "#hTp"].forEach(id => {
+    const el = $(id);
+    if(el) el.style.display = "none";
+  });
+}
+
 function syncTradeLines(){
   if(!candleSeries) return;
+  clearTradeLines();
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   const blueColor = isDark ? "#8CAECF" : "#3C5A78";
   const upColor = isDark ? "#6CA88D" : "#3A755D";
   const downColor = isDark ? "#C27A68" : "#A85244";
-
-  if(tradeLines.entry){ candleSeries.removePriceLine(tradeLines.entry); tradeLines.entry = null; }
-  if(tradeLines.sl){ candleSeries.removePriceLine(tradeLines.sl); tradeLines.sl = null; }
-  if(tradeLines.tp){ candleSeries.removePriceLine(tradeLines.tp); tradeLines.tp = null; }
 
   // 绘制新选点线及即时盈亏比
   if(F.on){
@@ -3488,16 +3528,6 @@ function syncTradeLines(){
     }
   }
 
-  // 绘制仓位与挂单线
-  if(tradeLines.pos && tradeLines.pos.length){
-    tradeLines.pos.forEach(l => candleSeries.removePriceLine(l));
-    tradeLines.pos = [];
-  }
-  if(tradeLines.ords && tradeLines.ords.length){
-    tradeLines.ords.forEach(l => candleSeries.removePriceLine(l));
-    tradeLines.ords = [];
-  }
-
   const p = posOf(S.sym)[0];
   if(p && Math.abs(p.amt) > 0){
     const lg = p.amt > 0;
@@ -3512,7 +3542,8 @@ function syncTradeLines(){
     tradeLines.pos.push(posLine);
   }
 
-  (S.ords[S.sym] || []).forEach(o => {
+  const symOrds = (S.ords[S.sym] || []).filter(o => o && (!o.symbol || o.symbol === S.sym));
+  symOrds.forEach(o => {
     const oi = ordInfo(o);
     const v = oi.price || +(o.price || 0);
     if(!(v > 0)) return;
@@ -3523,14 +3554,14 @@ function syncTradeLines(){
       lineWidth: 1.5,
       lineStyle: LightweightCharts.LineStyle.Dotted,
       axisLabelVisible: false,
-      title: oi.kind + " " + oi.sizeTxt + " @" + px(v, o.symbol)
+      title: oi.kind + " " + oi.sizeTxt + " @" + px(v, o.symbol || S.sym)
     });
     tradeLines.ords.push(ordLine);
   });
 
   const pb = PENDBR[S.sym];
   if(pb){
-    const hasLiveSl = (S.ords[S.sym]||[]).some(o=>ordInfo(o).sl);
+    const hasLiveSl = symOrds.some(o=>ordInfo(o).sl);
     if(pb.sl != null && !hasLiveSl){
       const slLine = candleSeries.createPriceLine({
         price: pb.sl,
@@ -3544,7 +3575,7 @@ function syncTradeLines(){
     }
     const pbItems = Array.isArray(pb.items) ? pb.items : [pb];
     pbItems.forEach(it => {
-      const isLive = (S.ords[S.sym]||[]).some(o => (it.tpOid && String(o.orderId||o.algoId) === String(it.tpOid)) || Math.abs((o.price||0) - it.tp) < 1e-6);
+      const isLive = symOrds.some(o => (it.tpOid && String(o.orderId||o.algoId) === String(it.tpOid)) || Math.abs((o.price||0) - it.tp) < 1e-6);
       if(it.tp != null && !isLive && !it.tpFbDone){
         const tpLine = candleSeries.createPriceLine({
           price: it.tp,
@@ -4353,7 +4384,7 @@ addEventListener("keydown",e=>{
 window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,load,reconcile,
   findOrphans,sweepOrphans,subCoin,startUserStream,applyAcct},
   TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice,
-    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,flowRrInfo,
+    checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,flowRrInfo,clearTradeLines,syncTradeLines,
     dryRun:(on=true)=>{DRY_RUN=!!on;toast("DRY_RUN = "+DRY_RUN);return DRY_RUN;},
     setTestnet:async (on=true)=>{await switchTestnet(on);return IS_TESTNET;}},
   ver:VER,LOG,log,dump:()=>LOG.join("\n"),

@@ -873,6 +873,61 @@
           cdFn();
           assert(/^\d{2}:\d{2}$/.test(cd.textContent), "当前实际时间倒计时格式应为 MM:SS");
         }
+      },
+      {
+        id: "cross_symbol_order_isolation",
+        name: "21. 跨品种挂单线隔离与切币彻底清理校验（确保品种A挂单绝不出现在品种B图表上）",
+        test: async () => {
+          // 1. 在 BTCUSDC 与 ETHUSDC 上构造模拟挂单
+          w.S.sym = "BTCUSDC";
+          w.S.ords["BTCUSDC"] = [
+            { symbol: "BTCUSDC", orderId: "btc_01", side: "BUY", type: "LIMIT", price: 62000, origQty: 0.1 },
+            { symbol: "BTCUSDC", orderId: "btc_02", side: "SELL", type: "STOP_MARKET", stopPrice: 59000, origQty: 0.1, closePosition: true }
+          ];
+          w.S.ords["ETHUSDC"] = [
+            { symbol: "ETHUSDC", orderId: "eth_01", side: "BUY", type: "LIMIT", price: 2500, origQty: 1.0 }
+          ];
+
+          // 2. 模拟切币至 BTCUSDC 并同步
+          w.BN.TRADE.syncTradeLines();
+          await sleep(50);
+
+          let btcLines = [...w.document.querySelectorAll(".dl.dyn")];
+          assert(btcLines.length === 2, `BTC 应展示 2 根挂单线，实际: ${btcLines.length}`);
+          assert(btcLines.every(el => el.dataset.c === "BTCUSDC"), "BTC 图表上的挂单线应仅包含 BTCUSDC");
+
+          // 3. 核心断言：切币至 ETHUSDC
+          await w.BN.TRADE.pick("ETHUSDC");
+          await sleep(100);
+
+          let ethLines = [...w.document.querySelectorAll(".dl.dyn")];
+          assert(ethLines.length === 1, `ETH 应展示 1 根挂单线，实际: ${ethLines.length}`);
+          assert(ethLines[0].dataset.c === "ETHUSDC", `ETH 图表上挂单应属于 ETHUSDC，实际: ${ethLines[0].dataset.c}`);
+          assert(!ethLines.some(el => el.dataset.c === "BTCUSDC"), "ETH 图表上绝对不得出现任何 BTC 挂单线！");
+
+          // 4. 测试增量加载防污染：传入包含 BTC 挂单的 od 数组给 ETHUSDC
+          const mixedOd = [
+            { symbol: "ETHUSDC", orderId: "eth_02", side: "SELL", type: "LIMIT", price: 2800, origQty: 1.0 },
+            { symbol: "BTCUSDC", orderId: "btc_03_leak", side: "BUY", type: "LIMIT", price: 61000, origQty: 0.5 }
+          ];
+          w.S.ords["ETHUSDC"] = mixedOd.filter(o => !o.symbol || o.symbol === "ETHUSDC");
+          mixedOd.forEach(o => {
+            if(o && o.symbol && o.symbol !== "ETHUSDC"){
+              if(!w.S.ords[o.symbol]) w.S.ords[o.symbol] = [];
+              w.S.ords[o.symbol].push(o);
+            }
+          });
+          w.BN.TRADE.syncTradeLines();
+          await sleep(50);
+
+          const ethAfterLines = [...w.document.querySelectorAll(".dl.dyn")];
+          assert(!ethAfterLines.some(el => el.dataset.c === "BTCUSDC"), "防污染校验失败：混杂的 BTC 挂单渗透进了 ETH 图表！");
+          assert(ethAfterLines.every(el => el.dataset.c === "ETHUSDC"), "ETH 图表上所有挂单均属于 ETHUSDC");
+
+          // 恢复现场
+          w.S.ords = {};
+          w.BN.TRADE.clearTradeLines();
+        }
       }
     ];
 
