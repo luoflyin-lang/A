@@ -1567,6 +1567,19 @@ async function startUserStream(force){
           cancelAllEntryOrders(o.s);
           if(PENDBR[o.s]){ delete PENDBR[o.s]; savePendBr(); }
         }
+        // 入场单撤销保护：入场单被撤销或过期时，若当前无持仓且无其他入场单，联动撤销预挂的止盈与止损单！
+        if((o.X==="CANCELED"||o.X==="EXPIRED")&&!o.R&&!o.cp&&o.ot!=="STOP_MARKET"&&o.ot!=="TAKE_PROFIT_MARKET"){
+          if(posOf(o.s).length===0){
+            const otherEntries=(S.ords[o.s]||[]).filter(x=>String(x.orderId||x.algoId)!==String(o.i||o.aid)&&!ordInfo(x).ro);
+            if(otherEntries.length===0){
+              send("DELETE","/fapi/v1/allOpenOrders",{symbol:o.s},"入场单已撤，联动撤销止盈",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
+              send("DELETE","/fapi/v1/algoOpenOrders",{symbol:o.s},"入场单已撤，联动撤销止损",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
+              delete S.ords[o.s];
+              if(PENDBR[o.s]){delete PENDBR[o.s];savePendBr();}
+              clearTradeLines();syncTradeLines();posView();
+            }
+          }
+        }
         schedAcct();return;}
       if(d.e==="ACCOUNT_UPDATE"){
         (((d.a||{}).P)||[]).forEach(p=>{
@@ -1824,6 +1837,74 @@ function posView(){
     :'<div class="none" style="padding:10px">当前无挂单。</div>';
 }
 
+/* 入场单撤单联动：撤销入场单时，同时撤销关联预挂的止损与止盈单（防残留孤儿单） */
+async function cascadeCancelLinkedBrackets(sym, entryOid, options = {}){
+  const hasPos = posOf(sym).length > 0;
+  const pb = PENDBR[sym];
+  const ordList = S.ords[sym] || [];
+
+  if(!hasPos){
+    // 无持仓场景：检查同币种是否还有其他未成交的入场单
+    const otherEntries = ordList.filter(o => String(o.orderId || o.algoId) !== String(entryOid) && !ordInfo(o).ro);
+    if(otherEntries.length === 0){
+      // 没有任何其他入场单：同品种下所有预挂的止盈止损单均已失去母单保护，立即全部并发撤销！
+      const tasks = [];
+      tasks.push(send("DELETE", "/fapi/v1/allOpenOrders", { symbol: sym }, "联动撤销 " + disp(sym) + " 预挂止盈单", true, { escapeLock: true, skipLoad: true, skipCascade: true }).catch(()=>null));
+      tasks.push(send("DELETE", "/fapi/v1/algoOpenOrders", { symbol: sym }, "联动撤销 " + disp(sym) + " 预挂止损单", true, { escapeLock: true, skipLoad: true, skipCascade: true }).catch(()=>null));
+      
+      await Promise.allSettled(tasks);
+      
+      delete S.ords[sym];
+      if(PENDBR[sym]){ delete PENDBR[sym]; savePendBr(); }
+      clearTradeLines();
+      syncTradeLines();
+      posView();
+      updateTvBtn();
+      if(!options.silent){
+        toast("✔ 已撤销入场单，并已联动撤销同品种预挂的止盈与止损单", true);
+      }
+      return;
+    }
+  }
+
+  // 若有持仓或存在其他入场单：仅撤除与当前被撤入场单绑定的独立止盈/止损
+  if(pb){
+    const items = Array.isArray(pb.items) ? pb.items : [];
+    const itIdx = items.findIndex(x => String(x.oid) === String(entryOid));
+    const targetItem = itIdx >= 0 ? items[itIdx] : (String(pb.oid) === String(entryOid) ? pb : null);
+    
+    if(targetItem){
+      const tasks = [];
+      const tpOid = targetItem.tpOid || targetItem.tpFbOid;
+      if(tpOid){
+        tasks.push(cancelOrder(sym, tpOid, false, { escapeLock: true, skipLoad: true, silent: true, skipCascade: true }));
+      }
+      if(!hasPos && (targetItem.slOid || targetItem.slDone)){
+        if(targetItem.slOid){
+          tasks.push(cancelOrder(sym, targetItem.slOid, true, { escapeLock: true, skipLoad: true, silent: true, skipCascade: true }));
+        } else {
+          tasks.push(send("DELETE", "/fapi/v1/algoOpenOrders", { symbol: sym }, "撤销关联止损单", true, { escapeLock: true, skipLoad: true, skipCascade: true }).catch(()=>null));
+        }
+      }
+      if(tasks.length > 0) await Promise.allSettled(tasks);
+      
+      if(itIdx >= 0){
+        items.splice(itIdx, 1);
+        if(items.length === 0 && !hasPos) delete PENDBR[sym];
+        savePendBr();
+      }
+    }
+  }
+
+  clearTradeLines();
+  syncTradeLines();
+  posView();
+  updateTvBtn();
+  if(!options.silent){
+    toast("✔ 已撤销入场单，并联动撤销关联的止盈/止损挂单", true);
+  }
+}
+
 async function cancelOrder(sym,oid,isAlgo,opt={}){
   if(!HASKEY && !DRY_RUN){
     toast("⚠ 未配置 API Key，无法向交易所撤单！请先配置 API Key。", true);
@@ -1839,16 +1920,21 @@ async function cancelOrder(sym,oid,isAlgo,opt={}){
   const targetAlgoId = (typeof opt === "string" || typeof opt === "number") ? opt : options.algoId;
   const useAlgo = isAlgo || targetAlgoId != null;
 
+  // 1. 判断待撤订单是否为“入场单”（非 reduceOnly 订单或待入场记录关联的入场单）
+  const ordList = S.ords[sym] || [];
+  const targetOrd = ordList.find(o => String(o.orderId || o.algoId) === String(oid));
+  const isEntryOrder = targetOrd ? !ordInfo(targetOrd).ro : (PENDBR[sym] && (String(PENDBR[sym].oid) === String(oid) || (PENDBR[sym].items || []).some(it => String(it.oid) === String(oid))));
+
   if(!options.silent) toast("正在向交易所撤销 " + disp(sym) + " 挂单 #" + oid + "…", true);
 
-  // 1. 发起首选路径撤单
+  // 2. 发起首选路径撤单
   let path = useAlgo ? "/fapi/v1/algoOrder" : "/fapi/v1/order";
   let params = useAlgo ? { symbol: sym, algoId: targetAlgoId || oid } : { symbol: sym, orderId: oid };
   let res = await send("DELETE", path, params, "撤单 " + disp(sym), true, { escapeLock: true, ...options });
   
   let errCode = (res && res.code != null ? +res.code : (res && res._err && res._err.code != null ? +res._err.code : (LAST_ERR ? +LAST_ERR.code : 0)));
   
-  // 2. 双向智能兜底重试：若接口不匹配（-4120/-1102/-2011/-4003），互换标准单/条件单接口重试一次
+  // 3. 双向智能兜底重试：若接口不匹配（-4120/-1102/-2011/-4003），互换标准单/条件单接口重试一次
   if(!okAll(res) && (errCode === -2011 || errCode === -4120 || errCode === -1102 || errCode === -4003)){
     path = useAlgo ? "/fapi/v1/order" : "/fapi/v1/algoOrder";
     params = useAlgo ? { symbol: sym, orderId: oid } : { symbol: sym, algoId: targetAlgoId || oid };
@@ -1856,19 +1942,26 @@ async function cancelOrder(sym,oid,isAlgo,opt={}){
     errCode = (res && res.code != null ? +res.code : (res && res._err && res._err.code != null ? +res._err.code : (LAST_ERR ? +LAST_ERR.code : 0)));
   }
 
-  // 3. 结果处理与清晰反馈
-  if(okAll(res)){
+  // 4. 结果处理与联动撤除关联止损/止盈
+  const success = okAll(res) || errCode === -2011 || (LAST_ERR && LAST_ERR.code === -2011) || (res && res.code === -2011);
+  if(success){
     // 成功撤单
     if(S.ords[sym]) S.ords[sym] = S.ords[sym].filter(o => String(o.orderId || o.algoId) !== String(oid));
-    posView(); syncTradeLines(); updateTvBtn();
-    if(!options.silent) toast("✔ 撤单成功：已撤销 " + disp(sym) + " 挂单 #" + oid, true);
-    return res;
-  } else if(errCode === -2011 || (LAST_ERR && LAST_ERR.code === -2011) || (res && res.code === -2011)){
-    // -2011 Unknown order sent：说明交易所撮合引擎中该订单已不存在（已撤销或已成交）
-    if(S.ords[sym]) S.ords[sym] = S.ords[sym].filter(o => String(o.orderId || o.algoId) !== String(oid));
-    posView(); syncTradeLines(); updateTvBtn();
-    if(!options.silent) toast("交易所已无该订单（已成交或已在交易所撤销），已同步清理本地挂单显示", true);
-    return { code: 200, msg: "already_cleared" };
+    
+    // 【入场单撤单联动】：撤销入场单时，自动同时撤销同组或同品种预挂的止盈与止损挂单
+    if(isEntryOrder && !options.skipCascade){
+      await cascadeCancelLinkedBrackets(sym, oid, options);
+    } else {
+      posView(); syncTradeLines(); updateTvBtn();
+      if(!options.silent){
+        if(errCode === -2011 || (res && res.code === -2011)){
+          toast("交易所已无该订单（已成交或已在交易所撤销），已同步清理本地挂单显示", true);
+        } else {
+          toast("✔ 撤单成功：已撤销 " + disp(sym) + " 挂单 #" + oid, true);
+        }
+      }
+    }
+    return res || { code: 200, msg: "success" };
   } else {
     // 真正失败：给出详细明确的失败原因，绝不静默！
     const failReason = keyHint(LAST_ERR || res) || errText(LAST_ERR || res) || ((res && res.msg) || (LAST_ERR && LAST_ERR.message) || "交易所拒绝请求");
@@ -4495,7 +4588,7 @@ $("#ohGo").addEventListener("click",async()=>{
     }
 
     if(!PENDBR[sym]){
-      PENDBR[sym] = { side, sl: r.sl, tp: r.tp, qty: +qty, slDone: slOk, ts: Date.now(), tpFbDone: tpOk, tpFbOid: oidOf(tpRes), oid: oidOf(eRes), isBreakout, items: [] };
+      PENDBR[sym] = { side, sl: r.sl, tp: r.tp, qty: +qty, slDone: slOk, slOid: oidOf(slRes), tpOid: oidOf(tpRes), ts: Date.now(), tpFbDone: tpOk, tpFbOid: oidOf(tpRes), oid: oidOf(eRes), isBreakout, items: [] };
     }
     if(!Array.isArray(PENDBR[sym].items)){
       const oldB = Object.assign({}, PENDBR[sym]);
@@ -4511,6 +4604,7 @@ $("#ohGo").addEventListener("click",async()=>{
       tp: r.tp,
       qty: +qty,
       slDone: slOk,
+      slOid: oidOf(slRes),
       tpFbDone: tpOk,
       tpFbOid: oidOf(tpRes),
       tpOid: oidOf(tpRes),
@@ -4530,7 +4624,9 @@ $("#ohGo").addEventListener("click",async()=>{
     PENDBR[sym].qty = PENDBR[sym].items.reduce((sum, it) => sum + (+it.qty || 0), 0);
     PENDBR[sym].oid = oidOf(eRes);
     PENDBR[sym].slDone = slOk;
+    PENDBR[sym].slOid = oidOf(slRes);
     PENDBR[sym].tpFbDone = tpOk;
+    PENDBR[sym].tpOid = oidOf(tpRes);
     savePendBr();endFlow();
   }finally{SUBMITTING=false;try{render();}catch(e){}load(true);}
 });
@@ -4550,7 +4646,7 @@ addEventListener("keydown",e=>{
 window.BN={S,F,DATA:{pub,priv,syncTime,loadUniverse,tickers,loadBrackets,kline,load,reconcile,
   findOrphans,sweepOrphans,subCoin,startUserStream,applyAcct},
   TRADE:{core:TradeCore,alignPx,alignSz,sizing,send,ensureLev,closePos,cancelOrder,placeOrder,modifyOrderPrice,
-    cancelAllOrders,closeAllPositions,sweepOrphans,
+    cancelAllOrders,closeAllPositions,sweepOrphans,cascadeCancelLinkedBrackets,
     checkRiskGates,slWatchdog,step,pick,open,close,posView,render,endFlow,startFlow,pool,flowRrInfo,clearTradeLines,syncTradeLines,
     dryRun:(on=true)=>{DRY_RUN=!!on;toast("DRY_RUN = "+DRY_RUN);return DRY_RUN;},
     setTestnet:async (on=true)=>{await switchTestnet(on);return IS_TESTNET;}},

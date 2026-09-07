@@ -1067,6 +1067,58 @@
           w.S.ords = {};
           w.BN.TRADE.clearTradeLines();
         }
+      },
+      {
+        id: "cascade_cancel_entry_with_tpsl",
+        name: "25. 撤销入场单联动撤销关联止盈与止损挂单校验（防残留孤儿单）",
+        test: async () => {
+          // 1. 在 BTCUSDC 上构造 3 单入场结构：入场单 + 止损单 + 止盈单
+          w.S.sym = "BTCUSDC";
+          w.S.pos = {};
+          w.S.ords["BTCUSDC"] = [
+            { symbol: "BTCUSDC", orderId: "entry_101", side: "BUY", type: "LIMIT", price: 60000, origQty: 0.1 },
+            { symbol: "BTCUSDC", algoId: "sl_102", isAlgo: true, side: "SELL", type: "STOP_MARKET", stopPrice: 58000, closePosition: true, origQty: 0.1 },
+            { symbol: "BTCUSDC", orderId: "tp_103", side: "SELL", type: "LIMIT", price: 65000, reduceOnly: true, origQty: 0.1 }
+          ];
+          w.BN.S.acct = true;
+          w.BN.S.ordsAt = Date.now();
+          w.posView();
+          w.BN.TRADE.syncTradeLines();
+          await sleep(50);
+
+          // 2. 监听发出的撤单网络请求
+          const cancelCalls = [];
+          const origSend = w.send;
+          w.send = async (method, path, params, label, silent, opt) => {
+            cancelCalls.push({ method, path, params, opt });
+            return { code: 200, msg: "success" };
+          };
+
+          // 3. 撤销入场单（模拟点击入场单的撤单按钮或图表叉号）
+          await w.BN.TRADE.cancelOrder("BTCUSDC", "entry_101", false);
+          await sleep(100);
+
+          // 4. 断言：入场单被撤销的同时，发出了同品种止盈挂单与止损条件单的联动全撤请求
+          const entryCancel = cancelCalls.find(c => c.method === "DELETE" && c.path === "/fapi/v1/order" && c.params.orderId === "entry_101");
+          assert(entryCancel, "未向交易所发起入场单自身撤销请求");
+
+          const tpCancel = cancelCalls.find(c => c.method === "DELETE" && c.path === "/fapi/v1/allOpenOrders" && c.params.symbol === "BTCUSDC");
+          assert(tpCancel, "未能联动向交易所发起止盈挂单撤销请求");
+
+          const slCancel = cancelCalls.find(c => c.method === "DELETE" && c.path === "/fapi/v1/algoOpenOrders" && c.params.symbol === "BTCUSDC");
+          assert(slCancel, "未能联动向交易所发起止损条件单撤销请求");
+
+          // 5. 校验本地订单与图表价格线彻底清空，无任何残留孤儿单
+          const btcOrders = w.S.ords["BTCUSDC"] || [];
+          assert(btcOrders.length === 0, `BTC 挂单未彻底清理，残留: ${btcOrders.length}`);
+          const btcLines = [...w.document.querySelectorAll(".dl.dyn")].filter(el => el.dataset.c === "BTCUSDC");
+          assert(btcLines.length === 0, `BTC 图表挂单线未彻底清理，残留: ${btcLines.length}`);
+
+          // 恢复现场
+          w.send = origSend;
+          w.S.ords = {};
+          w.BN.TRADE.clearTradeLines();
+        }
       }
     ];
 
