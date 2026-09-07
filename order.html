@@ -528,6 +528,12 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
   }, { passive: false });
 })();
 </script>
+<style id="order-safety-mobile-fix">
+/* 小屏幕不能把最右侧撤单按钮永久裁掉；保持原布局并允许面板内横向滚动。 */
+#pb.sbody{overflow-x:auto;touch-action:pan-x pan-y}
+#shTv .tab-btn,#shTv .x{flex-shrink:0;white-space:nowrap}
+#shTv #av{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
 </head>
 <body>
 <!-- TradingView 图表挂载节点 -->
@@ -668,8 +674,8 @@ const MID_STALE=60000;
 const MID_BACK=8000;
 const TOAST_DEDUP=60000;
 const PREATTACH_TP=true;
-const VER="v11.1";
-let DRY_RUN=false;                      // 演练模式（开启后只记录请求，不真实下单）
+const VER="v11.2";
+let DRY_RUN=false;                      // 演练模式（false为实盘下单，直接向交易所提交订单）
 let IS_TESTNET=false;                   // 测试网开关
 const MAX_DAILY_LOSS_PCT=5.0;           // 全局闸门1：单日最大亏损 5%
 const MAX_TOTAL_RISK_PCT=3.0;           // 全局闸门2：并发持仓总风险 3%
@@ -1751,37 +1757,42 @@ function schedAcct(){if(acctT)return;acctT=setTimeout(()=>{acctT=null;load(true)
 function handleUserStreamEvent(d){
   if(!d||!d.e)return;
   if(d.e==="listenKeyExpired"){log("listenKey expired");startUserStream(true);return;}
-  if(d.e==="ORDER_TRADE_UPDATE"||d.e==="ALGO_ORDER_TRADE_UPDATE"){
+  if(d.e==="ORDER_TRADE_UPDATE"||d.e==="ALGO_ORDER_TRADE_UPDATE"||d.e==="ALGO_UPDATE"){
     const o=d.o||d.a||{};
-    const isExit = o.R===true || o.R==="true" || o.cp===true || o.cp==="true";
+    const cp = o.cp===true || o.cp==="true" || o.closePosition===true || o.closePosition==="true";
+    const ro = o.R===true || o.R==="true" || o.reduceOnly===true || o.reduceOnly==="true";
+    const isExit = ro || cp;
     const isEntry = !isExit;
-    const isStopLoss = isExit && (o.ot==="STOP_MARKET" || o.ot==="STOP");
-    const isTakeProfit = isExit && (o.ot==="TAKE_PROFIT_MARKET" || o.ot==="TAKE_PROFIT" || String(o.c||"").startsWith("tp_"));
+    const ot = String(o.ot || o.o || o.orderType || "").toUpperCase();
+    const isStopLoss = isExit && (ot==="STOP_MARKET" || ot==="STOP");
+    const isTakeProfit = isExit && (ot==="TAKE_PROFIT_MARKET" || ot==="TAKE_PROFIT" || String(o.c||o.caid||"").startsWith("tp_"));
+    const status = String(o.X || o.algoStatus || "").toUpperCase();
+    const sym = o.s || o.symbol;
 
     // 1. 入场单（普通只挂单 LIMIT 或 突破追单 STOP_MARKET）成交：坚决保留待挂记录并触发补挂！
-    if((o.X==="FILLED"||o.X==="PARTIALLY_FILLED") && isEntry && PENDBR[o.s]){
-      setTimeout(()=>firePendingBracket(o.s),600);
+    if((status==="FILLED"||status==="PARTIALLY_FILLED") && isEntry && PENDBR[sym]){
+      setTimeout(()=>firePendingBracket(sym),600);
     }
 
     // 2. 止损成交保护：只有当明确为平仓止损单（减仓单）成交时，才判定仓位已止损清空，撤除同品种全部残留挂单并清理 PENDBR
-    if(o.X==="FILLED" && isStopLoss){
-      cancelAllEntryOrders(o.s);
-      send("DELETE","/fapi/v1/allOpenOrders",{symbol:o.s},"止损触发，撤除残留挂单",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
-      send("DELETE","/fapi/v1/algoOpenOrders",{symbol:o.s},"止损触发，撤除残留条件单",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
-      if(PENDBR[o.s]){ delete PENDBR[o.s]; savePendBr(); }
-      delete S.ords[o.s];
+    if(status==="FILLED" && isStopLoss){
+      cancelAllEntryOrders(sym);
+      send("DELETE","/fapi/v1/allOpenOrders",{symbol:sym},"止损触发，撤除残留挂单",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
+      send("DELETE","/fapi/v1/algoOpenOrders",{symbol:sym},"止损触发，撤除残留条件单",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
+      if(PENDBR[sym]){ delete PENDBR[sym]; savePendBr(); }
+      delete S.ords[sym];
       clearTradeLines();
       syncTradeLines();
-      toast("✔ "+disp(o.s)+" 止损单已触发成交，已自动撤除同品种全部残留挂单与止盈单", true);
+      toast("✔ "+disp(sym)+" 止损单已触发成交，已自动撤除同品种全部残留挂单与止盈单", true);
     }
 
     // 2.1 止盈成交保护：若持仓已全部清空，自动撤销同品种残留的预挂止损单（防脱机后孤儿止损反向开仓）
-    if(o.X==="FILLED" && isTakeProfit){
+    if(status==="FILLED" && isTakeProfit){
       setTimeout(() => {
-        if(posOf(o.s).length === 0){
-          send("DELETE","/fapi/v1/algoOpenOrders",{symbol:o.s},"止盈达成，撤除残留止损",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
-          if(PENDBR[o.s]){ delete PENDBR[o.s]; savePendBr(); }
-          toast("🎉 "+disp(o.s)+" 止盈单已全部成交，已自动清理关联预挂止损单", true);
+        if(posOf(sym).length === 0){
+          send("DELETE","/fapi/v1/algoOpenOrders",{symbol:sym},"止盈达成，撤除残留止损",true,{escapeLock:true,skipLoad:true,skipCascade:true}).catch(()=>null);
+          if(PENDBR[sym]){ delete PENDBR[sym]; savePendBr(); }
+          toast("🎉 "+disp(sym)+" 止盈单已全部成交，已自动清理关联预挂止损单", true);
         }
       }, 500);
     }
@@ -3022,18 +3033,10 @@ function exitOrder(sym,lg,price,ps,qty){
     stopPrice:pxStr,
     triggerPrice:pxStr,
     workingType:WORK,
-    priceProtect:"true"
+    priceProtect:"true",
+    closePosition:"true"
   };
-  if(!S.dual){
-    o.closePosition="true";
-  }else{
-    let q=qty;
-    if(!(q>0)){
-      const p=posOf(sym).find(x=>(x.amt>0)===lg);
-      if(p)q=Math.abs(p.amt);
-      else if(PENDBR[sym]&&PENDBR[sym].qty)q=PENDBR[sym].qty;
-    }
-    if(q>0)o.quantity=fmtSz(alignSz(q,sym),sym);
+  if(S.dual){
     o.positionSide=ps||(lg?"LONG":"SHORT");
   }
   return o;
@@ -4953,6 +4956,12 @@ $("#ohGo").addEventListener("click",async()=>{
   const buy=flowSide()==="buy",m=mid(sym);
   if(!isFinite(m)||m<=0){toast("无法获取市价，已阻止下单");return;}
   const side=buy?"BUY":"SELL",ps=buy?"LONG":"SHORT";
+
+  // 防止在已持有相反方向仓位时误下反向开仓单（例如持空误开多）
+  if(posOf(sym).some(p => Math.abs(p.amt) > 0 && (p.amt > 0) !== buy)){
+    toast("⚠ 该品种已持有相反方向仓位，已阻止反向开仓！如需反手请先平仓。", true);
+    return;
+  }
   
   // 方案 A 智能双模式：
   // 逢高做空 / 逢低接多（Maker 区）：LIMIT GTX（0% 挂单手续费）
