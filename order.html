@@ -280,11 +280,7 @@ input{font:inherit;color:inherit;background:none;border:none;outline:none;touch-
 /* ---- 全屏 TradingView 图表容器 ---- */
 #tv_chart{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1;touch-action:none}
 
-/* ---- 左右 20% 翻币区域视觉轻提示 ---- */
-.edge-zone{position:fixed;top:0;bottom:0;width:20vw;z-index:2;pointer-events:none;opacity:0;transition:opacity .2s ease;display:flex;align-items:center;justify-content:center}
-.edge-zone.left{left:0}
-.edge-zone.right{right:0}
-.edge-hint{font-size:28px;color:var(--faint);font-weight:300;user-select:none;opacity:0.25}
+
 
 /* ---- 左上角：品种与周期点击切换 ---- */
 #tl{position:fixed;top:18px;left:22px;z-index:5;display:flex;flex-direction:row;gap:10px;align-items:center}
@@ -537,9 +533,7 @@ td{text-align:right;padding:8px 5px;white-space:nowrap;font-family:var(--mono);f
 <!-- TradingView 图表挂载节点 -->
 <div id="tv_chart"></div>
 
-<!-- 左右 20% 点击切币区域 -->
-<div class="edge-zone left"><span class="edge-hint">‹</span></div>
-<div class="edge-zone right"><span class="edge-hint">›</span></div>
+
 
 <div id="nakedAlert" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:100;background:#A85244;color:#FFF;padding:8px 16px;border-radius:10px;font-weight:600;font-size:12.5px;box-shadow:0 4px 20px rgba(0,0,0,0.3);text-align:center;pointer-events:none"></div>
 
@@ -4343,7 +4337,7 @@ function resetPress(){
 function onChart(t){
   if(!t||!t.closest)return false;
   if(t.closest(".grip")||t.closest(".xbtn")||t.closest(".sheet")||t.closest("#ohud")||t.closest("#khud")||t.closest("#tl")||t.closest("#br"))return false;
-  if(t.closest("#tv_chart")||t.closest(".edge-zone"))return true;
+  if(t.closest("#tv_chart"))return true;
   return t===document.body||t===document.documentElement;
 }
 
@@ -4394,9 +4388,12 @@ function bindGrip(hd,key){
 }
 bindGrip("#hEn","e");bindGrip("#hSl","sl");bindGrip("#hTp","tp");
 
-// 鼠标长按与左右切币
+let lastMultiTouchTime = 0;
+
+// 鼠标长按取价瞄准（彻底移除图表左右边缘点击切币，防止缩放与拖拽误切）
 addEventListener("mousedown",e=>{
   if(e.button!==0||!onChart(e.target))return;
+  if(Date.now() - lastMultiTouchTime < 600) return;
   aim=false;aimPrice=null;pKill=false;pMulti=false;
   pX=e.clientX;pY=e.clientY;
   touchStartX=e.clientX;touchStartY=e.clientY;touchStartTime=Date.now();
@@ -4412,27 +4409,14 @@ addEventListener("mousemove",e=>{
   }
 });
 addEventListener("mouseup",e=>{
+  if(Date.now() - lastMultiTouchTime < 600) return;
   const wasAim = aim && !pKill && onChart(e.target);
   const p = aimPrice || y2p(e.clientY);
-  const dt = Date.now() - touchStartTime;
-  const dx = Math.abs(e.clientX - touchStartX);
-  const dy = Math.abs(e.clientY - touchStartY);
   resetPress();
 
   if(wasAim && p != null && isFinite(p) && p > 0){
     pickPrice(p);
     return;
-  }
-
-  // 点击屏幕左右 20% 区域快速切币（无明显拖拽且非长按）
-  if(!F.on && onChart(e.target) && dt < 280 && dx < 10 && dy < 10){
-    if(document.querySelector(".sheet.on")) return;
-    const w = window.innerWidth;
-    if(e.clientX < w * 0.20){
-      step(-1);
-    }else if(e.clientX > w * 0.80){
-      step(1);
-    }
   }
 });
 addEventListener("contextmenu",e=>{
@@ -4443,46 +4427,60 @@ addEventListener("contextmenu",e=>{
   pickPrice(p);
 });
 
-// 触屏长按与左右 20% 切币（优化多指触控防整页缩放）
+// 触屏长按取价与多指双指缩放隔离防护（彻底移除图表滑动与边缘误切币）
 addEventListener("touchstart",e=>{
   if(!onChart(e.target))return;
-  pMulti=e.touches.length>1;pKill=pMulti;aim=false;aimPrice=null;
-  const t=e.touches[0];if(!t)return;
-  pX=t.clientX;pY=t.clientY;
-  touchStartX=t.clientX;touchStartY=t.clientY;touchStartTime=Date.now();
+  if(e.touches.length > 1){
+    pMulti = true;
+    pKill = true;
+    lastMultiTouchTime = Date.now();
+    clearTimeout(pT);
+    aim = false;
+    hideGuide();
+    return;
+  }
+  if(Date.now() - lastMultiTouchTime < 600) return;
+  pMulti = false; pKill = false; aim = false; aimPrice = null;
+  const t = e.touches[0]; if(!t) return;
+  pX = t.clientX; pY = t.clientY;
+  touchStartX = t.clientX; touchStartY = t.clientY; touchStartTime = Date.now();
   clearTimeout(pT);
-  if(!pMulti)pT=setTimeout(enterAim,AIM_MS);
+  pT = setTimeout(enterAim, AIM_MS);
 },{passive:false});
 
 addEventListener("touchmove",e=>{
-  if(e.touches.length>1){
-    pMulti=pKill=true;clearTimeout(pT);aim=false;hideGuide();
+  if(e.touches.length > 1){
+    pMulti = true;
+    pKill = true;
+    lastMultiTouchTime = Date.now();
+    clearTimeout(pT);
+    aim = false;
+    hideGuide();
+    // 重要：不调用 e.preventDefault()，放行给 TradingView 原生处理双指 pinch-to-zoom 缩放！
+    return;
+  }
+  if(!pT && !aim) return;
+  const t = e.touches[0]; if(!t) return;
+  if(aim){
+    guide(t.clientY);
     if(e.cancelable) e.preventDefault();
     return;
   }
-  if(!pT&&!aim)return;
-  const t=e.touches[0];if(!t)return;
-  if(aim){
-    guide(t.clientY);
-    if(e.cancelable)e.preventDefault();
-    return;
-  }
-  const dx=Math.abs(t.clientX-pX),dy=Math.abs(t.clientY-pY);
-  if(dx>H_TOL||dy>H_TOL){
-    pKill=true;clearTimeout(pT);hideGuide();
+  const dx = Math.abs(t.clientX - pX), dy = Math.abs(t.clientY - pY);
+  if(dx > H_TOL || dy > H_TOL){
+    pKill = true; clearTimeout(pT); hideGuide();
   }
 },{passive:false});
 
 addEventListener("touchend",e=>{
   clearTimeout(pT);
-  const wasAim = aim && !pKill && !pMulti;
+  if(pMulti || e.touches.length > 0 || Date.now() - lastMultiTouchTime < 600){
+    lastMultiTouchTime = Date.now();
+    resetPress();
+    return;
+  }
+  const wasAim = aim && !pKill;
   const p = aimPrice;
-  const dt = Date.now() - touchStartTime;
-  const t = e.changedTouches?.[0];
-  const dx = t ? Math.abs(t.clientX - touchStartX) : 0;
-  const dy = t ? Math.abs(t.clientY - touchStartY) : 0;
-  const cx = t ? t.clientX : touchStartX;
-
   resetPress();
 
   if(wasAim && p != null && isFinite(p) && p > 0){
@@ -4490,30 +4488,11 @@ addEventListener("touchend",e=>{
     pickPrice(p);
     return;
   }
-
-  // 触屏手势切币：支持横向滑动切币（滑幅 > 45px，垂直偏离 < 30px）或点击左右 15% 边缘
-  const isSwipeLeft = (t && (touchStartX - t.clientX > 45) && dy < 30 && dt < 350);
-  const isSwipeRight = (t && (t.clientX - touchStartX > 45) && dy < 30 && dt < 350);
-  if(!F.on && onChart(e.target) && !pMulti && !document.querySelector(".sheet.on")){
-    if(isSwipeLeft){
-      if(e.cancelable) e.preventDefault();
-      step(1);
-    }else if(isSwipeRight){
-      if(e.cancelable) e.preventDefault();
-      step(-1);
-    }else if(dt < 280 && dx < 12 && dy < 12){
-      const w = window.innerWidth;
-      if(cx < w * 0.15){
-        if(e.cancelable) e.preventDefault();
-        step(-1);
-      }else if(cx > w * 0.85){
-        if(e.cancelable) e.preventDefault();
-        step(1);
-      }
-    }
-  }
 },{passive:false});
-addEventListener("touchcancel",()=>{resetPress();});
+addEventListener("touchcancel",()=>{
+  lastMultiTouchTime = Date.now();
+  resetPress();
+});
 
 /* ================= 行情健康检查 ================= */
 function setLock(why){
