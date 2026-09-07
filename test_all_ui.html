@@ -117,6 +117,9 @@
     w.placeOrder = w.BN.TRADE.placeOrder;
     w.cancelOrder = w.BN.TRADE.cancelOrder;
     w.closePos = w.BN.TRADE.closePos;
+    w.cancelAllOrders = w.BN.TRADE.cancelAllOrders;
+    w.closeAllPositions = w.BN.TRADE.closeAllPositions;
+    w.sweepOrphans = w.BN.TRADE.sweepOrphans;
     w.checkRiskGates = w.BN.TRADE.checkRiskGates;
     w.slWatchdog = w.BN.TRADE.slWatchdog;
     w.step = w.BN.TRADE.step;
@@ -925,6 +928,142 @@
           assert(ethAfterLines.every(el => el.dataset.c === "ETHUSDC"), "ETH 图表上所有挂单均属于 ETHUSDC");
 
           // 恢复现场
+          w.S.ords = {};
+          w.BN.TRADE.clearTradeLines();
+        }
+      },
+      {
+        id: "cancel_all_orders_batch",
+        name: "22. 一键全撤所有挂单 (cancelAllOrders) 与按钮 (.cxl-all) 并发全撤及图表挂单线彻底清空校验",
+        test: async () => {
+          // 1. 在 BTCUSDC 与 ETHUSDC 上构造模拟挂单
+          w.S.sym = "BTCUSDC";
+          w.S.ords["BTCUSDC"] = [
+            { symbol: "BTCUSDC", orderId: "btc_01", side: "BUY", type: "LIMIT", price: 62000, origQty: 0.1 },
+            { symbol: "BTCUSDC", orderId: "btc_02", side: "SELL", type: "STOP_MARKET", stopPrice: 59000, origQty: 0.1, closePosition: true }
+          ];
+          w.S.ords["ETHUSDC"] = [
+            { symbol: "ETHUSDC", orderId: "eth_01", side: "BUY", type: "LIMIT", price: 2500, origQty: 1.0 }
+          ];
+          w.S.acct = true;
+          w.S.ordsAt = Date.now();
+          w.posView();
+          w.BN.TRADE.syncTradeLines();
+          await sleep(50);
+
+          // 2. 检查一键全撤按钮渲染
+          const cxlAllBtn = w.document.querySelector("#pb button.cxl-all");
+          assert(cxlAllBtn, "未找到「一键全撤所有挂单」按钮");
+          assert(cxlAllBtn.textContent.includes("3"), "一键全撤按钮未正确显示挂单总数 3");
+
+          // 3. 监听网络请求
+          const sentCalls = [];
+          const origSend = w.send;
+          w.send = async (method, path, params, label, silent, opt) => {
+            sentCalls.push({ method, path, params, opt });
+            return { code: 200, msg: "success" };
+          };
+
+          // 4. 执行全撤（跳过 confirm 弹窗）
+          await w.BN.TRADE.cancelAllOrders(false);
+          await sleep(50);
+
+          // 5. 校验并发请求
+          const standardDeletes = sentCalls.filter(c => c.method === "DELETE" && c.path === "/fapi/v1/allOpenOrders");
+          const algoDeletes = sentCalls.filter(c => c.method === "DELETE" && c.path === "/fapi/v1/algoOpenOrders");
+          assert(standardDeletes.length === 2, `应向 BTC/ETH 发送 2 个标准全撤请求，实际: ${standardDeletes.length}`);
+          assert(algoDeletes.length === 2, `应向 BTC/ETH 发送 2 个条件全撤请求，实际: ${algoDeletes.length}`);
+
+          // 6. 校验本地订单与图表挂单线彻底清空
+          const remainingOrders = Object.values(w.S.ords || {}).flat().filter(Boolean);
+          assert(remainingOrders.length === 0, `本地挂单未清空，剩余: ${remainingOrders.length}`);
+          const remainingLines = w.document.querySelectorAll(".dl.dyn");
+          assert(remainingLines.length === 0, `图表残留挂单线未彻底清理，剩余: ${remainingLines.length}`);
+
+          // 恢复现场
+          w.send = origSend;
+        }
+      },
+      {
+        id: "close_all_positions_batch",
+        name: "23. 一键市价全平 (closeAllPositions) 与按钮 (.cls-all-mkt) 并发清仓及持仓状态清空校验",
+        test: async () => {
+          // 1. 构造多品种活跃持仓
+          w.S.pos["BTCUSDC"] = { sym: "BTCUSDC", side: "BOTH", amt: 0.5, entry: 65000, upnl: 100 };
+          w.S.pos["ETHUSDC"] = { sym: "ETHUSDC", side: "BOTH", amt: -2.0, entry: 2600, upnl: -50 };
+          w.posView();
+          await sleep(50);
+
+          // 2. 检查一键市价全平按钮渲染
+          const clsAllBtn = w.document.querySelector("#pb button.cls-all-mkt");
+          assert(clsAllBtn, "未找到「一键市价全平」按钮");
+          assert(clsAllBtn.textContent.includes("2"), "一键全平按钮未正确显示持仓总数 2");
+
+          // 3. 监听网络请求
+          const sentCalls = [];
+          const origSend = w.send;
+          w.send = async (method, path, params, label, silent, opt) => {
+            sentCalls.push({ method, path, params, opt });
+            return { orderId: 88888, status: "FILLED" };
+          };
+
+          // 4. 执行一键市价全平
+          await w.BN.TRADE.closeAllPositions(false);
+          await sleep(50);
+
+          // 5. 校验并发请求发出的 MARKET 订单
+          const marketCloses = sentCalls.filter(c => c.method === "POST" && c.path === "/fapi/v1/order" && c.params.type === "MARKET");
+          assert(marketCloses.length === 2, `应并发发出 2 笔市价平仓单，实际: ${marketCloses.length}`);
+          const btcClose = marketCloses.find(c => c.params.symbol === "BTCUSDC");
+          const ethClose = marketCloses.find(c => c.params.symbol === "ETHUSDC");
+          assert(btcClose && btcClose.params.side === "SELL", "BTC 多头全平未发出 SELL 市价单");
+          assert(ethClose && ethClose.params.side === "BUY", "ETH 空头全平未发出 BUY 市价单");
+
+          // 6. 校验本地持仓被彻底清空
+          const activePos = Object.values(w.S.pos || {}).filter(p => p && Math.abs(p.amt) > 0);
+          assert(activePos.length === 0, `本地持仓未清空，剩余: ${activePos.length}`);
+
+          // 恢复现场
+          w.send = origSend;
+          w.S.pos = {};
+          w.posView();
+        }
+      },
+      {
+        id: "sweep_orphans_concurrency",
+        name: "24. 多余挂单清理 (sweepOrphans) 并发执行与图表线同步校验",
+        test: async () => {
+          // 1. 构造孤儿单（无持仓、无待入场、reduceOnly）
+          w.S.sym = "SOLUSDC";
+          w.S.pos = {};
+          w.S.ords["SOLUSDC"] = [
+            { symbol: "SOLUSDC", orderId: "sol_orphan", side: "SELL", type: "STOP_MARKET", stopPrice: 120, origQty: 1, closePosition: true, reduceOnly: true }
+          ];
+          w.S.acct = true;
+          w.S.ordsAt = Date.now();
+          w.posView();
+          w.BN.TRADE.syncTradeLines();
+          await sleep(50);
+
+          // 2. 检查清理多余挂单按钮
+          const swpBtn = w.document.querySelector("#pb button.swp");
+          assert(swpBtn, "未找到「清理多余挂单」按钮");
+
+          // 3. 执行清理
+          const origSend = w.send;
+          w.send = async (method, path, params, label, silent, opt) => {
+            return { code: 200, msg: "success" };
+          };
+
+          await w.BN.TRADE.sweepOrphans(false);
+          await sleep(50);
+
+          // 4. 校验孤儿单已被移除
+          const remainingOrds = w.S.ords["SOLUSDC"] || [];
+          assert(remainingOrds.length === 0, `SOL 孤儿单未清除: ${remainingOrds.length}`);
+
+          // 恢复现场
+          w.send = origSend;
           w.S.ords = {};
           w.BN.TRADE.clearTradeLines();
         }
