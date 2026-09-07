@@ -2587,7 +2587,13 @@ async function send(method,path,params,msg,silent,opt={}){
   try{
     const res=await priv(method,path,params,opt.ms,opt);
     const errs=errsOf(res);
-    if(errs.length){LAST_ERR=errs[0];toast("被拒："+errs.map(errText).join(" / ").slice(0,140));return res;}
+    if(errs.length){
+      LAST_ERR=errs[0];
+      const code = +errs[0].code;
+      const isPosWaitErr = (code === -4509 || code === -2022 || String(errs[0].msg||"").includes("GTE can only be used with open positions"));
+      if(!silent && !isPosWaitErr) toast("被拒："+errs.map(errText).join(" / ").slice(0,140));
+      return res;
+    }
     if(!silent)toast(msg+" 已提交");
     return res;
   }catch(e){
@@ -2614,7 +2620,10 @@ async function send(method,path,params,msg,silent,opt={}){
       await reconcile(t0-5000);
       return null;
     }
-    LAST_ERR=e;toast(keyHint(e)||("被拒："+errText(e)).slice(0,140));
+    LAST_ERR=e;
+    const code = +e.code;
+    const isPosWaitErr = (code === -4509 || code === -2022 || String(e.message||"").includes("GTE can only be used with open positions"));
+    if(!silent && !isPosWaitErr) toast(keyHint(e)||("被拒："+errText(e)).slice(0,140));
     log("send err "+e.code+" "+e.message);
     return null;
   }finally{
@@ -5044,17 +5053,20 @@ $("#ohGo").addEventListener("click",async()=>{
     let slOk=good(slRes),tpOk=tpOrd?good(tpRes):true;
 
     // 关键风控闭环：若止损单重试后依然失败
-    if(!slOk){
+    const slErrCode = slRes && slRes.code != null ? +slRes.code : (LAST_ERR && LAST_ERR.code != null ? +LAST_ERR.code : 0);
+    const isPosWaitErr = (slErrCode === -4509 || slErrCode === -2022 || (LAST_ERR && String(LAST_ERR.msg || LAST_ERR.message || "").includes("GTE can only be used with open positions")));
+
+    if(!slOk && !isPosWaitErr){
       const entryOid = oidOf(eRes);
       // 检查入场单是否已直接成交产生持仓
       const p = posOf(sym).find(x => x && Math.abs(x.amt) > 0 && (x.amt > 0) === buy);
       const isEntryFilled = !!p;
 
       if(!isEntryFilled){
-        // 入场单尚在挂单中未成交：坚决主动撤销入场单！彻底杜绝脱离监控后的裸成交隐患！
-        log("Entry succeeded but SL failed after retries. Safely cancelling pending entry order " + entryOid);
+        // 遇到真正的严重致命拒单（如余额不足、权限不足等），坚决主动撤销未成交入场单防裸仓
+        log("Entry succeeded but SL failed with fatal error (" + slErrCode + "). Cancelling pending entry order " + entryOid);
         await cancelOrder(sym, entryOid, isBreakout, { escapeLock: true, skipCascade: true });
-        toast("🛑【安全撤单】止损单未能在币安成功挂入，为防脱机裸仓风险已自动撤销入场单！", true);
+        toast("🛑【安全撤单】止损单未能挂入（"+errText(LAST_ERR||slRes)+"），为防脱机裸仓已自动撤销入场单！", true);
         clearTradeLines();
         syncTradeLines();
         return;
@@ -5070,6 +5082,7 @@ $("#ohGo").addEventListener("click",async()=>{
     } else if(slOk && tpOk){
       toast("【3单已全部挂入币安】入场 + 止损(市价)" + (tpOrd ? " + 止盈" : ""));
     } else {
+      toast("✔ " + (buy ? "做多" : "做空") + "挂单已成功提交 · 入场成交后看门狗自动挂入全平止损");
       if(!tpOk) toast("⚠ 止盈单未能立刻挂入，成交后会自动补挂");
     }
 
