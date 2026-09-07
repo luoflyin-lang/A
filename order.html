@@ -644,7 +644,8 @@ try{const _px=JSON.parse(localStorage.getItem("bn_proxy")||"null");
   if(_px&&_px.http)BASE=_px.http;
   if(_px&&_px.ws)WSU=_px.ws+"/ws";}catch(e){}
 const QUOTE="USDC";             // 默认基准报价资产
-const VOL_MIN=30e6;             // 品种筛选：24h 成交额阈值 = 30M (3000 万美元)
+const VOL_MIN=20e6;             // 品种筛选：24h 成交额阈值 = 20M (2000 万美元)
+const POOL_MAX=9;               // 品种筛选：机会清单最多展示标的数量上限 = 9 个
 const NATR_MIN=0.5;             // 品种筛选：15m NATR 阈值 = 0.5%
 const NATR_LEN=14;              // NATR 计算周期 (过去 14 根 K 线)
 /* ---- 交易参数 ---- */
@@ -2899,7 +2900,7 @@ function savePref(){
 }
 function applyPrefUI(){
   try{const fb=$("#fBtn");if(fb){fb.classList.toggle("on",S.filter);
-    fb.textContent=S.filter?"15m NATR > 0.5% · 额 > $30M":"全部 0 挂单费品种";}}catch(e){}
+    fb.textContent=S.filter?"15m NATR > 0.5% · 额 > $20M":"全部 0 挂单费品种";}}catch(e){}
 }
 function loadPref(){
   try{PREF=JSON.parse(localStorage.getItem(PKEY)||"{}")||{};}catch(e){PREF={};}
@@ -3611,7 +3612,7 @@ addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"
 
 /* ================= 品种列表 ================= */
 function pool(){
-  return S.uni.map(u=>{const c=S.ctx[u.name]||{},f=S.f[u.name]||{};
+  const list = S.uni.map(u=>{const c=S.ctx[u.name]||{},f=S.f[u.name]||{};
     const natr = getNatr(u.name, "15m");
     return{n:u.name,d:disp(u.name),p:mid(u.name),ch:+c.chg||0,vol:+c.volUsd||0,
       natr:natr!=null?+natr:null,type:f.type||"USDC",h:!!posOf(u.name).length};})
@@ -3624,6 +3625,7 @@ function pool(){
       return true;
     })
     .sort((a,b)=>(b.h-a.h)||(b.vol-a.vol));
+  return S.filter ? list.slice(0, POOL_MAX) : list;
 }
 let _sig="";
 function list(soft){
@@ -3642,7 +3644,7 @@ function list(soft){
     '<span><span class="n">'+x.d+'</span><span class="ttag '+(x.type==="TradFi"?"tradfi":"usdc")+'">'+x.type+'</span>'+(x.h?' <span class="hold">持仓</span>':"")+(wHas(x.n)?' <span class="hold">★</span>':"")+
     '<span class="v">Vol $'+ab(x.vol)+(x.natr!=null?' · 15m NATR <b class="'+(x.natr>=NATR_MIN?'natr-hot':'')+'">'+x.natr.toFixed(2)+'%</b>':'')+'</span></span>'+
     '<span class="r"><span class="a">'+px(x.p,x.n)+'</span><span class="b '+(x.ch>=0?"up":"down")+'">'+(x.ch>=0?"+":"")+x.ch.toFixed(2)+'%</span></span></div>').join("")
-    ||'<div class="none">暂无满足【15m NATR &gt; 0.5% 且 24h成交额 &gt; $30M】的标的。<br>可点击上方按钮查看全部免挂单费品种。</div>';
+    ||'<div class="none">暂无满足【15m NATR &gt; 0.5% 且 24h成交额 &gt; $20M】的标的。<br>可点击上方按钮查看全部免挂单费品种。</div>';
 }
 let posPollT=null;
 function stopPosPoll(){if(posPollT){clearInterval(posPollT);posPollT=null;}}
@@ -4896,7 +4898,7 @@ $("#pb").addEventListener("click",e=>{
   }
   const r=e.target.closest("tr[data-c]");if(r)pick(r.dataset.c);});
 $("#fBtn").addEventListener("click",e=>{S.filter=!S.filter;savePref();e.target.classList.toggle("on",S.filter);
-  e.target.textContent=S.filter?(S.tf+" NATR > 0.5% · 额 > $30M"):"全部 0 挂单费品种";list();});
+  e.target.textContent=S.filter?(S.tf+" NATR > 0.5% · 额 > $20M"):"全部 0 挂单费品种";list();});
 $("#ohX").addEventListener("click",endFlow);
 $("#ohR").addEventListener("click",()=>{F.risk=F.risk===1?.25:1;savePref();render();});
 $("#ohSkip").addEventListener("click",()=>{if(F.step===3){F.tp=null;F.step=4;}else{F.step=1;F.e=F.sl=F.tp=null;}render();});
