@@ -60,6 +60,19 @@
       height: calc(100% + 45px);
     }
 
+
+    /* 遮住 TradingView 左下角 logo（图表在跨域 iframe 内，无法直接删除节点） */
+    .logo-mask {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 130px;
+      height: 32px;
+      background-color: #ffffff;
+      z-index: 998;
+      pointer-events: none;
+    }
+
     /* 左上角品种名称 */
     .symbol-overlay {
       position: absolute;
@@ -177,6 +190,7 @@
     <div class="chart-box">
       <div class="symbol-overlay" id="symbol-top">--</div>
       <div id="chart-top" class="chart-crop"></div>
+      <div class="logo-mask"></div>
       <div class="countdown-overlay" id="countdown-top">--:--</div>
     </div>
 
@@ -184,6 +198,7 @@
     <div class="chart-box">
       <div class="symbol-overlay" id="symbol-bottom">--</div>
       <div id="chart-bottom" class="chart-crop"></div>
+      <div class="logo-mask"></div>
       <div class="countdown-overlay" id="countdown-bottom">--:--</div>
     </div>
   </div>
@@ -252,8 +267,9 @@
      * 获取当前北京时间 (UTC+8)，不依赖访问者本机时区
      */
     function getBeijingDate() {
-      var now = new Date();
-      return new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 3600000 * 8);
+      // 在 UTC 时间上加 8 小时，之后统一用 getUTC* 读取，
+      // 不受访问者本机时区与夏令时影响（原写法依赖本机偏移，跨夏令时会偏一小时）
+      return new Date(Date.now() + 8 * 3600000);
     }
 
     /**
@@ -265,7 +281,7 @@
       }
 
       var bj = getBeijingDate();
-      var currentMin = bj.getHours() * 60 + bj.getMinutes();
+      var currentMin = bj.getUTCHours() * 60 + bj.getUTCMinutes();
 
       for (var i = 0; i < SCHEDULES.length; i++) {
         var slot = SCHEDULES[i];
@@ -285,7 +301,7 @@
      */
     function getNextSlotInfo() {
       var bj = getBeijingDate();
-      var currentMin = bj.getHours() * 60 + bj.getMinutes();
+      var currentMin = bj.getUTCHours() * 60 + bj.getUTCMinutes();
 
       if (currentMin < 9 * 60) {
         return "下一时段：09:00 - 13:00 (USDJPY + XAUUSD)";
@@ -300,17 +316,31 @@
     /**
      * 创建 TradingView 图表组件
      */
-    var tvRetryCount = 0;
-    var TV_MAX_RETRY = 40; // 约 20 秒
+    var TV_MAX_RETRY = 40;    // 约 20 秒
+
+    // 每个容器独立的重试计数与请求令牌：
+    // 原来两个图表共用一个计数器，会互相消耗重试次数，并可能在切换时段后
+    // 用旧品种覆盖新图表
+    var chartState = {};
 
     function showFatalError() {
       var el = document.getElementById("fatal-error");
       if (el) el.style.display = "flex";
     }
 
-    function createTradingViewWidget(containerId, symbol) {
+    function createTradingViewWidget(containerId, symbol, token) {
       var container = document.getElementById(containerId);
       if (!container) return;
+
+      var state = chartState[containerId];
+      if (!state) {
+        state = chartState[containerId] = { retry: 0, token: 0 };
+      }
+      if (typeof token === "undefined") {
+        token = ++state.token;
+        state.retry = 0;
+      }
+      if (token !== state.token) return; // 丢弃过期的重试
 
       if (window.__tvLoadFailed) {
         showFatalError();
@@ -318,28 +348,29 @@
       }
 
       if (typeof TradingView === "undefined" || !TradingView.widget) {
-        tvRetryCount++;
-        if (tvRetryCount > TV_MAX_RETRY) {
+        state.retry++;
+        if (state.retry > TV_MAX_RETRY) {
           showFatalError();
           return;
         }
         setTimeout(function () {
-          createTradingViewWidget(containerId, symbol);
+          createTradingViewWidget(containerId, symbol, token);
         }, 500);
         return;
       }
 
       container.innerHTML = ""; // 清空上一图表
 
-      new TradingView.widget({
+      var widget = new TradingView.widget({
         autosize: true,
         symbol: symbol,
         interval: "10",
-        range: "1D", // 默认加载最近1天（10分钟周期约 100~140 根K线）
         timezone: "Asia/Shanghai",
         theme: "light",
         style: "1", // 1 为普通K线
         locale: "zh_CN",
+        backgroundColor: "#ffffff",
+        gridColor: "rgba(255, 255, 255, 0)", // 去掉背景网格
         toolbar_bg: "#ffffff",
         enable_publishing: false,
         hide_top_toolbar: true,
@@ -381,6 +412,19 @@
           "paneProperties.backgroundType": "solid",
           "paneProperties.crossHairProperties.color": "#999999",
 
+          // 去掉背景网格线与品种水印
+          "paneProperties.vertGridProperties.color": "rgba(255, 255, 255, 0)",
+          "paneProperties.horzGridProperties.color": "rgba(255, 255, 255, 0)",
+          "paneProperties.separatorColor": "rgba(255, 255, 255, 0)",
+          "symbolWatermarkProperties.color": "rgba(255, 255, 255, 0)",
+          "symbolWatermarkProperties.transparency": 100,
+
+          // 去掉当前价格虚线、最新价标签与高低价线
+          "mainSeriesProperties.showPriceLine": false,
+          "mainSeriesProperties.showCountdown": false,
+          "mainSeriesProperties.highLowAvgPrice.highLowPriceLinesVisible": false,
+          "mainSeriesProperties.highLowAvgPrice.highLowPriceLabelsVisible": false,
+
           // 黑白蜡烛：上涨为空心/白色配黑边，下跌为纯黑
           "mainSeriesProperties.candleStyle.upColor": "#ffffff",
           "mainSeriesProperties.candleStyle.downColor": "#000000",
@@ -394,9 +438,9 @@
 
           // 坐标轴文字隐藏（透明）
           "scalesProperties.textColor": "rgba(255, 255, 255, 0)",
-          "scalesProperties.lineColor": "rgba(255, 255, 255, 0)",
-          "scalesProperties.showLeftScale": false,
-          "scalesProperties.showRightScale": false
+          "scalesProperties.lineColor": "rgba(255, 255, 255, 0)"
+          // 注意：不要设置 showRightScale = false。价格轴一旦不占位，
+          // 右侧 110px 的裁剪就会切掉最新的几根K线
         }
       });
     }
@@ -404,6 +448,18 @@
     /**
      * 更新渲染
      */
+    function destroyCharts() {
+      var ids = ["chart-top", "chart-bottom"];
+      for (var i = 0; i < ids.length; i++) {
+        var state = chartState[ids[i]];
+        if (state) state.token++; // 作废进行中的重试
+        var el = document.getElementById(ids[i]);
+        if (el) {
+          el.innerHTML = "";
+        }
+      }
+    }
+
     function updateDisplay() {
       var activeSlot = determineCurrentSlot();
       var chartsEl = document.getElementById("charts-container");
@@ -414,6 +470,8 @@
         chartsEl.style.display = "none";
         idleEl.style.display = "flex";
         document.getElementById("idle-next-text").textContent = getNextSlotInfo();
+        // 顺便卸载图表，避免隐藏后仍在后台持续拉取行情
+        if (currentActiveSlotId !== null) destroyCharts();
         currentActiveSlotId = null;
         return;
       }
@@ -475,6 +533,9 @@
      * 1: 09:00-13:00  2: 14:00-18:00  3: 20:30-23:30  4: 23:30-02:00  0: 自动
      */
     window.addEventListener("keydown", function (e) {
+      // 避免和浏览器快捷键（如 Ctrl/Cmd + 数字切换标签页）冲突
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
       var labels = {
         "1": "已切换预览时段 1 (09:00 - 13:00): USDJPY + XAUUSD",
         "2": "已切换预览时段 2 (14:00 - 18:00): GER30 + EURUSD",
@@ -501,6 +562,14 @@
       updateCountdown();
       setInterval(updateCountdown, 1000);   // 每秒刷新倒计时
       setInterval(updateDisplay, 10000);    // 每 10 秒校验一次是否需要自动换段
+
+      // 设备休眠/切回前台后立即校正，避免停在过期时段
+      document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) {
+          updateCountdown();
+          updateDisplay();
+        }
+      });
     }
 
     if (document.readyState === "loading") {
