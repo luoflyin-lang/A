@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>双K线时段监控</title>
+  <!-- TradingView 官方基础脚本
+       data-cfasync="false" 是关键：阻止 Cloudflare Rocket Loader 改写/延迟该脚本 -->
+  <script data-cfasync="false" type="text/javascript" src="https://s3.tradingview.com/tv.js" onerror="window.__tvLoadFailed = true;"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, monospace;
+    }
+
+    /* 移动端地址栏会让 100vh 溢出，用 dvh 兜底 */
+    body {
+      height: 100dvh;
+    }
+
+    /* 纵向排列两图的主容器 */
+    #charts-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* 单个图表卡片，严格平分 50% 高度 */
+    .chart-box {
+      flex: 1 1 50%;
+      width: 100%;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+      background-color: #ffffff;
+    }
+
+    /* 上下两图中间极细黑分界线 */
+    .chart-box:first-child {
+      border-bottom: 1px solid #000000;
+    }
+
+    /* 裁剪容器：向右裁剪价格轴，向下裁剪时间轴 */
+    .chart-crop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: calc(100% + 110px);
+      height: calc(100% + 45px);
+    }
+
+    /* 左上角品种名称 */
+    .symbol-overlay {
+      position: absolute;
+      top: 14px;
+      left: 18px;
+      z-index: 999;
+      font-size: 15px;
+      font-weight: 600;
+      color: #000000;
+      letter-spacing: 0.5px;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* 右上角收盘倒计时：纯净简约，无背景无阴影 */
+    .countdown-overlay {
+      position: absolute;
+      top: 14px;
+      right: 18px;
+      z-index: 999;
+      font-size: 15px;
+      font-weight: 600;
+      color: #000000;
+      letter-spacing: 0.5px;
+      user-select: none;
+      pointer-events: none;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+    }
+
+    /* 非监控时段时的等待界面（极简纯白） */
+    #idle-container {
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #ffffff;
+      color: #000000;
+      user-select: none;
+      text-align: center;
+      padding: 0 24px;
+    }
+
+    .idle-title {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .idle-subtitle {
+      font-size: 14px;
+      color: #666666;
+      margin-bottom: 24px;
+    }
+
+    .idle-tip {
+      font-size: 12px;
+      color: #aaaaaa;
+    }
+
+    /* 脚本加载失败时的可见错误提示，避免只剩一片白 */
+    #fatal-error {
+      position: fixed;
+      inset: 0;
+      z-index: 20000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #ffffff;
+      color: #000000;
+      text-align: center;
+      padding: 0 24px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    #fatal-error strong {
+      font-size: 17px;
+    }
+
+    #fatal-error span {
+      color: #888888;
+      font-size: 12px;
+    }
+
+    /* 快捷切换提示气泡（按键测试时短暂浮现） */
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: #ffffff;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      z-index: 10000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- K线主容器 -->
+  <div id="charts-container">
+    <!-- 上方图表 -->
+    <div class="chart-box">
+      <div class="symbol-overlay" id="symbol-top">--</div>
+      <div id="chart-top" class="chart-crop"></div>
+      <div class="countdown-overlay" id="countdown-top">--:--</div>
+    </div>
+
+    <!-- 下方图表 -->
+    <div class="chart-box">
+      <div class="symbol-overlay" id="symbol-bottom">--</div>
+      <div id="chart-bottom" class="chart-crop"></div>
+      <div class="countdown-overlay" id="countdown-bottom">--:--</div>
+    </div>
+  </div>
+
+  <!-- 空白/隐藏时段占位 -->
+  <div id="idle-container">
+    <div class="idle-title" id="idle-text">非监控交易时段</div>
+    <div class="idle-subtitle" id="idle-next-text">等待下一时段激活...</div>
+    <div class="idle-tip">提示：按数字键 1 - 4 可手动预览各时段，按 0 恢复实时自动监控</div>
+  </div>
+
+  <!-- 操作通知提示 -->
+  <div id="toast"></div>
+
+  <!-- 致命错误提示（tv.js 未能加载时显示） -->
+  <div id="fatal-error">
+    <strong>图表脚本加载失败</strong>
+    <div>无法加载 https://s3.tradingview.com/tv.js</div>
+    <span>请检查网络 / 广告拦截插件，或确认 Cloudflare 未开启 Rocket Loader、未对该域设置阻断第三方脚本的 CSP。</span>
+  </div>
+
+  <script data-cfasync="false">
+    /**
+     * 时段规则定义 (基于北京时间 UTC+8)
+     */
+    var SCHEDULES = [
+      {
+        id: "slot1",
+        name: "09:00 - 13:00",
+        startMin: 9 * 60,
+        endMin: 13 * 60,
+        top: { symbol: "FX:USDJPY", title: "USDJPY" },
+        bottom: { symbol: "OANDA:XAUUSD", title: "XAUUSD" }
+      },
+      {
+        id: "slot2",
+        name: "14:00 - 18:00",
+        startMin: 14 * 60,
+        endMin: 18 * 60,
+        top: { symbol: "FOREXCOM:GER30", title: "GER30" },
+        bottom: { symbol: "FX:EURUSD", title: "EURUSD" }
+      },
+      {
+        id: "slot3",
+        name: "20:30 - 23:30",
+        startMin: 20 * 60 + 30,
+        endMin: 23 * 60 + 30,
+        top: { symbol: "OANDA:XAUUSD", title: "XAUUSD" },
+        bottom: { symbol: "FOREXCOM:SPX500", title: "SPX500" }
+      },
+      {
+        id: "slot4",
+        name: "23:30 - 02:00",
+        isCrossMidnight: true,
+        startMin: 23 * 60 + 30,
+        endMin: 2 * 60,
+        top: { symbol: "FX:USDJPY", title: "USDJPY" },
+        bottom: { symbol: "FX:EURUSD", title: "EURUSD" }
+      }
+    ];
+
+    var currentActiveSlotId = null;
+    var manualOverrideSlot = null; // 手动预览模式
+
+    /**
+     * 获取当前北京时间 (UTC+8)，不依赖访问者本机时区
+     */
+    function getBeijingDate() {
+      var now = new Date();
+      return new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 3600000 * 8);
+    }
+
+    /**
+     * 判定当前时段所属的规则
+     */
+    function determineCurrentSlot() {
+      if (manualOverrideSlot) {
+        return manualOverrideSlot;
+      }
+
+      var bj = getBeijingDate();
+      var currentMin = bj.getHours() * 60 + bj.getMinutes();
+
+      for (var i = 0; i < SCHEDULES.length; i++) {
+        var slot = SCHEDULES[i];
+        if (slot.isCrossMidnight) {
+          if (currentMin >= slot.startMin || currentMin < slot.endMin) {
+            return slot;
+          }
+        } else if (currentMin >= slot.startMin && currentMin < slot.endMin) {
+          return slot;
+        }
+      }
+      return null;
+    }
+
+    /**
+     * 计算下一个即将到来的时段
+     */
+    function getNextSlotInfo() {
+      var bj = getBeijingDate();
+      var currentMin = bj.getHours() * 60 + bj.getMinutes();
+
+      if (currentMin < 9 * 60) {
+        return "下一时段：09:00 - 13:00 (USDJPY + XAUUSD)";
+      } else if (currentMin >= 13 * 60 && currentMin < 14 * 60) {
+        return "下一时段：14:00 - 18:00 (GER30 + EURUSD)";
+      } else if (currentMin >= 18 * 60 && currentMin < 20 * 60 + 30) {
+        return "下一时段：20:30 - 23:30 (XAUUSD + SPX500)";
+      }
+      return "下一时段：23:30 - 02:00 (USDJPY + EURUSD)";
+    }
+
+    /**
+     * 创建 TradingView 图表组件
+     */
+    var tvRetryCount = 0;
+    var TV_MAX_RETRY = 40; // 约 20 秒
+
+    function showFatalError() {
+      var el = document.getElementById("fatal-error");
+      if (el) el.style.display = "flex";
+    }
+
+    function createTradingViewWidget(containerId, symbol) {
+      var container = document.getElementById(containerId);
+      if (!container) return;
+
+      if (window.__tvLoadFailed) {
+        showFatalError();
+        return;
+      }
+
+      if (typeof TradingView === "undefined" || !TradingView.widget) {
+        tvRetryCount++;
+        if (tvRetryCount > TV_MAX_RETRY) {
+          showFatalError();
+          return;
+        }
+        setTimeout(function () {
+          createTradingViewWidget(containerId, symbol);
+        }, 500);
+        return;
+      }
+
+      container.innerHTML = ""; // 清空上一图表
+
+      new TradingView.widget({
+        autosize: true,
+        symbol: symbol,
+        interval: "15",
+        timezone: "Asia/Shanghai",
+        theme: "light",
+        style: "1", // 1 为普通K线
+        locale: "zh_CN",
+        toolbar_bg: "#ffffff",
+        enable_publishing: false,
+        hide_top_toolbar: true,
+        hide_legend: true,
+        hide_side_toolbar: true,
+        save_image: false,
+        hide_volume: true, // 彻底隐藏成交量
+        disabled_features: [
+          "volume_force_overlay",
+          "create_volume_indicator_by_default",
+          "header_widget",
+          "timeframes_toolbar",
+          "left_toolbar",
+          "control_bar",
+          "legend_widget",
+          "scales_context_menu"
+        ],
+        container_id: containerId,
+        studies: [
+          {
+            id: "MAExp@tv-basicstudies",
+            inputs: {
+              length: 20
+            }
+          }
+        ],
+        studies_overrides: {
+          "moving average exponential.plot.color": "#000000",
+          "moving average exponential.plot.linewidth": 2,
+          // 兜底隐藏成交量柱线
+          "volume.volume.color.0": "rgba(255, 255, 255, 0)",
+          "volume.volume.color.1": "rgba(255, 255, 255, 0)",
+          "volume.volume.transparency": 100,
+          "volume.show ma": false
+        },
+        overrides: {
+          // 纯白背景
+          "paneProperties.background": "#ffffff",
+          "paneProperties.backgroundType": "solid",
+          "paneProperties.crossHairProperties.color": "#999999",
+
+          // 黑白蜡烛：上涨为空心/白色配黑边，下跌为纯黑
+          "mainSeriesProperties.candleStyle.upColor": "#ffffff",
+          "mainSeriesProperties.candleStyle.downColor": "#000000",
+          "mainSeriesProperties.candleStyle.drawWick": true,
+          "mainSeriesProperties.candleStyle.drawBorder": true,
+          "mainSeriesProperties.candleStyle.borderColor": "#000000",
+          "mainSeriesProperties.candleStyle.borderUpColor": "#000000",
+          "mainSeriesProperties.candleStyle.borderDownColor": "#000000",
+          "mainSeriesProperties.candleStyle.wickUpColor": "#000000",
+          "mainSeriesProperties.candleStyle.wickDownColor": "#000000",
+
+          // 坐标轴文字隐藏（透明）
+          "scalesProperties.textColor": "rgba(255, 255, 255, 0)",
+          "scalesProperties.lineColor": "rgba(255, 255, 255, 0)",
+          "scalesProperties.showLeftScale": false,
+          "scalesProperties.showRightScale": false
+        }
+      });
+    }
+
+    /**
+     * 更新渲染
+     */
+    function updateDisplay() {
+      var activeSlot = determineCurrentSlot();
+      var chartsEl = document.getElementById("charts-container");
+      var idleEl = document.getElementById("idle-container");
+
+      if (!activeSlot) {
+        // 非监控时间段：直接隐藏图表
+        chartsEl.style.display = "none";
+        idleEl.style.display = "flex";
+        document.getElementById("idle-next-text").textContent = getNextSlotInfo();
+        currentActiveSlotId = null;
+        return;
+      }
+
+      idleEl.style.display = "none";
+      chartsEl.style.display = "flex";
+
+      // 更新左上角品种名称
+      var topSym = document.getElementById("symbol-top");
+      var bottomSym = document.getElementById("symbol-bottom");
+      if (topSym) topSym.textContent = activeSlot.top.title;
+      if (bottomSym) bottomSym.textContent = activeSlot.bottom.title;
+
+      // 仅在时段或品种切换时重新加载图表
+      if (currentActiveSlotId !== activeSlot.id) {
+        currentActiveSlotId = activeSlot.id;
+        tvRetryCount = 0;
+        createTradingViewWidget("chart-top", activeSlot.top.symbol);
+        createTradingViewWidget("chart-bottom", activeSlot.bottom.symbol);
+      }
+    }
+
+    /**
+     * 15分钟 K 线收盘倒计时逻辑
+     * 15分钟 = 900 秒，K线按 UTC 整点 :00 / :15 / :30 / :45 收盘
+     * 使用 UTC 计算，半小时偏移时区（如 UTC+5:30）也不会算错
+     */
+    function updateCountdown() {
+      var now = new Date();
+      var elapsedInCandle = (now.getUTCMinutes() * 60 + now.getUTCSeconds()) % 900;
+      var remainingSeconds = 900 - elapsedInCandle;
+
+      var mins = Math.floor(remainingSeconds / 60);
+      var secs = remainingSeconds % 60;
+      var formatted = String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
+
+      var topCountdown = document.getElementById("countdown-top");
+      var bottomCountdown = document.getElementById("countdown-bottom");
+      if (topCountdown) topCountdown.textContent = formatted;
+      if (bottomCountdown) bottomCountdown.textContent = formatted;
+    }
+
+    /**
+     * 提示浮层
+     */
+    var toastTimer = null;
+    function showToast(msg) {
+      var toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.style.opacity = "1";
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () {
+        toast.style.opacity = "0";
+      }, 2500);
+    }
+
+    /**
+     * 键盘快捷键支持：方便快速测试各时段
+     * 1: 09:00-13:00  2: 14:00-18:00  3: 20:30-23:30  4: 23:30-02:00  0: 自动
+     */
+    window.addEventListener("keydown", function (e) {
+      var labels = {
+        "1": "已切换预览时段 1 (09:00 - 13:00): USDJPY + XAUUSD",
+        "2": "已切换预览时段 2 (14:00 - 18:00): GER30 + EURUSD",
+        "3": "已切换预览时段 3 (20:30 - 23:30): XAUUSD + SPX500",
+        "4": "已切换预览时段 4 (23:30 - 02:00): USDJPY + EURUSD"
+      };
+
+      if (labels[e.key]) {
+        manualOverrideSlot = SCHEDULES[Number(e.key) - 1];
+        currentActiveSlotId = null;
+        updateDisplay();
+        showToast(labels[e.key]);
+      } else if (e.key === "0") {
+        manualOverrideSlot = null;
+        currentActiveSlotId = null;
+        updateDisplay();
+        showToast("已恢复当前北京时间自动监控");
+      }
+    });
+
+    // 初始化运行（DOMContentLoaded 可能已经触发过，这里做兼容）
+    function init() {
+      updateDisplay();
+      updateCountdown();
+      setInterval(updateCountdown, 1000);   // 每秒刷新倒计时
+      setInterval(updateDisplay, 10000);    // 每 10 秒校验一次是否需要自动换段
+    }
+
+    if (document.readyState === "loading") {
+      window.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  </script>
+</body>
+</html>
