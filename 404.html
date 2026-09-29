@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting...</title>
+  <script>
+    (function() {
+      var path = window.location.pathname.toLowerCase();
+      if (path.indexOf("kline") !== -1) {
+        window.location.replace("/kline.html" + window.location.search);
+      } else {
+        window.location.replace("/order.html" + window.location.search);
+      }
+    })();
+  </script>
+</head>
+<body style="background:#ffffff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;">
+  <p>正在跳转...</p>
+</body>
+</html>
