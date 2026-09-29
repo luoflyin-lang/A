@@ -104,38 +104,6 @@
       padding: 0;
     }
 
-    /* 非监控时段时的等待界面（极简纯白） */
-    #idle-container {
-      width: 100%;
-      height: 100%;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background-color: #ffffff;
-      color: #000000;
-      user-select: none;
-      text-align: center;
-      padding: 0 24px;
-    }
-
-    .idle-title {
-      font-size: 22px;
-      font-weight: 600;
-      letter-spacing: 1px;
-      margin-bottom: 12px;
-    }
-
-    .idle-subtitle {
-      font-size: 14px;
-      color: #666666;
-      margin-bottom: 24px;
-    }
-
-    .idle-tip {
-      font-size: 12px;
-      color: #aaaaaa;
-    }
 
     /* 脚本加载失败时的可见错误提示，避免只剩一片白 */
     #fatal-error {
@@ -203,12 +171,7 @@
     </div>
   </div>
 
-  <!-- 空白/隐藏时段占位 -->
-  <div id="idle-container">
-    <div class="idle-title" id="idle-text">非监控交易时段</div>
-    <div class="idle-subtitle" id="idle-next-text">等待下一时段激活...</div>
-    <div class="idle-tip">提示：按数字键 1 - 4 可手动预览各时段，按 0 恢复实时自动监控</div>
-  </div>
+  <!-- 全天候 24 小时无缝监控，无空档期 -->
 
   <!-- 操作通知提示 -->
   <div id="toast"></div>
@@ -227,17 +190,17 @@
     var SCHEDULES = [
       {
         id: "slot1",
-        name: "09:00 - 13:00",
-        startMin: 9 * 60,
-        endMin: 13 * 60,
+        name: "06:00 - 14:00",
+        startMin: 6 * 60,
+        endMin: 14 * 60,
         top: { symbol: "FX:USDJPY", title: "USDJPY" },
         bottom: { symbol: "OANDA:XAUUSD", title: "XAUUSD" }
       },
       {
         id: "slot2",
-        name: "14:00 - 18:00",
+        name: "14:00 - 20:30",
         startMin: 14 * 60,
-        endMin: 18 * 60,
+        endMin: 20 * 60 + 30,
         top: { symbol: "FOREXCOM:GER30", title: "GER30" },
         bottom: { symbol: "FX:EURUSD", title: "EURUSD" }
       },
@@ -251,10 +214,10 @@
       },
       {
         id: "slot4",
-        name: "23:30 - 02:00",
+        name: "23:30 - 06:00",
         isCrossMidnight: true,
         startMin: 23 * 60 + 30,
-        endMin: 2 * 60,
+        endMin: 6 * 60,
         top: { symbol: "FX:USDJPY", title: "USDJPY" },
         bottom: { symbol: "FX:EURUSD", title: "EURUSD" }
       }
@@ -273,7 +236,7 @@
     }
 
     /**
-     * 判定当前时段所属的规则
+     * 判定当前时段所属的规则（24小时无缝覆盖）
      */
     function determineCurrentSlot() {
       if (manualOverrideSlot) {
@@ -293,7 +256,7 @@
           return slot;
         }
       }
-      return null;
+      return SCHEDULES[0]; // 兜底返回第一时段，绝不留白或黑屏
     }
 
     /**
@@ -303,14 +266,13 @@
       var bj = getBeijingDate();
       var currentMin = bj.getUTCHours() * 60 + bj.getUTCMinutes();
 
-      if (currentMin < 9 * 60) {
-        return "下一时段：09:00 - 13:00 (USDJPY + XAUUSD)";
-      } else if (currentMin >= 13 * 60 && currentMin < 14 * 60) {
-        return "下一时段：14:00 - 18:00 (GER30 + EURUSD)";
-      } else if (currentMin >= 18 * 60 && currentMin < 20 * 60 + 30) {
-        return "下一时段：20:30 - 23:30 (XAUUSD + SPX500)";
+      for (var i = 0; i < SCHEDULES.length; i++) {
+        var slot = SCHEDULES[i];
+        if (slot.startMin > currentMin) {
+          return "下一时段：" + slot.name + " (" + slot.top.title + " + " + slot.bottom.title + ")";
+        }
       }
-      return "下一时段：23:30 - 02:00 (USDJPY + EURUSD)";
+      return "下一时段：" + SCHEDULES[0].name + " (" + SCHEDULES[0].top.title + " + " + SCHEDULES[0].bottom.title + ")";
     }
 
     /**
@@ -461,23 +423,9 @@
     }
 
     function updateDisplay() {
-      var activeSlot = determineCurrentSlot();
+      var activeSlot = determineCurrentSlot() || SCHEDULES[0];
       var chartsEl = document.getElementById("charts-container");
-      var idleEl = document.getElementById("idle-container");
-
-      if (!activeSlot) {
-        // 非监控时间段：直接隐藏图表
-        chartsEl.style.display = "none";
-        idleEl.style.display = "flex";
-        document.getElementById("idle-next-text").textContent = getNextSlotInfo();
-        // 顺便卸载图表，避免隐藏后仍在后台持续拉取行情
-        if (currentActiveSlotId !== null) destroyCharts();
-        currentActiveSlotId = null;
-        return;
-      }
-
-      idleEl.style.display = "none";
-      chartsEl.style.display = "flex";
+      if (chartsEl) chartsEl.style.display = "flex";
 
       // 更新左上角品种名称
       var topSym = document.getElementById("symbol-top");
@@ -488,7 +436,6 @@
       // 仅在时段或品种切换时重新加载图表
       if (currentActiveSlotId !== activeSlot.id) {
         currentActiveSlotId = activeSlot.id;
-        tvRetryCount = 0;
         createTradingViewWidget("chart-top", activeSlot.top.symbol);
         createTradingViewWidget("chart-bottom", activeSlot.bottom.symbol);
       }
@@ -530,17 +477,17 @@
 
     /**
      * 键盘快捷键支持：方便快速测试各时段
-     * 1: 09:00-13:00  2: 14:00-18:00  3: 20:30-23:30  4: 23:30-02:00  0: 自动
+     * 1: 06:00-14:00  2: 14:00-20:30  3: 20:30-23:30  4: 23:30-06:00  0: 自动
      */
     window.addEventListener("keydown", function (e) {
       // 避免和浏览器快捷键（如 Ctrl/Cmd + 数字切换标签页）冲突
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       var labels = {
-        "1": "已切换预览时段 1 (09:00 - 13:00): USDJPY + XAUUSD",
-        "2": "已切换预览时段 2 (14:00 - 18:00): GER30 + EURUSD",
+        "1": "已切换预览时段 1 (06:00 - 14:00): USDJPY + XAUUSD",
+        "2": "已切换预览时段 2 (14:00 - 20:30): GER30 + EURUSD",
         "3": "已切换预览时段 3 (20:30 - 23:30): XAUUSD + SPX500",
-        "4": "已切换预览时段 4 (23:30 - 02:00): USDJPY + EURUSD"
+        "4": "已切换预览时段 4 (23:30 - 06:00): USDJPY + EURUSD"
       };
 
       if (labels[e.key]) {
