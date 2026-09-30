@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>双K线时段监控</title>
+  <title>三K线全天实时监控 (XAUUSD | EURUSD | USDJPY)</title>
   <!-- TradingView 官方基础脚本
        data-cfasync="false" 是关键：阻止 Cloudflare Rocket Loader 改写/延迟该脚本 -->
   <script data-cfasync="false" type="text/javascript" src="https://s3.tradingview.com/tv.js" onerror="window.__tvLoadFailed = true;"></script>
@@ -22,12 +22,12 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, monospace;
     }
 
-    /* 移动端地址栏会让 100vh 溢出，用 dvh 兜底 */
+    /* 移动端地址栏让 100vh 溢出，用 dvh 兜底 */
     body {
       height: 100dvh;
     }
 
-    /* 纵向排列两图的主容器 */
+    /* 纵向三等分主容器 */
     #charts-container {
       width: 100%;
       height: 100%;
@@ -36,9 +36,9 @@
       position: relative;
     }
 
-    /* 单个图表卡片，严格平分 50% 高度 */
+    /* 单个图表卡片，严格平分 1/3 高度 */
     .chart-box {
-      flex: 1 1 50%;
+      flex: 1 1 33.333%;
       width: 100%;
       min-height: 0;
       position: relative;
@@ -46,8 +46,8 @@
       background-color: #ffffff;
     }
 
-    /* 上下两图中间极细黑分界线 */
-    .chart-box:first-child {
+    /* 图表之间极细黑分界线 */
+    .chart-box:not(:last-child) {
       border-bottom: 1px solid #000000;
     }
 
@@ -59,7 +59,6 @@
       width: calc(100% + 110px);
       height: calc(100% + 45px);
     }
-
 
     /* 遮住 TradingView 左下角 logo（图表在跨域 iframe 内，无法直接删除节点） */
     .logo-mask {
@@ -76,10 +75,10 @@
     /* 左上角品种名称 */
     .symbol-overlay {
       position: absolute;
-      top: 14px;
-      left: 18px;
+      top: 10px;
+      left: 16px;
       z-index: 999;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       color: #000000;
       letter-spacing: 0.5px;
@@ -90,10 +89,10 @@
     /* 右上角收盘倒计时：纯净简约，无背景无阴影 */
     .countdown-overlay {
       position: absolute;
-      top: 14px;
-      right: 18px;
+      top: 10px;
+      right: 16px;
       z-index: 999;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       color: #000000;
       letter-spacing: 0.5px;
@@ -103,7 +102,6 @@
       box-shadow: none;
       padding: 0;
     }
-
 
     /* 脚本加载失败时的可见错误提示，避免只剩一片白 */
     #fatal-error {
@@ -128,53 +126,40 @@
     }
 
     #fatal-error span {
-      color: #888888;
       font-size: 12px;
-    }
-
-    /* 快捷切换提示气泡（按键测试时短暂浮现） */
-    #toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.85);
-      color: #ffffff;
-      padding: 8px 18px;
-      border-radius: 20px;
-      font-size: 13px;
-      z-index: 10000;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      pointer-events: none;
+      color: #666666;
+      max-width: 420px;
     }
   </style>
 </head>
 <body>
 
-  <!-- K线主容器 -->
+  <!-- 三K线主容器 (三等分平铺) -->
   <div id="charts-container">
-    <!-- 上方图表 -->
+    <!-- 图表 1: 现货黄金 -->
     <div class="chart-box">
-      <div class="symbol-overlay" id="symbol-top">--</div>
-      <div id="chart-top" class="chart-crop"></div>
+      <div class="symbol-overlay" id="symbol-1">XAUUSD</div>
+      <div id="chart-1" class="chart-crop"></div>
       <div class="logo-mask"></div>
-      <div class="countdown-overlay" id="countdown-top">--:--</div>
+      <div class="countdown-overlay" id="countdown-1">--:--</div>
     </div>
 
-    <!-- 下方图表 -->
+    <!-- 图表 2: 欧元美元 -->
     <div class="chart-box">
-      <div class="symbol-overlay" id="symbol-bottom">--</div>
-      <div id="chart-bottom" class="chart-crop"></div>
+      <div class="symbol-overlay" id="symbol-2">EURUSD</div>
+      <div id="chart-2" class="chart-crop"></div>
       <div class="logo-mask"></div>
-      <div class="countdown-overlay" id="countdown-bottom">--:--</div>
+      <div class="countdown-overlay" id="countdown-2">--:--</div>
+    </div>
+
+    <!-- 图表 3: 美元日元 -->
+    <div class="chart-box">
+      <div class="symbol-overlay" id="symbol-3">USDJPY</div>
+      <div id="chart-3" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay" id="countdown-3">--:--</div>
     </div>
   </div>
-
-  <!-- 全天候 24 小时无缝监控，无空档期 -->
-
-  <!-- 操作通知提示 -->
-  <div id="toast"></div>
 
   <!-- 致命错误提示（tv.js 未能加载时显示） -->
   <div id="fatal-error">
@@ -185,104 +170,15 @@
 
   <script data-cfasync="false">
     /**
-     * 时段规则定义 (基于北京时间 UTC+8)
+     * 全天固定 3 大核心品种定义 (全天候 24 小时常驻同屏)
      */
-    var SCHEDULES = [
-      {
-        id: "slot1",
-        name: "06:00 - 14:00",
-        startMin: 6 * 60,
-        endMin: 14 * 60,
-        top: { symbol: "FX:USDJPY", title: "USDJPY" },
-        bottom: { symbol: "OANDA:XAUUSD", title: "XAUUSD" }
-      },
-      {
-        id: "slot2",
-        name: "14:00 - 20:30",
-        startMin: 14 * 60,
-        endMin: 20 * 60 + 30,
-        top: { symbol: "OANDA:XAUUSD", title: "XAUUSD" },
-        bottom: { symbol: "FX:EURUSD", title: "EURUSD" }
-      },
-      {
-        id: "slot3",
-        name: "20:30 - 23:30",
-        startMin: 20 * 60 + 30,
-        endMin: 23 * 60 + 30,
-        top: { symbol: "OANDA:XAUUSD", title: "XAUUSD" },
-        bottom: { symbol: "FOREXCOM:SPX500", title: "SPX500" }
-      },
-      {
-        id: "slot4",
-        name: "23:30 - 06:00",
-        isCrossMidnight: true,
-        startMin: 23 * 60 + 30,
-        endMin: 6 * 60,
-        top: { symbol: "FX:USDJPY", title: "USDJPY" },
-        bottom: { symbol: "FX:EURUSD", title: "EURUSD" }
-      }
+    var SYMBOLS = [
+      { containerId: "chart-1", symbol: "OANDA:XAUUSD", title: "XAUUSD" },
+      { containerId: "chart-2", symbol: "FX:EURUSD", title: "EURUSD" },
+      { containerId: "chart-3", symbol: "FX:USDJPY", title: "USDJPY" }
     ];
 
-    var currentActiveSlotId = null;
-    var manualOverrideSlot = null; // 手动预览模式
-
-    /**
-     * 获取当前北京时间 (UTC+8)，不依赖访问者本机时区
-     */
-    function getBeijingDate() {
-      // 在 UTC 时间上加 8 小时，之后统一用 getUTC* 读取，
-      // 不受访问者本机时区与夏令时影响（原写法依赖本机偏移，跨夏令时会偏一小时）
-      return new Date(Date.now() + 8 * 3600000);
-    }
-
-    /**
-     * 判定当前时段所属的规则（24小时无缝覆盖）
-     */
-    function determineCurrentSlot() {
-      if (manualOverrideSlot) {
-        return manualOverrideSlot;
-      }
-
-      var bj = getBeijingDate();
-      var currentMin = bj.getUTCHours() * 60 + bj.getUTCMinutes();
-
-      for (var i = 0; i < SCHEDULES.length; i++) {
-        var slot = SCHEDULES[i];
-        if (slot.isCrossMidnight) {
-          if (currentMin >= slot.startMin || currentMin < slot.endMin) {
-            return slot;
-          }
-        } else if (currentMin >= slot.startMin && currentMin < slot.endMin) {
-          return slot;
-        }
-      }
-      return SCHEDULES[0]; // 兜底返回第一时段，绝不留白或黑屏
-    }
-
-    /**
-     * 计算下一个即将到来的时段
-     */
-    function getNextSlotInfo() {
-      var bj = getBeijingDate();
-      var currentMin = bj.getUTCHours() * 60 + bj.getUTCMinutes();
-
-      for (var i = 0; i < SCHEDULES.length; i++) {
-        var slot = SCHEDULES[i];
-        if (slot.startMin > currentMin) {
-          return "下一时段：" + slot.name + " (" + slot.top.title + " + " + slot.bottom.title + ")";
-        }
-      }
-      return "下一时段：" + SCHEDULES[0].name + " (" + SCHEDULES[0].top.title + " + " + SCHEDULES[0].bottom.title + ")";
-    }
-
-    /**
-     * 创建 TradingView 图表组件
-     */
-    var TV_MAX_RETRY = 40;    // 约 20 秒
-
-    // 每个容器独立的重试计数与请求令牌：
-    // 原来两个图表共用一个计数器，会互相消耗重试次数，并可能在切换时段后
-    // 用旧品种覆盖新图表
+    var TV_MAX_RETRY = 40; // 约 20 秒
     var chartState = {};
 
     function showFatalError() {
@@ -290,19 +186,17 @@
       if (el) el.style.display = "flex";
     }
 
-    function createTradingViewWidget(containerId, symbol, token) {
+    /**
+     * 创建 TradingView 图表组件 (15 分钟标准周期)
+     */
+    function createTradingViewWidget(containerId, symbol) {
       var container = document.getElementById(containerId);
       if (!container) return;
 
       var state = chartState[containerId];
       if (!state) {
-        state = chartState[containerId] = { retry: 0, token: 0 };
+        state = chartState[containerId] = { retry: 0 };
       }
-      if (typeof token === "undefined") {
-        token = ++state.token;
-        state.retry = 0;
-      }
-      if (token !== state.token) return; // 丢弃过期的重试
 
       if (window.__tvLoadFailed) {
         showFatalError();
@@ -316,14 +210,14 @@
           return;
         }
         setTimeout(function () {
-          createTradingViewWidget(containerId, symbol, token);
+          createTradingViewWidget(containerId, symbol);
         }, 500);
         return;
       }
 
-      container.innerHTML = ""; // 清空上一图表
+      container.innerHTML = ""; // 清空容器
 
-      var widget = new TradingView.widget({
+      new TradingView.widget({
         autosize: true,
         symbol: symbol,
         interval: "15",
@@ -401,48 +295,21 @@
           // 坐标轴文字隐藏（透明）
           "scalesProperties.textColor": "rgba(255, 255, 255, 0)",
           "scalesProperties.lineColor": "rgba(255, 255, 255, 0)"
-          // 注意：不要设置 showRightScale = false。价格轴一旦不占位，
-          // 右侧 110px 的裁剪就会切掉最新的几根K线
         }
       });
     }
 
     /**
-     * 更新渲染
+     * 批量加载三个图表
      */
-    function destroyCharts() {
-      var ids = ["chart-top", "chart-bottom"];
-      for (var i = 0; i < ids.length; i++) {
-        var state = chartState[ids[i]];
-        if (state) state.token++; // 作废进行中的重试
-        var el = document.getElementById(ids[i]);
-        if (el) {
-          el.innerHTML = "";
-        }
-      }
-    }
-
-    function updateDisplay() {
-      var activeSlot = determineCurrentSlot() || SCHEDULES[0];
-      var chartsEl = document.getElementById("charts-container");
-      if (chartsEl) chartsEl.style.display = "flex";
-
-      // 更新左上角品种名称
-      var topSym = document.getElementById("symbol-top");
-      var bottomSym = document.getElementById("symbol-bottom");
-      if (topSym) topSym.textContent = activeSlot.top.title;
-      if (bottomSym) bottomSym.textContent = activeSlot.bottom.title;
-
-      // 仅在时段或品种切换时重新加载图表
-      if (currentActiveSlotId !== activeSlot.id) {
-        currentActiveSlotId = activeSlot.id;
-        createTradingViewWidget("chart-top", activeSlot.top.symbol);
-        createTradingViewWidget("chart-bottom", activeSlot.bottom.symbol);
+    function initCharts() {
+      for (var i = 0; i < SYMBOLS.length; i++) {
+        createTradingViewWidget(SYMBOLS[i].containerId, SYMBOLS[i].symbol);
       }
     }
 
     /**
-     * 15分钟 K 线收盘倒计时逻辑
+     * 15分钟 K 线收盘倒计时逻辑 (三图共振同步)
      * 15分钟 = 900 秒，K线按整点 :00 / :15 / :30 / :45 收盘
      * 使用 UTC 计算，半小时偏移时区也不会算错
      */
@@ -455,66 +322,24 @@
       var secs = remainingSeconds % 60;
       var formatted = String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
 
-      var topCountdown = document.getElementById("countdown-top");
-      var bottomCountdown = document.getElementById("countdown-bottom");
-      if (topCountdown) topCountdown.textContent = formatted;
-      if (bottomCountdown) bottomCountdown.textContent = formatted;
+      var c1 = document.getElementById("countdown-1");
+      var c2 = document.getElementById("countdown-2");
+      var c3 = document.getElementById("countdown-3");
+      if (c1) c1.textContent = formatted;
+      if (c2) c2.textContent = formatted;
+      if (c3) c3.textContent = formatted;
     }
 
-    /**
-     * 提示浮层
-     */
-    var toastTimer = null;
-    function showToast(msg) {
-      var toast = document.getElementById("toast");
-      toast.textContent = msg;
-      toast.style.opacity = "1";
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(function () {
-        toast.style.opacity = "0";
-      }, 2500);
-    }
-
-    /**
-     * 键盘快捷键支持：方便快速测试各时段
-     * 1: 06:00-14:00  2: 14:00-20:30  3: 20:30-23:30  4: 23:30-06:00  0: 自动
-     */
-    window.addEventListener("keydown", function (e) {
-      // 避免和浏览器快捷键（如 Ctrl/Cmd + 数字切换标签页）冲突
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-      var labels = {
-        "1": "已切换预览时段 1 (06:00 - 14:00): USDJPY + XAUUSD",
-        "2": "已切换预览时段 2 (14:00 - 20:30): XAUUSD + EURUSD",
-        "3": "已切换预览时段 3 (20:30 - 23:30): XAUUSD + SPX500",
-        "4": "已切换预览时段 4 (23:30 - 06:00): USDJPY + EURUSD"
-      };
-
-      if (labels[e.key]) {
-        manualOverrideSlot = SCHEDULES[Number(e.key) - 1];
-        currentActiveSlotId = null;
-        updateDisplay();
-        showToast(labels[e.key]);
-      } else if (e.key === "0") {
-        manualOverrideSlot = null;
-        currentActiveSlotId = null;
-        updateDisplay();
-        showToast("已恢复当前北京时间自动监控");
-      }
-    });
-
-    // 初始化运行（DOMContentLoaded 可能已经触发过，这里做兼容）
+    // 初始化运行
     function init() {
-      updateDisplay();
+      initCharts();
       updateCountdown();
       setInterval(updateCountdown, 1000);   // 每秒刷新倒计时
-      setInterval(updateDisplay, 10000);    // 每 10 秒校验一次是否需要自动换段
 
-      // 设备休眠/切回前台后立即校正，避免停在过期时段
+      // 设备休眠/切回前台后立即校正倒计时
       document.addEventListener("visibilitychange", function () {
         if (!document.hidden) {
           updateCountdown();
-          updateDisplay();
         }
       });
     }
