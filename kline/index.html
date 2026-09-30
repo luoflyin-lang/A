@@ -326,7 +326,7 @@
       var widget = new TradingView.widget({
         autosize: true,
         symbol: symbol,
-        interval: "10",
+        interval: "15",
         timezone: "Asia/Shanghai",
         theme: "light",
         style: "1", // 1 为普通K线
@@ -442,14 +442,14 @@
     }
 
     /**
-     * 10分钟 K 线收盘倒计时逻辑
-     * 10分钟 = 600 秒，K线按整点 :00 / :10 / :20 / :30 / :40 / :50 收盘
+     * 15分钟 K 线收盘倒计时逻辑
+     * 15分钟 = 900 秒，K线按整点 :00 / :15 / :30 / :45 收盘
      * 使用 UTC 计算，半小时偏移时区也不会算错
      */
     function updateCountdown() {
       var now = new Date();
-      var elapsedInCandle = (now.getUTCMinutes() * 60 + now.getUTCSeconds()) % 600;
-      var remainingSeconds = 600 - elapsedInCandle;
+      var elapsedInCandle = (now.getUTCMinutes() * 60 + now.getUTCSeconds()) % 900;
+      var remainingSeconds = 900 - elapsedInCandle;
 
       var mins = Math.floor(remainingSeconds / 60);
       var secs = remainingSeconds % 60;
