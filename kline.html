@@ -266,7 +266,9 @@
           // 纯白背景
           "paneProperties.background": "#ffffff",
           "paneProperties.backgroundType": "solid",
-          "paneProperties.crossHairProperties.color": "#999999",
+          // 彻底隐藏鼠标十字光标虚线
+          "paneProperties.crossHairProperties.color": "rgba(255, 255, 255, 0)",
+          "paneProperties.crossHairProperties.width": 0,
 
           // 去掉背景网格线与品种水印
           "paneProperties.vertGridProperties.color": "rgba(255, 255, 255, 0)",
@@ -275,11 +277,26 @@
           "symbolWatermarkProperties.color": "rgba(255, 255, 255, 0)",
           "symbolWatermarkProperties.transparency": 100,
 
-          // 去掉当前价格虚线、最新价标签与高低价线
+          // 彻底隐藏实时现价虚线 (Price Line) 及相关基准线
           "mainSeriesProperties.showPriceLine": false,
+          "mainSeriesProperties.priceLineColor": "rgba(255, 255, 255, 0)",
+          "mainSeriesProperties.priceLineWidth": 0,
+          "mainSeriesProperties.baseLineColor": "rgba(255, 255, 255, 0)",
+
+          // 彻底隐藏买卖盘虚线 (Bid/Ask Line)
+          "mainSeriesProperties.bidAsk.visible": false,
+          "mainSeriesProperties.bidAsk.bidLineColor": "rgba(255, 255, 255, 0)",
+          "mainSeriesProperties.bidAsk.askLineColor": "rgba(255, 255, 255, 0)",
+
+          // 彻底隐藏昨收价虚线 (Prev Close Line)
+          "mainSeriesProperties.showPrevClosePriceLine": false,
+          "mainSeriesProperties.prevClosePriceLineColor": "rgba(255, 255, 255, 0)",
+
+          // 隐藏最新价倒计时标签与高低均价线
           "mainSeriesProperties.showCountdown": false,
           "mainSeriesProperties.highLowAvgPrice.highLowPriceLinesVisible": false,
           "mainSeriesProperties.highLowAvgPrice.highLowPriceLabelsVisible": false,
+          "mainSeriesProperties.highLowAvgPrice.averageClosePriceLineVisible": false,
 
           // 黑白蜡烛：上涨为空心/白色配黑边，下跌为纯黑
           "mainSeriesProperties.candleStyle.upColor": "#ffffff",
@@ -292,9 +309,12 @@
           "mainSeriesProperties.candleStyle.wickUpColor": "#000000",
           "mainSeriesProperties.candleStyle.wickDownColor": "#000000",
 
-          // 坐标轴文字隐藏（透明）
+          // 坐标轴文字与刻度隐藏（透明）
           "scalesProperties.textColor": "rgba(255, 255, 255, 0)",
-          "scalesProperties.lineColor": "rgba(255, 255, 255, 0)"
+          "scalesProperties.lineColor": "rgba(255, 255, 255, 0)",
+          "scalesProperties.showBidAskPrice": false,
+          "scalesProperties.showSymbolLabels": false,
+          "scalesProperties.showSeriesLastValue": false
         }
       });
     }
