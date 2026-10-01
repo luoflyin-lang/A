@@ -103,6 +103,98 @@
       padding: 0;
     }
 
+    /* 网络断开时右上角倒计时变红警示 */
+    .countdown-overlay.is-offline {
+      color: #ff3b30 !important;
+      font-weight: 700 !important;
+      background: rgba(255, 59, 48, 0.1) !important;
+      padding: 2px 8px !important;
+      border-radius: 4px !important;
+    }
+
+    /* 网络断开全屏蒙层与告警卡片 */
+    #network-alert {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100000;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .network-alert-card {
+      background: #ffffff;
+      border: 2px solid #ff3b30;
+      border-radius: 14px;
+      box-shadow: 0 16px 48px rgba(255, 59, 48, 0.22);
+      padding: 32px 36px;
+      text-align: center;
+      max-width: 480px;
+      width: 100%;
+      animation: alertPulse 2s infinite ease-in-out;
+    }
+
+    @keyframes alertPulse {
+      0%, 100% { border-color: #ff3b30; box-shadow: 0 16px 48px rgba(255, 59, 48, 0.22); }
+      50% { border-color: #ff7875; box-shadow: 0 16px 48px rgba(255, 59, 48, 0.38); }
+    }
+
+    .network-alert-icon {
+      font-size: 44px;
+      line-height: 1;
+      margin-bottom: 14px;
+    }
+
+    .network-alert-title {
+      font-size: 21px;
+      font-weight: 700;
+      color: #ff3b30;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    .network-alert-desc {
+      font-size: 14px;
+      color: #444444;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .network-alert-status {
+      font-size: 13px;
+      color: #666666;
+      background: #f5f5f7;
+      border: 1px solid #e5e5ea;
+      padding: 8px 14px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 22px;
+    }
+
+    .network-alert-btn {
+      background: #ff3b30;
+      color: #ffffff;
+      border: none;
+      padding: 11px 26px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .network-alert-btn:hover {
+      background: #d62d23;
+    }
+
+    .network-alert-btn:active {
+      transform: scale(0.97);
+    }
+
     /* 脚本加载失败时的可见错误提示，避免只剩一片白 */
     #fatal-error {
       position: fixed;
@@ -133,6 +225,19 @@
   </style>
 </head>
 <body>
+
+  <!-- 网络断开高警示蒙层 -->
+  <div id="network-alert">
+    <div class="network-alert-card">
+      <div class="network-alert-icon">⚠️</div>
+      <div class="network-alert-title" id="network-alert-title">网络连接已断开！</div>
+      <div class="network-alert-desc">行情数据与倒计时已立即暂停。请检查您的 Wi-Fi 或网络连接，切勿依据当前静止画面做交易决策！</div>
+      <div class="network-alert-status" id="network-alert-status">正在持续监测网络，恢复后将自动刷新图表...</div>
+      <div>
+        <button class="network-alert-btn" id="network-retry-btn" onclick="manualCheckNetwork()">立即检测并刷新</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 三K线主容器 (三等分平铺) -->
   <div id="charts-container">
@@ -329,11 +434,169 @@
     }
 
     /**
+     * 全天候网络连通性监测引擎
+     * 1. 毫秒级原生事件监听 (window.offline / online)
+     * 2. 每 2.5 秒主动心跳探测 (多源竞速，防止 Wi-Fi 连着但宽带断网)
+     * 3. 断网时立刻锁定倒计时为红字 ⚠️ 网络断开，并弹出高警示模糊蒙层
+     * 4. 恢复网络后自动重新加载 (location.reload)，确保 WebSocket 新建连接并拉取最新 K 线
+     */
+    var isNetworkOnline = true;
+    var consecutiveFailures = 0;
+    var isReconnecting = false;
+
+    function setNetworkState(online) {
+      if (online) {
+        consecutiveFailures = 0;
+        if (!isNetworkOnline) {
+          // 由断网状态恢复！
+          isNetworkOnline = true;
+          isReconnecting = true;
+          var titleEl = document.getElementById("network-alert-title");
+          var statusEl = document.getElementById("network-alert-status");
+          if (titleEl) {
+            titleEl.textContent = "✅ 网络已恢复！";
+            titleEl.style.color = "#34c759";
+          }
+          if (statusEl) {
+            statusEl.textContent = "正在拉取最新行情数据，即将自动刷新图表...";
+            statusEl.style.color = "#34c759";
+          }
+          // 延迟 400ms 刷新页面，确保 WebSocket 干净重连并补全缺失 K 线
+          setTimeout(function() {
+            window.location.reload();
+          }, 400);
+          return;
+        }
+
+        var alertEl = document.getElementById("network-alert");
+        if (alertEl) alertEl.style.display = "none";
+
+        var countdowns = document.querySelectorAll(".countdown-overlay");
+        for (var i = 0; i < countdowns.length; i++) {
+          countdowns[i].classList.remove("is-offline");
+        }
+      } else {
+        if (!isNetworkOnline) return; // 已经是断网状态
+        isNetworkOnline = false;
+
+        var alertEl = document.getElementById("network-alert");
+        if (alertEl) alertEl.style.display = "flex";
+
+        var titleEl = document.getElementById("network-alert-title");
+        var statusEl = document.getElementById("network-alert-status");
+        if (titleEl) {
+          titleEl.textContent = "⚠️ 网络连接已断开！";
+          titleEl.style.color = "#ff3b30";
+        }
+        if (statusEl) {
+          statusEl.textContent = "正在持续监测网络，恢复后将自动刷新图表...";
+          statusEl.style.color = "#666666";
+        }
+
+        // 倒计时栏立即替换为醒目红字警告
+        var c1 = document.getElementById("countdown-1");
+        var c2 = document.getElementById("countdown-2");
+        var c3 = document.getElementById("countdown-3");
+        var warningText = "⚠️ 网络断开";
+        if (c1) { c1.textContent = warningText; c1.classList.add("is-offline"); }
+        if (c2) { c2.textContent = warningText; c2.classList.add("is-offline"); }
+        if (c3) { c3.textContent = warningText; c3.classList.add("is-offline"); }
+      }
+    }
+
+    function probeUrl(url, timeoutMs) {
+      return new Promise(function(resolve) {
+        if (typeof navigator.onLine === "boolean" && !navigator.onLine) {
+          resolve(false);
+          return;
+        }
+        var controller = new AbortController();
+        var timer = setTimeout(function() {
+          try { controller.abort(); } catch(e) {}
+          resolve(false);
+        }, timeoutMs || 2200);
+
+        fetch(url, {
+          mode: "no-cors",
+          cache: "no-store",
+          signal: controller.signal
+        }).then(function() {
+          clearTimeout(timer);
+          resolve(true);
+        }).catch(function() {
+          clearTimeout(timer);
+          resolve(false);
+        });
+      });
+    }
+
+    async function checkConnectivity() {
+      // 1. 优先检查操作系统/浏览器网络层
+      if (typeof navigator.onLine === "boolean" && !navigator.onLine) {
+        return false;
+      }
+
+      // 2. 组装多源探测端点
+      var endpoints = [];
+      if (window.location && window.location.protocol && window.location.protocol.startsWith("http")) {
+        endpoints.push(window.location.origin + "/ping?_=" + Date.now());
+      }
+      endpoints.push("https://aa.124568.xyz/ping?_=" + Date.now());
+      endpoints.push("https://www.tradingview.com/favicon.ico?_=" + Date.now());
+
+      var promises = endpoints.map(function(u) { return probeUrl(u, 2200); });
+      var results = await Promise.all(promises);
+      for (var i = 0; i < results.length; i++) {
+        if (results[i] === true) return true;
+      }
+      return false;
+    }
+
+    async function runNetworkCheck() {
+      if (isReconnecting) return;
+      var ok = await checkConnectivity();
+      if (ok) {
+        setNetworkState(true);
+      } else {
+        consecutiveFailures++;
+        // 连续两次探测失败，或原生属性确认为离线时，立即标记断网
+        if (consecutiveFailures >= 2 || (typeof navigator.onLine === "boolean" && !navigator.onLine)) {
+          setNetworkState(false);
+        }
+      }
+    }
+
+    async function manualCheckNetwork() {
+      var btn = document.getElementById("network-retry-btn");
+      var statusEl = document.getElementById("network-alert-status");
+      if (btn) btn.textContent = "检测中...";
+      if (statusEl) statusEl.textContent = "正在发送心跳探测包...";
+      var ok = await checkConnectivity();
+      if (ok) {
+        setNetworkState(true);
+      } else {
+        if (btn) btn.textContent = "立即检测并刷新";
+        if (statusEl) statusEl.textContent = "探测失败：仍未检测到可用外网，请检查网络设置。";
+      }
+    }
+
+    /**
      * 15分钟 K 线收盘倒计时逻辑 (三图共振同步)
      * 15分钟 = 900 秒，K线按整点 :00 / :15 / :30 / :45 收盘
-     * 使用 UTC 计算，半小时偏移时区也不会算错
+     * 若网络断开，停止计时并保持红字警告
      */
     function updateCountdown() {
+      if (!isNetworkOnline) {
+        var c1 = document.getElementById("countdown-1");
+        var c2 = document.getElementById("countdown-2");
+        var c3 = document.getElementById("countdown-3");
+        var warningText = "⚠️ 网络断开";
+        if (c1) { c1.textContent = warningText; c1.classList.add("is-offline"); }
+        if (c2) { c2.textContent = warningText; c2.classList.add("is-offline"); }
+        if (c3) { c3.textContent = warningText; c3.classList.add("is-offline"); }
+        return;
+      }
+
       var now = new Date();
       var elapsedInCandle = (now.getUTCMinutes() * 60 + now.getUTCSeconds()) % 900;
       var remainingSeconds = 900 - elapsedInCandle;
@@ -345,9 +608,9 @@
       var c1 = document.getElementById("countdown-1");
       var c2 = document.getElementById("countdown-2");
       var c3 = document.getElementById("countdown-3");
-      if (c1) c1.textContent = formatted;
-      if (c2) c2.textContent = formatted;
-      if (c3) c3.textContent = formatted;
+      if (c1) { c1.textContent = formatted; c1.classList.remove("is-offline"); }
+      if (c2) { c2.textContent = formatted; c2.classList.remove("is-offline"); }
+      if (c3) { c3.textContent = formatted; c3.classList.remove("is-offline"); }
     }
 
     // 初始化运行
@@ -356,12 +619,27 @@
       updateCountdown();
       setInterval(updateCountdown, 1000);   // 每秒刷新倒计时
 
-      // 设备休眠/切回前台后立即校正倒计时
+      // 毫秒级原生网络状态监听
+      window.addEventListener("offline", function() {
+        setNetworkState(false);
+      });
+      window.addEventListener("online", function() {
+        runNetworkCheck();
+      });
+
+      // 定时主动心跳探测：每 2.5 秒检测一次，彻底杜绝静默断网
+      setInterval(runNetworkCheck, 2500);
+
+      // 设备从休眠唤醒或标签页切换时立即校正与检测
       document.addEventListener("visibilitychange", function () {
         if (!document.hidden) {
           updateCountdown();
+          runNetworkCheck();
         }
       });
+
+      // 页面初次加载时立即做一次网络连通性初检
+      runNetworkCheck();
     }
 
     if (document.readyState === "loading") {
