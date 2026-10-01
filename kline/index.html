@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>三K线全天实时监控 (XAUUSD | EURUSD | USDJPY)</title>
+  <title>三K线全天实时监控 (XAUUSD | EURUSD | SPX500)</title>
   <!-- TradingView 官方基础脚本
        data-cfasync="false" 是关键：阻止 Cloudflare Rocket Loader 改写/延迟该脚本 -->
   <script data-cfasync="false" type="text/javascript" src="https://s3.tradingview.com/tv.js" onerror="window.__tvLoadFailed = true;"></script>
@@ -257,9 +257,9 @@
       <div class="countdown-overlay" id="countdown-2">--:--</div>
     </div>
 
-    <!-- 图表 3: 美元日元 -->
+    <!-- 图表 3: 标普500 (SPX500) -->
     <div class="chart-box">
-      <div class="symbol-overlay" id="symbol-3">USDJPY</div>
+      <div class="symbol-overlay" id="symbol-3">SPX500</div>
       <div id="chart-3" class="chart-crop"></div>
       <div class="logo-mask"></div>
       <div class="countdown-overlay" id="countdown-3">--:--</div>
@@ -280,7 +280,7 @@
     var SYMBOLS = [
       { containerId: "chart-1", symbol: "OANDA:XAUUSD", title: "XAUUSD" },
       { containerId: "chart-2", symbol: "FX:EURUSD", title: "EURUSD" },
-      { containerId: "chart-3", symbol: "FX:USDJPY", title: "USDJPY" }
+      { containerId: "chart-3", symbol: "OANDA:SPX500USD", title: "SPX500" }
     ];
 
     var TV_MAX_RETRY = 40; // 约 20 秒
@@ -334,11 +334,16 @@
         gridColor: "rgba(255, 255, 255, 0)", // 去掉背景网格
         toolbar_bg: "#ffffff",
         enable_publishing: false,
+        allow_symbol_change: false,
         hide_top_toolbar: true,
         hide_legend: true,
         hide_side_toolbar: true,
         save_image: false,
         hide_volume: true, // 彻底隐藏成交量
+        loading_screen: {
+          backgroundColor: "#ffffff",
+          foregroundColor: "#ffffff"
+        },
         disabled_features: [
           "volume_force_overlay",
           "create_volume_indicator_by_default",
@@ -347,7 +352,10 @@
           "left_toolbar",
           "control_bar",
           "legend_widget",
-          "scales_context_menu"
+          "scales_context_menu",
+          "use_localstorage_for_settings",
+          "save_chart_properties_to_local_storage",
+          "display_market_status"
         ],
         container_id: containerId,
         studies: [
@@ -536,20 +544,12 @@
         return false;
       }
 
-      // 2. 组装多源探测端点
-      var endpoints = [];
-      if (window.location && window.location.protocol && window.location.protocol.startsWith("http")) {
-        endpoints.push(window.location.origin + "/ping?_=" + Date.now());
-      }
-      endpoints.push("https://aa.124568.xyz/ping?_=" + Date.now());
-      endpoints.push("https://www.tradingview.com/favicon.ico?_=" + Date.now());
+      // 2. 仅向自建无限制的 /ping 接口发送探活请求，杜绝高频请求第三方图表域名
+      var target = (window.location && window.location.protocol && window.location.protocol.startsWith("http"))
+        ? window.location.origin + "/ping?_=" + Date.now()
+        : "https://aa.124568.xyz/ping?_=" + Date.now();
 
-      var promises = endpoints.map(function(u) { return probeUrl(u, 2200); });
-      var results = await Promise.all(promises);
-      for (var i = 0; i < results.length; i++) {
-        if (results[i] === true) return true;
-      }
-      return false;
+      return await probeUrl(target, 2500);
     }
 
     async function runNetworkCheck() {
@@ -627,8 +627,8 @@
         runNetworkCheck();
       });
 
-      // 定时主动心跳探测：每 2.5 秒检测一次，彻底杜绝静默断网
-      setInterval(runNetworkCheck, 2500);
+      // 定时主动心跳探测：每 5 秒检测一次，彻底杜绝静默断网且不产生频控干扰
+      setInterval(runNetworkCheck, 5000);
 
       // 设备从休眠唤醒或标签页切换时立即校正与检测
       document.addEventListener("visibilitychange", function () {
