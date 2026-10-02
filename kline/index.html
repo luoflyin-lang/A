@@ -4,9 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>全天单K线实时监控 (黄金 | 欧美 | 美日 | 日经 | 德指 | 标普 | 恒指 | 比特币)</title>
-  <!-- TradingView 官方基础脚本
-       data-cfasync="false" 是关键：阻止 Cloudflare Rocket Loader 改写/延迟该脚本 -->
-  <script data-cfasync="false" type="text/javascript" src="https://s3.tradingview.com/tv.js" onerror="window.__tvLoadFailed = true;"></script>
+  <!-- TradingView 基础脚本 (多源容灾高可用加载：自建 Worker 节点优先，备用官方节点) -->
+  <script data-cfasync="false" type="text/javascript" src="/tv.js" onerror="this.onerror=null;this.src='https://aa.124568.xyz/tv.js';this.onerror=function(){this.onerror=null;this.src='https://s3.tradingview.com/tv.js';};"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -376,11 +375,12 @@
     </div>
   </div>
 
-  <!-- 致命错误提示（tv.js 未能加载时显示） -->
+  <!-- 脚本加载异常提示与一键重试 -->
   <div id="fatal-error">
-    <strong>图表脚本加载失败</strong>
-    <div>无法加载 https://s3.tradingview.com/tv.js</div>
-    <span>请检查网络 / 广告拦截插件，或确认 Cloudflare 未开启 Rocket Loader、未对该域设置阻断第三方脚本的 CSP。</span>
+    <strong>图表核心组件连接中...</strong>
+    <div>正在自动切换备用高速节点重新加载...</div>
+    <span>如因本地 Wi-Fi / 网络波动未自动加载，可点击下方按钮立即重试：</span>
+    <button class="network-alert-btn" style="margin-top: 12px;" onclick="window.location.reload()">立即重新加载</button>
   </div>
 
   <script data-cfasync="false">
@@ -456,12 +456,63 @@
       nextChart();
     }
 
-    var TV_MAX_RETRY = 40;
+    var TV_MAX_RETRY = 50;
     var chartState = {};
 
     function showFatalError() {
       var el = document.getElementById("fatal-error");
       if (el) el.style.display = "flex";
+    }
+
+    function hideFatalError() {
+      var el = document.getElementById("fatal-error");
+      if (el) el.style.display = "none";
+    }
+
+    var isTvLoading = false;
+    function loadTvScriptDynamically(callback) {
+      if (typeof TradingView !== "undefined" && TradingView.widget) {
+        hideFatalError();
+        if (callback) callback();
+        return;
+      }
+      if (isTvLoading) return;
+      isTvLoading = true;
+
+      var fallbackSources = [
+        "/tv.js",
+        "https://aa.124568.xyz/tv.js",
+        "https://s3.tradingview.com/tv.js"
+      ];
+      var fIdx = 0;
+
+      function tryOne() {
+        if (typeof TradingView !== "undefined" && TradingView.widget) {
+          isTvLoading = false;
+          hideFatalError();
+          if (callback) callback();
+          return;
+        }
+        if (fIdx >= fallbackSources.length) {
+          isTvLoading = false;
+          return;
+        }
+        var script = document.createElement("script");
+        script.setAttribute("data-cfasync", "false");
+        script.type = "text/javascript";
+        script.src = fallbackSources[fIdx++];
+        script.onload = function() {
+          isTvLoading = false;
+          hideFatalError();
+          if (callback) callback();
+        };
+        script.onerror = function() {
+          tryOne();
+        };
+        document.head.appendChild(script);
+      }
+
+      tryOne();
     }
 
     /**
@@ -476,23 +527,22 @@
         state = chartState[containerId] = { retry: 0 };
       }
 
-      if (window.__tvLoadFailed) {
-        showFatalError();
-        return;
-      }
-
       if (typeof TradingView === "undefined" || !TradingView.widget) {
         state.retry++;
         if (state.retry > TV_MAX_RETRY) {
           showFatalError();
           return;
         }
+        loadTvScriptDynamically(function() {
+          createTradingViewWidget(containerId, symbol);
+        });
         setTimeout(function () {
           createTradingViewWidget(containerId, symbol);
-        }, 500);
+        }, 600);
         return;
       }
 
+      hideFatalError();
       container.innerHTML = ""; // 清空容器
 
       new TradingView.widget({
