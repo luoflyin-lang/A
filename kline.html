@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>三K线全天实时监控 (XAUUSD | EURUSD | SPX500)</title>
+  <title>三K线全天实时监控 (黄金 欧美 美日 / 日经 德指 标普)</title>
   <!-- TradingView 官方基础脚本
        data-cfasync="false" 是关键：阻止 Cloudflare Rocket Loader 改写/延迟该脚本 -->
   <script data-cfasync="false" type="text/javascript" src="https://s3.tradingview.com/tv.js" onerror="window.__tvLoadFailed = true;"></script>
@@ -27,13 +27,34 @@
       height: 100dvh;
     }
 
-    /* 纵向三等分主容器 */
-    #charts-container {
+    /* 双页包装容器 */
+    #pages-wrapper {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      background-color: #ffffff;
+    }
+
+    /* 每一个独立 3 分屏页面 */
+    .chart-page {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       display: flex;
       flex-direction: column;
-      position: relative;
+      background-color: #ffffff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 1;
+      transition: opacity 0.12s ease-in-out;
+    }
+
+    .chart-page.active {
+      opacity: 1;
+      pointer-events: auto;
+      z-index: 10;
     }
 
     /* 单个图表卡片，严格平分 1/3 高度 */
@@ -86,13 +107,7 @@
       pointer-events: none;
     }
 
-    /* 第三个轮播品种允许点击手动预览与切换 */
-    #symbol-3 {
-      pointer-events: auto !important;
-      cursor: pointer;
-    }
-
-    /* 右上角收盘倒计时：纯净简约，无背景无阴影 */
+    /* 右上角收盘倒计时：纯净简约，无背景无阴影，点击直接无缝翻页 */
     .countdown-overlay {
       position: absolute;
       top: 10px;
@@ -103,7 +118,8 @@
       color: #000000;
       letter-spacing: 0.5px;
       user-select: none;
-      pointer-events: none;
+      cursor: pointer;
+      pointer-events: auto !important;
       background: transparent;
       box-shadow: none;
       padding: 0;
@@ -245,30 +261,60 @@
     </div>
   </div>
 
-  <!-- 三K线主容器 (三等分平铺) -->
-  <div id="charts-container">
-    <!-- 图表 1: 现货黄金 -->
-    <div class="chart-box">
-      <div class="symbol-overlay" id="symbol-1">XAUUSD</div>
-      <div id="chart-1" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay" id="countdown-1">--:--</div>
+  <!-- 双页包装容器 (点击右上角倒计时时间无缝翻页) -->
+  <div id="pages-wrapper">
+    <!-- 第 1 页 (主页: 黄金 | 欧美 | 美日) -->
+    <div id="page-1" class="chart-page active">
+      <!-- 图表 1: 现货黄金 -->
+      <div class="chart-box">
+        <div class="symbol-overlay" id="symbol-1">XAUUSD</div>
+        <div id="chart-1" class="chart-crop"></div>
+        <div class="logo-mask"></div>
+        <div class="countdown-overlay" id="countdown-1" onclick="togglePage()">--:--</div>
+      </div>
+
+      <!-- 图表 2: 欧元美元 -->
+      <div class="chart-box">
+        <div class="symbol-overlay" id="symbol-2">EURUSD</div>
+        <div id="chart-2" class="chart-crop"></div>
+        <div class="logo-mask"></div>
+        <div class="countdown-overlay" id="countdown-2" onclick="togglePage()">--:--</div>
+      </div>
+
+      <!-- 图表 3: 美元日元 -->
+      <div class="chart-box">
+        <div class="symbol-overlay" id="symbol-3">USDJPY</div>
+        <div id="chart-3" class="chart-crop"></div>
+        <div class="logo-mask"></div>
+        <div class="countdown-overlay" id="countdown-3" onclick="togglePage()">--:--</div>
+      </div>
     </div>
 
-    <!-- 图表 2: 欧元美元 -->
-    <div class="chart-box">
-      <div class="symbol-overlay" id="symbol-2">EURUSD</div>
-      <div id="chart-2" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay" id="countdown-2">--:--</div>
-    </div>
+    <!-- 第 2 页 (翻页后: 日经 | 德指 | 标普) -->
+    <div id="page-2" class="chart-page">
+      <!-- 图表 4: 日经 225 -->
+      <div class="chart-box">
+        <div class="symbol-overlay" id="symbol-4">JP225</div>
+        <div id="chart-4" class="chart-crop"></div>
+        <div class="logo-mask"></div>
+        <div class="countdown-overlay" id="countdown-4" onclick="togglePage()">--:--</div>
+      </div>
 
-    <!-- 图表 3: 轮播指数 (早上: 日经 / 中午: 德指 / 晚上: 标普) -->
-    <div class="chart-box">
-      <div class="symbol-overlay" id="symbol-3" onclick="cycleManualSlot()" title="点击手动切换：日经 / 德指 / 标普 / 自动轮播">--</div>
-      <div id="chart-3" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay" id="countdown-3">--:--</div>
+      <!-- 图表 5: 德国指数 40 -->
+      <div class="chart-box">
+        <div class="symbol-overlay" id="symbol-5">DAX</div>
+        <div id="chart-5" class="chart-crop"></div>
+        <div class="logo-mask"></div>
+        <div class="countdown-overlay" id="countdown-5" onclick="togglePage()">--:--</div>
+      </div>
+
+      <!-- 图表 6: 标普 500 -->
+      <div class="chart-box">
+        <div class="symbol-overlay" id="symbol-6">SPX500</div>
+        <div id="chart-6" class="chart-crop"></div>
+        <div class="logo-mask"></div>
+        <div class="countdown-overlay" id="countdown-6" onclick="togglePage()">--:--</div>
+      </div>
     </div>
   </div>
 
@@ -281,96 +327,53 @@
 
   <script data-cfasync="false">
     /**
-     * 图表 1 & 图表 2 全天 24 小时固定常驻 (黄金 + 欧美)
+     * 品种定义：
+     * 第 1 页 (主页): 黄金 (XAUUSD), 欧美 (EURUSD), 美日 (USDJPY)
+     * 第 2 页 (翻页): 日经 225 (JP225), 德指 40 (DAX / GER40), 标普 500 (SPX500)
      */
-    var FIXED_SYMBOLS = [
+    var PAGE1_CHARTS = [
       { containerId: "chart-1", symbol: "OANDA:XAUUSD", title: "XAUUSD" },
-      { containerId: "chart-2", symbol: "FX:EURUSD", title: "EURUSD" }
+      { containerId: "chart-2", symbol: "FX:EURUSD", title: "EURUSD" },
+      { containerId: "chart-3", symbol: "FX:USDJPY", title: "USDJPY" }
     ];
+
+    var PAGE2_CHARTS = [
+      { containerId: "chart-4", symbol: "OANDA:JP225USD", title: "JP225" },
+      { containerId: "chart-5", symbol: "FOREXCOM:GER40", title: "DAX" },
+      { containerId: "chart-6", symbol: "OANDA:SPX500USD", title: "SPX500" }
+    ];
+
+    var currentPage = 1;
 
     /**
-     * 图表 3 全球主要指数时段轮播定义 (基于北京时间 UTC+8)
-     * 1. 早上 (06:00 - 14:00): 日经 225 (Nikkei 225, OANDA:JP225USD)
-     * 2. 中午/欧盘 (14:00 - 20:30): 德国指数 40 (DAX 40, OANDA:DE40EUR)
-     * 3. 晚上/美盘 (20:30 - 次日 06:00): 标普 500 (SPX 500, OANDA:SPX500USD)
+     * 无缝翻页核心方法：
+     * 点击右上角倒计时时间直接切换，0毫秒响应，无刷新无白屏
      */
-    var SLOT_CONFIG = [
-      {
-        id: "nikkei",
-        name: "日经 (亚盘)",
-        startMin: 6 * 60,         // 06:00
-        endMin: 14 * 60,          // 14:00
-        symbol: "OANDA:JP225USD",
-        title: "JP225"
-      },
-      {
-        id: "dax",
-        name: "德指 (欧盘)",
-        startMin: 14 * 60,        // 14:00
-        endMin: 20 * 60 + 30,     // 20:30
-        symbol: "FOREXCOM:GER40",
-        title: "DAX"
-      },
-      {
-        id: "spx",
-        name: "标普 (美盘)",
-        startMin: 20 * 60 + 30,   // 20:30
-        endMin: 6 * 60,           // 06:00 (跨午夜)
-        isCrossMidnight: true,
-        symbol: "OANDA:SPX500USD",
-        title: "SPX500"
-      }
-    ];
-
-    var currentChart3SlotId = null;
-    var manualSlot = null; // 允许键盘或点击手动预览
-
-    function determineCurrentSlot() {
-      // 北京时间 = UTC + 8
-      var now = new Date();
-      var utc = now.getTime() + now.getTimezoneOffset() * 60000;
-      var bj = new Date(utc + 8 * 3600000);
-      var currentMin = bj.getHours() * 60 + bj.getMinutes();
-
-      for (var i = 0; i < SLOT_CONFIG.length; i++) {
-        var slot = SLOT_CONFIG[i];
-        if (slot.isCrossMidnight) {
-          if (currentMin >= slot.startMin || currentMin < slot.endMin) {
-            return slot;
-          }
-        } else {
-          if (currentMin >= slot.startMin && currentMin < slot.endMin) {
-            return slot;
-          }
-        }
-      }
-      return SLOT_CONFIG[0];
-    }
-
-    function updateChart3() {
-      var activeSlot = manualSlot || determineCurrentSlot();
-      if (currentChart3SlotId !== activeSlot.id) {
-        currentChart3SlotId = activeSlot.id;
-
-        var sym3 = document.getElementById("symbol-3");
-        if (sym3) sym3.textContent = activeSlot.title;
-
-        // 仅重新加载图表 3，图表 1 和图表 2 不受任何影响
-        createTradingViewWidget("chart-3", activeSlot.symbol);
-      }
-    }
-
-    function cycleManualSlot() {
-      if (!manualSlot) {
-        manualSlot = SLOT_CONFIG[0]; // JP225
-      } else if (manualSlot.id === "nikkei") {
-        manualSlot = SLOT_CONFIG[1]; // DAX
-      } else if (manualSlot.id === "dax") {
-        manualSlot = SLOT_CONFIG[2]; // SPX500
+    function togglePage() {
+      currentPage = (currentPage === 1) ? 2 : 1;
+      var p1 = document.getElementById("page-1");
+      var p2 = document.getElementById("page-2");
+      if (currentPage === 1) {
+        if (p1) p1.classList.add("active");
+        if (p2) p2.classList.remove("active");
       } else {
-        manualSlot = null; // 恢复自动
+        if (p2) p2.classList.add("active");
+        if (p1) p1.classList.remove("active");
       }
-      updateChart3();
+    }
+
+    function switchPage(pageNumber) {
+      if (pageNumber !== 1 && pageNumber !== 2) return;
+      currentPage = pageNumber;
+      var p1 = document.getElementById("page-1");
+      var p2 = document.getElementById("page-2");
+      if (currentPage === 1) {
+        if (p1) p1.classList.add("active");
+        if (p2) p2.classList.remove("active");
+      } else {
+        if (p2) p2.classList.add("active");
+        if (p1) p1.classList.remove("active");
+      }
     }
 
     var TV_MAX_RETRY = 40; // 约 20 秒
@@ -523,13 +526,17 @@
     }
 
     /**
-     * 批量加载图表：前两个固定，第三个按时段自适应
+     * 批量加载图表：优先加载第 1 页，800ms 后后台异步加载第 2 页
      */
     function initCharts() {
-      for (var i = 0; i < FIXED_SYMBOLS.length; i++) {
-        createTradingViewWidget(FIXED_SYMBOLS[i].containerId, FIXED_SYMBOLS[i].symbol);
+      for (var i = 0; i < PAGE1_CHARTS.length; i++) {
+        createTradingViewWidget(PAGE1_CHARTS[i].containerId, PAGE1_CHARTS[i].symbol);
       }
-      updateChart3();
+      setTimeout(function() {
+        for (var j = 0; j < PAGE2_CHARTS.length; j++) {
+          createTradingViewWidget(PAGE2_CHARTS[j].containerId, PAGE2_CHARTS[j].symbol);
+        }
+      }, 800);
     }
 
     /**
@@ -593,13 +600,12 @@
         }
 
         // 倒计时栏立即替换为醒目红字警告
-        var c1 = document.getElementById("countdown-1");
-        var c2 = document.getElementById("countdown-2");
-        var c3 = document.getElementById("countdown-3");
+        var countdowns = document.querySelectorAll(".countdown-overlay");
         var warningText = "⚠️ 网络断开";
-        if (c1) { c1.textContent = warningText; c1.classList.add("is-offline"); }
-        if (c2) { c2.textContent = warningText; c2.classList.add("is-offline"); }
-        if (c3) { c3.textContent = warningText; c3.classList.add("is-offline"); }
+        for (var i = 0; i < countdowns.length; i++) {
+          countdowns[i].textContent = warningText;
+          countdowns[i].classList.add("is-offline");
+        }
       }
     }
 
@@ -672,19 +678,18 @@
     }
 
     /**
-     * 15分钟 K 线收盘倒计时逻辑 (三图共振同步)
+     * 15分钟 K 线收盘倒计时逻辑 (双页6图共振同步)
      * 15分钟 = 900 秒，K线按整点 :00 / :15 / :30 / :45 收盘
      * 若网络断开，停止计时并保持红字警告
      */
     function updateCountdown() {
+      var countdowns = document.querySelectorAll(".countdown-overlay");
       if (!isNetworkOnline) {
-        var c1 = document.getElementById("countdown-1");
-        var c2 = document.getElementById("countdown-2");
-        var c3 = document.getElementById("countdown-3");
         var warningText = "⚠️ 网络断开";
-        if (c1) { c1.textContent = warningText; c1.classList.add("is-offline"); }
-        if (c2) { c2.textContent = warningText; c2.classList.add("is-offline"); }
-        if (c3) { c3.textContent = warningText; c3.classList.add("is-offline"); }
+        for (var i = 0; i < countdowns.length; i++) {
+          countdowns[i].textContent = warningText;
+          countdowns[i].classList.add("is-offline");
+        }
         return;
       }
 
@@ -696,12 +701,10 @@
       var secs = remainingSeconds % 60;
       var formatted = String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
 
-      var c1 = document.getElementById("countdown-1");
-      var c2 = document.getElementById("countdown-2");
-      var c3 = document.getElementById("countdown-3");
-      if (c1) { c1.textContent = formatted; c1.classList.remove("is-offline"); }
-      if (c2) { c2.textContent = formatted; c2.classList.remove("is-offline"); }
-      if (c3) { c3.textContent = formatted; c3.classList.remove("is-offline"); }
+      for (var j = 0; j < countdowns.length; j++) {
+        countdowns[j].textContent = formatted;
+        countdowns[j].classList.remove("is-offline");
+      }
     }
 
     // 初始化运行
@@ -732,27 +735,14 @@
       // 页面初次加载时立即做一次网络连通性初检
       runNetworkCheck();
 
-      // 定时监测图表 3 时段跨越 (例如 14:00 或 20:30 到达时自动无感切换)
-      setInterval(function () {
-        if (!manualSlot) {
-          updateChart3();
-        }
-      }, 5000);
-
-      // 键盘快捷键支持：1(日经)、2(德指)、3(标普)、0(恢复自动轮播)
+      // 键盘快捷键翻页：空格、Enter、数字 1 (主页)、数字 2 (副页)
       window.addEventListener("keydown", function (e) {
-        if (e.key === "1") {
-          manualSlot = SLOT_CONFIG[0];
-          updateChart3();
+        if (e.key === " " || e.key === "Enter") {
+          togglePage();
+        } else if (e.key === "1") {
+          switchPage(1);
         } else if (e.key === "2") {
-          manualSlot = SLOT_CONFIG[1];
-          updateChart3();
-        } else if (e.key === "3") {
-          manualSlot = SLOT_CONFIG[2];
-          updateChart3();
-        } else if (e.key === "0") {
-          manualSlot = null;
-          updateChart3();
+          switchPage(2);
         }
       });
     }
