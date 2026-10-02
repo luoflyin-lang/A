@@ -462,6 +462,8 @@
           backgroundColor: "#ffffff",
           foregroundColor: "#ffffff"
         },
+        doNotStoreSettings: true,
+        showFloatingTooltip: false,
         disabled_features: [
           "volume_force_overlay",
           "create_volume_indicator_by_default",
@@ -470,6 +472,12 @@
           "left_toolbar",
           "control_bar",
           "legend_widget",
+          "show_legend_values_in_compact_mode",
+          "show_study_arguments",
+          "show_study_titles",
+          "study_templates",
+          "study_overlay",
+          "study_symbol_ticker_description",
           "scales_context_menu",
           "use_localstorage_for_settings",
           "save_chart_properties_to_local_storage",
@@ -487,12 +495,15 @@
         studies_overrides: {
           "moving average exponential.plot.color": "#000000",
           "moving average exponential.plot.linewidth": 1.5,
+          "moving average exponential.showLabelsOnPriceScale": false,
+          "moving average exponential.plots.0.showLabelsOnPriceScale": false,
           "volume.volume.color.0": "rgba(255, 255, 255, 0)",
           "volume.volume.color.1": "rgba(255, 255, 255, 0)",
           "volume.volume.transparency": 100,
           "volume.show ma": false
         },
         overrides: {
+          // 纯白背景
           "paneProperties.background": "#ffffff",
           "paneProperties.backgroundType": "solid",
           "paneProperties.crossHairProperties.color": "rgba(255, 255, 255, 0)",
@@ -502,6 +513,14 @@
           "paneProperties.separatorColor": "rgba(255, 255, 255, 0)",
           "symbolWatermarkProperties.color": "rgba(255, 255, 255, 0)",
           "symbolWatermarkProperties.transparency": 100,
+
+          // 彻底关闭均线与图例指标标签
+          "paneProperties.legendProperties.showStudyArguments": false,
+          "paneProperties.legendProperties.showStudyTitles": false,
+          "paneProperties.legendProperties.showStudyValues": false,
+          "paneProperties.legendProperties.showSeriesTitle": false,
+          "paneProperties.legendProperties.showSeriesOHLC": false,
+          "paneProperties.legendProperties.showLegend": false,
 
           "mainSeriesProperties.showPriceLine": false,
           "mainSeriesProperties.priceLineColor": "rgba(255, 255, 255, 0)",
@@ -527,11 +546,14 @@
           "mainSeriesProperties.candleStyle.wickUpColor": "#000000",
           "mainSeriesProperties.candleStyle.wickDownColor": "#000000",
 
+          // 坐标轴文字与刻度隐藏（透明），并关闭指标/均线在轴上的数字标签
           "scalesProperties.textColor": "rgba(255, 255, 255, 0)",
           "scalesProperties.lineColor": "rgba(255, 255, 255, 0)",
           "scalesProperties.showBidAskPrice": false,
           "scalesProperties.showSymbolLabels": false,
-          "scalesProperties.showSeriesLastValue": false
+          "scalesProperties.showSeriesLastValue": false,
+          "scalesProperties.showStudyLastValue": false,
+          "scalesProperties.showStudyPlotLabels": false
         }
       });
     }
