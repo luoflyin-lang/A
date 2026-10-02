@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>全天单K线实时监控 (黄金 | 欧美 | 美日 | 日经 | 德指 | 标普 | 恒指 | 比特币)</title>
+  <title>8K线全屏实时监控 (黄金 | 欧美 | 美日 | 日经 | 德指 | 标普 | 恒指 | 比特币)</title>
   <!-- TradingView 核心脚本：自建高可用 Worker CDN 优先加载，老旧平板与断网多重兜底 -->
   <script data-cfasync="false" type="text/javascript" src="https://aa.124568.xyz/tv.js"></script>
   <script data-cfasync="false" type="text/javascript">
@@ -21,7 +21,7 @@
         s.type = "text/javascript";
         s.src = _tvFallbacks[_tvIdx++];
         s.onload = function() {
-          if (typeof ensureChartLoaded === "function") ensureChartLoaded(0);
+          if (typeof initCharts === "function") initCharts();
         };
         s.onerror = function() {
           _loadTvNext();
@@ -53,7 +53,6 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, monospace;
     }
 
-    /* 移动端地址栏与全屏高度兼容：多层兜底保障老旧平板与现代设备 */
     body {
       min-height: 100%;
       height: 100%;
@@ -61,39 +60,18 @@
       height: 100dvh;
     }
 
-    /* 全屏页面包装容器 */
-    #pages-wrapper {
-      width: 100%;
-      height: 100%;
-      position: relative;
-      overflow: hidden;
-      background-color: #ffffff;
-    }
-
-    /* 单屏独立全屏图表页面 (针对老旧安卓平板 WebView 彻底替换 inset 为 top/left/right/bottom) */
-    .chart-page {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+    /* 8 分屏网格容器 (横屏 4 列 × 2 行) */
+    #grid-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(2, 1fr);
       width: 100%;
       height: 100%;
       overflow: hidden;
       background-color: #ffffff;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 1;
-      transition: opacity 0.15s ease-in-out;
     }
 
-    .chart-page.active {
-      opacity: 1;
-      pointer-events: auto;
-      z-index: 10;
-    }
-
-    /* 单个图表卡片，铺满整个屏幕 */
+    /* 单个图表卡片 */
     .chart-box {
       width: 100%;
       height: 100%;
@@ -102,22 +80,31 @@
       background-color: #ffffff;
     }
 
+    /* 网格分割黑线：前 3 列加右边框，第 1 行加下边框 */
+    .chart-box:not(:nth-child(4n)) {
+      border-right: 1px solid #000000;
+    }
+
+    .chart-box:nth-child(-n+4) {
+      border-bottom: 1px solid #000000;
+    }
+
     /* 裁剪容器：向右裁剪价格轴，向下裁剪时间轴 */
     .chart-crop {
       position: absolute;
       top: 0;
       left: 0;
-      width: calc(100% + 110px);
-      height: calc(100% + 45px);
+      width: calc(100% + 70px);
+      height: calc(100% + 36px);
     }
 
-    /* 遮住 TradingView 左下角 logo（图表在跨域 iframe 内，无法直接删除节点） */
+    /* 遮住 TradingView 左下角 logo 与水印 */
     .logo-mask {
       position: absolute;
       left: 0;
       bottom: 0;
-      width: 130px;
-      height: 32px;
+      width: 70px;
+      height: 52px;
       background-color: #ffffff;
       z-index: 998;
       pointer-events: none;
@@ -126,10 +113,10 @@
     /* 左上角品种名称 */
     .symbol-overlay {
       position: absolute;
-      top: 14px;
-      left: 20px;
+      top: 6px;
+      left: 10px;
       z-index: 999;
-      font-size: 18px;
+      font-size: 14px;
       font-weight: 700;
       color: #000000;
       letter-spacing: 0.5px;
@@ -137,13 +124,13 @@
       pointer-events: none;
     }
 
-    /* 右上角收盘倒计时：纯净简约，无背景无阴影 */
+    /* 右上角收盘倒计时 */
     .countdown-overlay {
       position: absolute;
-      top: 14px;
-      right: 20px;
+      top: 6px;
+      right: 10px;
       z-index: 999;
-      font-size: 20px;
+      font-size: 14px;
       font-weight: 700;
       color: #000000;
       letter-spacing: 0.5px;
@@ -154,49 +141,12 @@
       padding: 0;
     }
 
-    /* 网络断开时右上角倒计时变红警示 */
     .countdown-overlay.is-offline {
       color: #ff3b30 !important;
       font-weight: 700 !important;
       background: rgba(255, 59, 48, 0.1) !important;
-      padding: 2px 8px !important;
-      border-radius: 4px !important;
-    }
-
-    /* 页面右侧 10% 无缝翻页全高触发热区 (无形隐形，点击整条右侧切换到下一品种) */
-    #page-flip-trigger-next {
-      position: fixed;
-      top: 0;
-      right: 0;
-      width: 10vw;
-      min-width: 60px;
-      height: 100%;
-      height: 100vh;
-      height: 100dvh;
-      z-index: 5000;
-      cursor: pointer;
-      background: transparent;
-      user-select: none;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    /* 页面左侧 10% 无缝翻页全高触发热区 (无形隐形，点击整条左侧返回上一品种) */
-    #page-flip-trigger-prev {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 10vw;
-      min-width: 60px;
-      height: 100%;
-      height: 100vh;
-      height: 100dvh;
-      z-index: 5000;
-      cursor: pointer;
-      background: transparent;
-      user-select: none;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
+      padding: 1px 4px !important;
+      border-radius: 3px !important;
     }
 
     /* 网络断开全屏蒙层与告警卡片 */
@@ -336,96 +286,74 @@
     </div>
   </div>
 
-  <!-- 页面左侧 10% 隐形翻页触发区 (点击返回上一品种) -->
-  <div id="page-flip-trigger-prev" onclick="prevChart()" title="点击切换至上一品种"></div>
-
-  <!-- 页面右侧 10% 隐形翻页触发区 (点击切换至下一品种) -->
-  <div id="page-flip-trigger-next" onclick="nextChart()" title="点击切换至下一品种"></div>
-
-  <!-- 全屏单K线页面容器 (8 个品种独立层级，0毫秒无感秒切) -->
-  <div id="pages-wrapper">
+  <!-- 8 分屏网格 (4 列 × 2 行) -->
+  <div id="grid-container">
     <!-- 品种 0: 现货黄金 -->
-    <div id="page-0" class="chart-page active">
-      <div class="chart-box">
-        <div class="symbol-overlay" id="symbol-0">XAUUSD</div>
-        <div id="chart-0" class="chart-crop"></div>
-        <div class="logo-mask"></div>
-        <div class="countdown-overlay">--:--</div>
-      </div>
+    <div class="chart-box">
+      <div class="symbol-overlay">XAUUSD</div>
+      <div id="chart-0" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 1: 欧元美元 -->
-    <div id="page-1" class="chart-page">
-      <div class="chart-box">
-        <div class="symbol-overlay" id="symbol-1">EURUSD</div>
-        <div id="chart-1" class="chart-crop"></div>
-        <div class="logo-mask"></div>
-        <div class="countdown-overlay">--:--</div>
-      </div>
+    <div class="chart-box">
+      <div class="symbol-overlay">EURUSD</div>
+      <div id="chart-1" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 2: 美元日元 -->
-    <div id="page-2" class="chart-page">
-      <div class="chart-box">
-        <div class="symbol-overlay" id="symbol-2">USDJPY</div>
-        <div id="chart-2" class="chart-crop"></div>
-        <div class="logo-mask"></div>
-        <div class="countdown-overlay">--:--</div>
-      </div>
+    <div class="chart-box">
+      <div class="symbol-overlay">USDJPY</div>
+      <div id="chart-2" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 3: 日经 225 -->
-    <div id="page-3" class="chart-page">
-      <div class="chart-box">
-        <div class="symbol-overlay" id="symbol-3">JP225</div>
-        <div id="chart-3" class="chart-crop"></div>
-        <div class="logo-mask"></div>
-        <div class="countdown-overlay">--:--</div>
-      </div>
+    <div class="chart-box">
+      <div class="symbol-overlay">JP225</div>
+      <div id="chart-3" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 4: 德国指数 40 -->
-    <div id="page-4" class="chart-page">
-      <div class="chart-box">
-        <div class="symbol-overlay" id="symbol-4">DAX</div>
-        <div id="chart-4" class="chart-crop"></div>
-        <div class="logo-mask"></div>
-        <div class="countdown-overlay">--:--</div>
-      </div>
+    <div class="chart-box">
+      <div class="symbol-overlay">DAX</div>
+      <div id="chart-4" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 5: 标普 500 -->
-    <div id="page-5" class="chart-page">
-      <div class="chart-box">
-        <div class="symbol-overlay" id="symbol-5">SPX500</div>
-        <div id="chart-5" class="chart-crop"></div>
-        <div class="logo-mask"></div>
-        <div class="countdown-overlay">--:--</div>
-      </div>
+    <div class="chart-box">
+      <div class="symbol-overlay">SPX500</div>
+      <div id="chart-5" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 6: 恒生指数 50 -->
-    <div id="page-6" class="chart-page">
-      <div class="chart-box">
-        <div class="symbol-overlay" id="symbol-6">HK50</div>
-        <div id="chart-6" class="chart-crop"></div>
-        <div class="logo-mask"></div>
-        <div class="countdown-overlay">--:--</div>
-      </div>
+    <div class="chart-box">
+      <div class="symbol-overlay">HK50</div>
+      <div id="chart-6" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 7: 比特币 -->
-    <div id="page-7" class="chart-page">
-      <div class="chart-box">
-        <div class="symbol-overlay" id="symbol-7">BTC</div>
-        <div id="chart-7" class="chart-crop"></div>
-        <div class="logo-mask"></div>
-        <div class="countdown-overlay">--:--</div>
-      </div>
+    <div class="chart-box">
+      <div class="symbol-overlay">BTC</div>
+      <div id="chart-7" class="chart-crop"></div>
+      <div class="logo-mask"></div>
+      <div class="countdown-overlay">--:--</div>
     </div>
   </div>
 
-  <!-- 脚本加载异常提示与一键重试 -->
+  <!-- 脚本加载异常提示 -->
   <div id="fatal-error">
     <strong>图表核心组件连接中...</strong>
     <div>正在自动切换备用高速节点重新加载...</div>
@@ -434,17 +362,6 @@
   </div>
 
   <script data-cfasync="false">
-    /**
-     * 8 大精选核心品种定义：
-     * 0: 现货黄金 (XAUUSD)
-     * 1: 欧元美元 (EURUSD)
-     * 2: 美元日元 (USDJPY)
-     * 3: 日经 225 (JP225)
-     * 4: 德国指数 40 (DAX / GER40)
-     * 5: 标普 500 (SPX500)
-     * 6: 恒生指数 50 (HK50)
-     * 7: 比特币 (BTC / BTCUSDT)
-     */
     var CHARTS_CONFIG = [
       { id: "chart-0", symbol: "OANDA:XAUUSD", title: "XAUUSD" },
       { id: "chart-1", symbol: "FX:EURUSD", title: "EURUSD" },
@@ -455,56 +372,6 @@
       { id: "chart-6", symbol: "FOREXCOM:HK50", title: "HK50" },
       { id: "chart-7", symbol: "BINANCE:BTCUSDT", title: "BTC" }
     ];
-
-    var currentIndex = 0;
-    var isToggling = false;
-    var loadedCharts = {};
-
-    /**
-     * 无缝翻页核心方法：
-     * 0 毫秒即时切换，无刷新无白屏
-     */
-    function showChart(index) {
-      if (index < 0) index = CHARTS_CONFIG.length - 1;
-      if (index >= CHARTS_CONFIG.length) index = 0;
-      currentIndex = index;
-
-      ensureChartLoaded(currentIndex);
-
-      for (var i = 0; i < CHARTS_CONFIG.length; i++) {
-        var pageEl = document.getElementById("page-" + i);
-        if (pageEl) {
-          if (i === currentIndex) {
-            pageEl.classList.add("active");
-          } else {
-            pageEl.classList.remove("active");
-          }
-        }
-      }
-    }
-
-    function nextChart() {
-      if (isToggling) return;
-      isToggling = true;
-      showChart(currentIndex + 1);
-      setTimeout(function() {
-        isToggling = false;
-      }, 150);
-    }
-
-    function prevChart() {
-      if (isToggling) return;
-      isToggling = true;
-      showChart(currentIndex - 1);
-      setTimeout(function() {
-        isToggling = false;
-      }, 150);
-    }
-
-    // 兼容历史调用名
-    function togglePage() {
-      nextChart();
-    }
 
     var TV_MAX_RETRY = 50;
     var chartState = {};
@@ -566,7 +433,6 @@
           clearTimeout(tvLoadTimer);
           tryOne();
         };
-        // 3.5秒超时自动尝试下一源，彻底杜绝老旧WebView挂起
         clearTimeout(tvLoadTimer);
         tvLoadTimer = setTimeout(function() {
           if (typeof TradingView === "undefined" || !TradingView.widget) {
@@ -579,9 +445,6 @@
       tryOne();
     }
 
-    /**
-     * 创建 TradingView 图表组件 (15 分钟标准周期)
-     */
     function createTradingViewWidget(containerId, symbol) {
       var container = document.getElementById(containerId);
       if (!container) return;
@@ -607,7 +470,7 @@
       }
 
       hideFatalError();
-      container.innerHTML = ""; // 清空容器
+      container.innerHTML = "";
 
       new TradingView.widget({
         autosize: true,
@@ -615,11 +478,11 @@
         interval: "15",
         timezone: "Asia/Shanghai",
         theme: "light",
-        style: "1", // 1 为普通K线
+        style: "1",
         locale: "zh_CN",
         useWidgetHost: true,
         backgroundColor: "#ffffff",
-        gridColor: "rgba(255, 255, 255, 0)", // 去掉背景网格
+        gridColor: "rgba(255, 255, 255, 0)",
         toolbar_bg: "#ffffff",
         enable_publishing: false,
         allow_symbol_change: false,
@@ -627,7 +490,7 @@
         hide_legend: true,
         hide_side_toolbar: true,
         save_image: false,
-        hide_volume: true, // 彻底隐藏成交量
+        hide_volume: true,
         loading_screen: {
           backgroundColor: "#ffffff",
           foregroundColor: "#ffffff"
@@ -656,50 +519,37 @@
         ],
         studies_overrides: {
           "moving average exponential.plot.color": "#000000",
-          "moving average exponential.plot.linewidth": 2,
-          // 兜底隐藏成交量柱线
+          "moving average exponential.plot.linewidth": 1.5,
           "volume.volume.color.0": "rgba(255, 255, 255, 0)",
           "volume.volume.color.1": "rgba(255, 255, 255, 0)",
           "volume.volume.transparency": 100,
           "volume.show ma": false
         },
         overrides: {
-          // 纯白背景
           "paneProperties.background": "#ffffff",
           "paneProperties.backgroundType": "solid",
-          // 彻底隐藏鼠标十字光标虚线
           "paneProperties.crossHairProperties.color": "rgba(255, 255, 255, 0)",
           "paneProperties.crossHairProperties.width": 0,
-
-          // 去掉背景网格线与品种水印
           "paneProperties.vertGridProperties.color": "rgba(255, 255, 255, 0)",
           "paneProperties.horzGridProperties.color": "rgba(255, 255, 255, 0)",
           "paneProperties.separatorColor": "rgba(255, 255, 255, 0)",
           "symbolWatermarkProperties.color": "rgba(255, 255, 255, 0)",
           "symbolWatermarkProperties.transparency": 100,
 
-          // 彻底隐藏实时现价虚线 (Price Line) 及相关基准线
           "mainSeriesProperties.showPriceLine": false,
           "mainSeriesProperties.priceLineColor": "rgba(255, 255, 255, 0)",
           "mainSeriesProperties.priceLineWidth": 0,
           "mainSeriesProperties.baseLineColor": "rgba(255, 255, 255, 0)",
-
-          // 彻底隐藏买卖盘虚线 (Bid/Ask Line)
           "mainSeriesProperties.bidAsk.visible": false,
           "mainSeriesProperties.bidAsk.bidLineColor": "rgba(255, 255, 255, 0)",
           "mainSeriesProperties.bidAsk.askLineColor": "rgba(255, 255, 255, 0)",
-
-          // 彻底隐藏昨收价虚线 (Prev Close Line)
           "mainSeriesProperties.showPrevClosePriceLine": false,
           "mainSeriesProperties.prevClosePriceLineColor": "rgba(255, 255, 255, 0)",
-
-          // 隐藏最新价倒计时标签与高低均价线
           "mainSeriesProperties.showCountdown": false,
           "mainSeriesProperties.highLowAvgPrice.highLowPriceLinesVisible": false,
           "mainSeriesProperties.highLowAvgPrice.highLowPriceLabelsVisible": false,
           "mainSeriesProperties.highLowAvgPrice.averageClosePriceLineVisible": false,
 
-          // 黑白蜡烛：上涨为空心/白色配黑边，下跌为纯黑
           "mainSeriesProperties.candleStyle.upColor": "#ffffff",
           "mainSeriesProperties.candleStyle.downColor": "#000000",
           "mainSeriesProperties.candleStyle.drawWick": true,
@@ -710,7 +560,6 @@
           "mainSeriesProperties.candleStyle.wickUpColor": "#000000",
           "mainSeriesProperties.candleStyle.wickDownColor": "#000000",
 
-          // 坐标轴文字与刻度隐藏（透明）
           "scalesProperties.textColor": "rgba(255, 255, 255, 0)",
           "scalesProperties.lineColor": "rgba(255, 255, 255, 0)",
           "scalesProperties.showBidAskPrice": false,
@@ -720,25 +569,19 @@
       });
     }
 
-    function ensureChartLoaded(index) {
-      if (!loadedCharts[index]) {
-        loadedCharts[index] = true;
-        createTradingViewWidget(CHARTS_CONFIG[index].id, CHARTS_CONFIG[index].symbol);
+    /**
+     * 错峰平滑加载：每个图表间隔 120ms 初始化，避免并发 8 条握手冲击
+     */
+    function initCharts() {
+      for (var i = 0; i < CHARTS_CONFIG.length; i++) {
+        (function(idx) {
+          setTimeout(function() {
+            createTradingViewWidget(CHARTS_CONFIG[idx].id, CHARTS_CONFIG[idx].symbol);
+          }, idx * 120);
+        })(i);
       }
     }
 
-    /**
-     * 单图轻量按需加载：
-     * 仅加载当前正看的这 1 个图表，杜绝并发 8 个图表争抢网络导致连接被重置 (ERR_CONNECTION_CLOSED)
-     * 当用户点击或滑动切换到其他品种时，即刻平滑按需加载
-     */
-    function initCharts() {
-      ensureChartLoaded(0);
-    }
-
-    /**
-     * 全天候网络连通性监测引擎
-     */
     var isNetworkOnline = true;
     var consecutiveFailures = 0;
     var isReconnecting = false;
@@ -863,9 +706,6 @@
       }
     }
 
-    /**
-     * 15分钟 K 线收盘倒计时逻辑 (所有品种全量同步)
-     */
     function updateCountdown() {
       var countdowns = document.querySelectorAll(".countdown-overlay");
       if (!isNetworkOnline) {
@@ -891,13 +731,11 @@
       }
     }
 
-    // 初始化运行
     function init() {
       initCharts();
       updateCountdown();
-      setInterval(updateCountdown, 1000);   // 每秒刷新倒计时
+      setInterval(updateCountdown, 1000);
 
-      // 原生网络状态监听
       window.addEventListener("offline", function() {
         setNetworkState(false);
       });
@@ -905,10 +743,8 @@
         runNetworkCheck();
       });
 
-      // 定时主动心跳探测：每 5 秒检测一次
       setInterval(runNetworkCheck, 5000);
 
-      // 设备从休眠唤醒或标签页切换时立即校正与检测
       document.addEventListener("visibilitychange", function () {
         if (!document.hidden) {
           updateCountdown();
@@ -916,44 +752,7 @@
         }
       });
 
-      // 页面初次加载时立即做一次网络连通性初检
       runNetworkCheck();
-
-      // 键盘快捷键翻页：空格、Enter、方向键、数字键 1~8 直达
-      window.addEventListener("keydown", function (e) {
-        if (e.key === " " || e.key === "Enter" || e.key === "ArrowRight" || e.key === "ArrowDown") {
-          nextChart();
-        } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-          prevChart();
-        } else if (e.key >= "1" && e.key <= "8") {
-          var targetIdx = parseInt(e.key, 10) - 1;
-          showChart(targetIdx);
-        }
-      });
-
-      // 移动端/触屏左右滑动翻页支持
-      var touchStartX = 0;
-      var touchStartY = 0;
-      window.addEventListener("touchstart", function (e) {
-        if (e.touches && e.touches.length > 0) {
-          touchStartX = e.touches[0].clientX;
-          touchStartY = e.touches[0].clientY;
-        }
-      }, { passive: true });
-
-      window.addEventListener("touchend", function (e) {
-        if (e.changedTouches && e.changedTouches.length > 0) {
-          var deltaX = e.changedTouches[0].clientX - touchStartX;
-          var deltaY = e.changedTouches[0].clientY - touchStartY;
-          if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
-            if (deltaX < 0) {
-              nextChart();
-            } else {
-              prevChart();
-            }
-          }
-        }
-      }, { passive: true });
     }
 
     if (document.readyState === "loading") {
