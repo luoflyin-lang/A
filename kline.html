@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>8K线全屏实时监控 (黄金 | 欧美 | 美日 | 日经 | 德指 | 标普 | 恒指 | 比特币)</title>
+  <title>竖屏8K线实时监控 (2×4 布局: 黄金 欧美 | 美日 日经 | 德指 标普 | 恒指 比特币)</title>
   <!-- TradingView 核心脚本：自建高可用 Worker CDN 优先加载，老旧平板与断网多重兜底 -->
   <script data-cfasync="false" type="text/javascript" src="https://aa.124568.xyz/tv.js"></script>
   <script data-cfasync="false" type="text/javascript">
@@ -84,11 +84,11 @@
       border-radius: 4px !important;
     }
 
-    /* 8 分屏网格容器 (横屏 4 列 × 2 行) */
+    /* 竖屏 8 分屏网格容器 (2 列 × 4 行) */
     #grid-container {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: repeat(2, 1fr);
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(4, 1fr);
       width: 100%;
       height: 100%;
       overflow: hidden;
@@ -104,12 +104,13 @@
       background-color: #ffffff;
     }
 
-    /* 网格分割黑线：前 3 列加右边框，第 1 行加下边框 */
-    .chart-box:not(:nth-child(4n)) {
+    /* 竖屏网格黑线：左边一列加右边框 */
+    .chart-box:nth-child(odd) {
       border-right: 1px solid #000000;
     }
 
-    .chart-box:nth-child(-n+4) {
+    /* 竖屏网格黑线：前 3 行 (前 6 个品种) 加上下分隔底边框 */
+    .chart-box:nth-child(-n+6) {
       border-bottom: 1px solid #000000;
     }
 
@@ -273,54 +274,46 @@
     </div>
   </div>
 
-  <!-- 全屏右上角全局唯一收盘倒计时 -->
+  <!-- 全屏右上角全局统一收盘倒计时 -->
   <div id="global-countdown">--:--</div>
 
-  <!-- 8 分屏网格 (4 列 × 2 行) -->
+  <!-- 竖屏 8 分屏网格 (2 列 × 4 行) -->
   <div id="grid-container">
-    <!-- 品种 0: 现货黄金 -->
+    <!-- 第 1 排: 黄金 | 欧美 -->
     <div class="chart-box">
       <div class="symbol-overlay">XAUUSD</div>
       <div id="chart-0" class="chart-crop"></div>
     </div>
-
-    <!-- 品种 1: 欧元美元 -->
     <div class="chart-box">
       <div class="symbol-overlay">EURUSD</div>
       <div id="chart-1" class="chart-crop"></div>
     </div>
 
-    <!-- 品种 2: 美元日元 -->
+    <!-- 第 2 排: 美日 | 日经 -->
     <div class="chart-box">
       <div class="symbol-overlay">USDJPY</div>
       <div id="chart-2" class="chart-crop"></div>
     </div>
-
-    <!-- 品种 3: 日经 225 -->
     <div class="chart-box">
       <div class="symbol-overlay">JP225</div>
       <div id="chart-3" class="chart-crop"></div>
     </div>
 
-    <!-- 品种 4: 德国指数 40 -->
+    <!-- 第 3 排: 德指 | 标普 -->
     <div class="chart-box">
       <div class="symbol-overlay">DAX</div>
       <div id="chart-4" class="chart-crop"></div>
     </div>
-
-    <!-- 品种 5: 标普 500 -->
     <div class="chart-box">
       <div class="symbol-overlay">SPX500</div>
       <div id="chart-5" class="chart-crop"></div>
     </div>
 
-    <!-- 品种 6: 恒生指数 50 -->
+    <!-- 第 4 排: 恒指 | 比特币 -->
     <div class="chart-box">
       <div class="symbol-overlay">HK50</div>
       <div id="chart-6" class="chart-crop"></div>
     </div>
-
-    <!-- 品种 7: 比特币 -->
     <div class="chart-box">
       <div class="symbol-overlay">BTC</div>
       <div id="chart-7" class="chart-crop"></div>
