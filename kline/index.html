@@ -553,6 +553,7 @@
         theme: "light",
         style: "1", // 1 为普通K线
         locale: "zh_CN",
+        useWidgetHost: true,
         backgroundColor: "#ffffff",
         gridColor: "rgba(255, 255, 255, 0)", // 去掉背景网格
         toolbar_bg: "#ffffff",
@@ -663,22 +664,12 @@
     }
 
     /**
-     * 智能梯队加载：优先秒开当前品种，后台异步队列预热剩余品种
+     * 单图轻量按需加载：
+     * 仅加载当前正看的这 1 个图表，杜绝并发 8 个图表争抢网络导致连接被重置 (ERR_CONNECTION_CLOSED)
+     * 当用户点击或滑动切换到其他品种时，即刻平滑按需加载
      */
     function initCharts() {
-      // 1. 立即加载当前首屏 (XAUUSD)
       ensureChartLoaded(0);
-
-      // 2. 平滑后台异步预热加载其他品种，杜绝并发冲击
-      var preloadIdx = 1;
-      var preloadTimer = setInterval(function () {
-        if (preloadIdx >= CHARTS_CONFIG.length) {
-          clearInterval(preloadTimer);
-          return;
-        }
-        ensureChartLoaded(preloadIdx);
-        preloadIdx++;
-      }, 450);
     }
 
     /**
