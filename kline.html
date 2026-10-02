@@ -107,11 +107,28 @@
       pointer-events: none;
     }
 
-    /* 右上角收盘倒计时：纯净简约，热区与字号双倍放大，极易触发无缝翻页 */
-    .countdown-overlay {
-      position: absolute;
+    /* 页面右侧 10% 无缝翻页全高触发热区 (无形隐形，点击整条右侧即翻页) */
+    #page-flip-trigger {
+      position: fixed;
       top: 0;
       right: 0;
+      width: 10vw;
+      min-width: 60px;
+      height: 100%;
+      height: 100dvh;
+      z-index: 5000;
+      cursor: pointer;
+      background: transparent;
+      user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 右上角收盘倒计时：纯净简约，位于图表右上角 */
+    .countdown-overlay {
+      position: absolute;
+      top: 10px;
+      right: 16px;
       z-index: 999;
       font-size: 20px;
       font-weight: 700;
@@ -122,12 +139,7 @@
       pointer-events: auto !important;
       background: transparent;
       box-shadow: none;
-      padding: 10px 20px 12px 20px;
-      min-width: 90px;
-      min-height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
+      padding: 0;
     }
 
     /* 网络断开时右上角倒计时变红警示 */
@@ -135,7 +147,8 @@
       color: #ff3b30 !important;
       font-weight: 700 !important;
       background: rgba(255, 59, 48, 0.1) !important;
-      border-radius: 6px !important;
+      padding: 2px 8px !important;
+      border-radius: 4px !important;
     }
 
     /* 网络断开全屏蒙层与告警卡片 */
@@ -265,7 +278,10 @@
     </div>
   </div>
 
-  <!-- 双页包装容器 (点击右上角倒计时时间无缝翻页) -->
+  <!-- 整个页面右侧 10% 全高隐形翻页触发热区 (无形无按钮，点击页面右侧 10% 任意位置立即翻页) -->
+  <div id="page-flip-trigger" onclick="togglePage()" title="点击切换页面"></div>
+
+  <!-- 双页包装容器 -->
   <div id="pages-wrapper">
     <!-- 第 1 页 (主页: 黄金 | 欧美 | 美日) -->
     <div id="page-1" class="chart-page active">
@@ -349,11 +365,15 @@
 
     var currentPage = 1;
 
+    var isToggling = false;
+
     /**
      * 无缝翻页核心方法：
-     * 点击右上角倒计时时间直接切换，0毫秒响应，无刷新无白屏
+     * 点击屏幕右侧 10% 任意区域直接切换，0毫秒响应，无刷新无白屏
      */
     function togglePage() {
+      if (isToggling) return;
+      isToggling = true;
       currentPage = (currentPage === 1) ? 2 : 1;
       var p1 = document.getElementById("page-1");
       var p2 = document.getElementById("page-2");
@@ -364,6 +384,9 @@
         if (p2) p2.classList.add("active");
         if (p1) p1.classList.remove("active");
       }
+      setTimeout(function() {
+        isToggling = false;
+      }, 150);
     }
 
     function switchPage(pageNumber) {
