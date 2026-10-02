@@ -107,14 +107,14 @@
       pointer-events: none;
     }
 
-    /* 右上角收盘倒计时：纯净简约，无背景无阴影，点击直接无缝翻页 */
+    /* 右上角收盘倒计时：纯净简约，热区与字号双倍放大，极易触发无缝翻页 */
     .countdown-overlay {
       position: absolute;
-      top: 10px;
-      right: 16px;
+      top: 0;
+      right: 0;
       z-index: 999;
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 20px;
+      font-weight: 700;
       color: #000000;
       letter-spacing: 0.5px;
       user-select: none;
@@ -122,7 +122,12 @@
       pointer-events: auto !important;
       background: transparent;
       box-shadow: none;
-      padding: 0;
+      padding: 10px 20px 12px 20px;
+      min-width: 90px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
     }
 
     /* 网络断开时右上角倒计时变红警示 */
@@ -130,8 +135,7 @@
       color: #ff3b30 !important;
       font-weight: 700 !important;
       background: rgba(255, 59, 48, 0.1) !important;
-      padding: 2px 8px !important;
-      border-radius: 4px !important;
+      border-radius: 6px !important;
     }
 
     /* 网络断开全屏蒙层与告警卡片 */
