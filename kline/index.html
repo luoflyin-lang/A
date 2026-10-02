@@ -60,6 +60,30 @@
       height: 100dvh;
     }
 
+    /* 全屏右上角全局统一收盘倒计时 (整屏仅保留右上角这一个) */
+    #global-countdown {
+      position: fixed;
+      top: 6px;
+      right: 12px;
+      z-index: 10000;
+      font-size: 15px;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 0.5px;
+      user-select: none;
+      pointer-events: none;
+      background: transparent;
+      padding: 0;
+    }
+
+    #global-countdown.is-offline {
+      color: #ff3b30 !important;
+      font-weight: 700 !important;
+      background: rgba(255, 59, 48, 0.1) !important;
+      padding: 2px 6px !important;
+      border-radius: 4px !important;
+    }
+
     /* 8 分屏网格容器 (横屏 4 列 × 2 行) */
     #grid-container {
       display: grid;
@@ -98,18 +122,6 @@
       height: calc(100% + 36px);
     }
 
-    /* 遮住 TradingView 左下角 logo 与水印 */
-    .logo-mask {
-      position: absolute;
-      left: 0;
-      bottom: 0;
-      width: 70px;
-      height: 52px;
-      background-color: #ffffff;
-      z-index: 998;
-      pointer-events: none;
-    }
-
     /* 左上角品种名称 */
     .symbol-overlay {
       position: absolute;
@@ -122,31 +134,6 @@
       letter-spacing: 0.5px;
       user-select: none;
       pointer-events: none;
-    }
-
-    /* 右上角收盘倒计时 */
-    .countdown-overlay {
-      position: absolute;
-      top: 6px;
-      right: 10px;
-      z-index: 999;
-      font-size: 14px;
-      font-weight: 700;
-      color: #000000;
-      letter-spacing: 0.5px;
-      user-select: none;
-      pointer-events: none;
-      background: transparent;
-      box-shadow: none;
-      padding: 0;
-    }
-
-    .countdown-overlay.is-offline {
-      color: #ff3b30 !important;
-      font-weight: 700 !important;
-      background: rgba(255, 59, 48, 0.1) !important;
-      padding: 1px 4px !important;
-      border-radius: 3px !important;
     }
 
     /* 网络断开全屏蒙层与告警卡片 */
@@ -286,70 +273,57 @@
     </div>
   </div>
 
+  <!-- 全屏右上角全局唯一收盘倒计时 -->
+  <div id="global-countdown">--:--</div>
+
   <!-- 8 分屏网格 (4 列 × 2 行) -->
   <div id="grid-container">
     <!-- 品种 0: 现货黄金 -->
     <div class="chart-box">
       <div class="symbol-overlay">XAUUSD</div>
       <div id="chart-0" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 1: 欧元美元 -->
     <div class="chart-box">
       <div class="symbol-overlay">EURUSD</div>
       <div id="chart-1" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 2: 美元日元 -->
     <div class="chart-box">
       <div class="symbol-overlay">USDJPY</div>
       <div id="chart-2" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 3: 日经 225 -->
     <div class="chart-box">
       <div class="symbol-overlay">JP225</div>
       <div id="chart-3" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 4: 德国指数 40 -->
     <div class="chart-box">
       <div class="symbol-overlay">DAX</div>
       <div id="chart-4" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 5: 标普 500 -->
     <div class="chart-box">
       <div class="symbol-overlay">SPX500</div>
       <div id="chart-5" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 6: 恒生指数 50 -->
     <div class="chart-box">
       <div class="symbol-overlay">HK50</div>
       <div id="chart-6" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay">--:--</div>
     </div>
 
     <!-- 品种 7: 比特币 -->
     <div class="chart-box">
       <div class="symbol-overlay">BTC</div>
       <div id="chart-7" class="chart-crop"></div>
-      <div class="logo-mask"></div>
-      <div class="countdown-overlay">--:--</div>
     </div>
   </div>
 
@@ -587,6 +561,7 @@
     var isReconnecting = false;
 
     function setNetworkState(online) {
+      var countdownEl = document.getElementById("global-countdown");
       if (online) {
         consecutiveFailures = 0;
         if (!isNetworkOnline) {
@@ -611,9 +586,8 @@
         var alertEl = document.getElementById("network-alert");
         if (alertEl) alertEl.style.display = "none";
 
-        var countdowns = document.querySelectorAll(".countdown-overlay");
-        for (var i = 0; i < countdowns.length; i++) {
-          countdowns[i].classList.remove("is-offline");
+        if (countdownEl) {
+          countdownEl.classList.remove("is-offline");
         }
       } else {
         if (!isNetworkOnline) return;
@@ -633,11 +607,9 @@
           statusEl.style.color = "#666666";
         }
 
-        var countdowns = document.querySelectorAll(".countdown-overlay");
-        var warningText = "⚠️ 网络断开";
-        for (var i = 0; i < countdowns.length; i++) {
-          countdowns[i].textContent = warningText;
-          countdowns[i].classList.add("is-offline");
+        if (countdownEl) {
+          countdownEl.textContent = "⚠️ 网络断开";
+          countdownEl.classList.add("is-offline");
         }
       }
     }
@@ -707,13 +679,11 @@
     }
 
     function updateCountdown() {
-      var countdowns = document.querySelectorAll(".countdown-overlay");
+      var countdownEl = document.getElementById("global-countdown");
+      if (!countdownEl) return;
       if (!isNetworkOnline) {
-        var warningText = "⚠️ 网络断开";
-        for (var i = 0; i < countdowns.length; i++) {
-          countdowns[i].textContent = warningText;
-          countdowns[i].classList.add("is-offline");
-        }
+        countdownEl.textContent = "⚠️ 网络断开";
+        countdownEl.classList.add("is-offline");
         return;
       }
 
@@ -725,10 +695,8 @@
       var secs = remainingSeconds % 60;
       var formatted = String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0");
 
-      for (var j = 0; j < countdowns.length; j++) {
-        countdowns[j].textContent = formatted;
-        countdowns[j].classList.remove("is-offline");
-      }
+      countdownEl.textContent = formatted;
+      countdownEl.classList.remove("is-offline");
     }
 
     function init() {
