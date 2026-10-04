@@ -399,6 +399,116 @@ html[data-theme="dark"] .tv-cover-btn:hover {
 .sync-badge.syncing{
   background:rgba(243,156,18,0.15);color:#F39C12;border-color:rgba(243,156,18,0.3);
 }
+
+/* ---- 复盘日历模态框组件 ---- */
+.cal-modal{
+  position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99;
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+  opacity:0;transition:opacity .2s ease;
+}
+.cal-modal.show{
+  display:flex;opacity:1;
+}
+.cal-box{
+  width:430px;max-width:94vw;max-height:92vh;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:16px;box-shadow:0 16px 40px rgba(0,0,0,.25);
+  display:flex;flex-direction:column;overflow:hidden;
+  animation:calPop .2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes calPop{
+  from{transform:scale(.95) translateY(10px);opacity:0}
+  to{transform:none;opacity:1}
+}
+.cal-header{
+  padding:14px 18px 10px;border-bottom:1px solid var(--line);background:var(--raised);
+}
+.cal-title-row{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
+}
+.cal-title{font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px}
+.cal-close{
+  width:28px;height:28px;border-radius:8px;font-size:15px;color:var(--faint);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;
+}
+.cal-close:hover{background:var(--tint);color:var(--text)}
+.cal-nav-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;
+}
+.cal-nav-btn{
+  width:32px;height:30px;border-radius:8px;background:var(--surface);
+  border:1px solid var(--line);font-size:12px;color:var(--text);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;
+}
+.cal-nav-btn:hover{background:var(--tint);border-color:var(--dim)}
+.cal-current-month{
+  font-size:15px;font-weight:700;font-family:var(--mono);color:var(--text);letter-spacing:.02em;
+}
+.cal-months-strip{
+  display:flex;gap:5px;overflow-x:auto;padding:2px 0 4px;scrollbar-width:none;
+}
+.cal-months-strip::-webkit-scrollbar{display:none}
+.cal-month-pill{
+  flex:none;padding:3px 9px;border-radius:12px;font-size:11.5px;font-family:var(--mono);
+  background:var(--surface);border:1px solid var(--line);color:var(--dim);cursor:pointer;transition:.15s;
+}
+.cal-month-pill:hover{color:var(--text);border-color:var(--dim)}
+.cal-month-pill.active{background:var(--ink);color:var(--onink);border-color:var(--ink);font-weight:700}
+
+.cal-weekdays{
+  display:grid;grid-template-columns:repeat(7,1fr);padding:10px 14px 4px;
+  text-align:center;font-size:11.5px;font-weight:650;color:var(--faint);
+}
+.cal-weekdays .weekend{color:var(--down);opacity:.75}
+
+.cal-grid{
+  display:grid;grid-template-columns:repeat(7,1fr);gap:5px;padding:8px 14px 14px;
+  min-height:260px;align-content:start;
+}
+.cal-cell{
+  aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;font-size:13px;font-family:var(--mono);
+  position:relative;border:1px solid transparent;transition:all .15s ease;user-select:none;
+}
+.cal-cell.empty{pointer-events:none;opacity:0}
+.cal-cell.disabled{
+  color:var(--faint);opacity:.35;cursor:not-allowed;background:transparent;
+}
+.cal-cell.has-data{
+  background:var(--raised);color:var(--text);font-weight:600;cursor:pointer;
+  border-color:var(--line);
+}
+.cal-cell.has-data:hover{
+  background:var(--ink);color:var(--onink);transform:scale(1.08);box-shadow:0 4px 12px rgba(0,0,0,.18);
+  z-index:2;
+}
+.cal-cell.has-data::after{
+  content:'';width:4px;height:4px;border-radius:50%;background:var(--up);
+  position:absolute;bottom:4px;
+}
+.cal-cell.has-data:hover::after{
+  background:var(--onink);
+}
+.cal-cell.current{
+  outline:2px solid var(--amber);background:rgba(216,179,104,.15);color:var(--amber);font-weight:750;
+}
+.cal-cell.current::before{
+  content:'练习中';position:absolute;top:2px;font-size:8px;color:var(--amber);
+  transform:scale(.75);font-weight:700;letter-spacing:-.05em;
+}
+
+.cal-footer{
+  padding:10px 16px;border-top:1px solid var(--line);background:var(--raised);
+  display:flex;flex-direction:column;gap:8px;
+}
+.cal-summary{
+  font-size:11px;color:var(--faint);display:flex;align-items:center;justify-content:space-between;
+}
+.cal-hint-dot{color:var(--up);font-weight:600}
+.cal-actions{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
 </style>
 <script>try{var _m=localStorage.getItem("bn_theme")||"auto";
 var _d=_m==="dark"||(_m==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches);
@@ -425,7 +535,10 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 </div>
 
 <!-- 左下角覆盖 TV 插件的水印 Logo，并作为训练数据主入口的白色按钮 -->
-<button class="tv-cover-btn" id="bStats" title="查看训练数据与历史战绩">📊 训练数据</button>
+<div style="position:fixed;left:18px;bottom:18px;z-index:15;display:flex;align-items:center;gap:6px">
+  <button class="tv-cover-btn" id="bStats" title="查看训练数据与历史战绩">📊 训练数据</button>
+  <button class="tv-cover-btn" id="bCalendarQuick" title="自选日期练习 · 打开交易日历">📅 <span id="quickDateLabel">自选日期</span></button>
+</div>
 
 <div id="mask"></div>
 
@@ -433,7 +546,7 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 <!-- 训练数据抽屉面板 -->
 <aside class="sheet" id="shStats">
   <div class="sh">
-    <b>训练统计数据 (标普500 ES · 今日78根)</b>
+    <b>训练统计数据 (标普500 ES · 连续合约)</b>
     <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
       <button class="x" data-close>✕</button>
     </div>
@@ -456,9 +569,27 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
       </div>
     </div>
     <!-- 2R 自动减半平仓提示 -->
-    <div style="background:var(--raised);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="background:var(--raised);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <span style="font-size:12px;font-weight:600;color:var(--faint)">2R 自动平半 (>2R止盈)</span>
       <span style="font-size:11px;font-weight:600;color:#27AE60;background:rgba(39,174,96,0.15);padding:2px 8px;border-radius:6px">⚡ 已默认开启</span>
+    </div>
+
+    <!-- 核心功能：自选日期练习 -->
+    <div style="background:var(--raised);border-radius:10px;padding:10px 12px;margin-bottom:12px;border:1px solid var(--line)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:600;color:var(--text);display:inline-flex;align-items:center;gap:5px">
+          📅 自选日期练习
+        </span>
+        <span id="curPracticeDateBadge" style="font-size:11.5px;font-family:var(--mono);font-weight:600;color:var(--amber);background:var(--tint);padding:2px 8px;border-radius:6px">2026/01/02</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-rand" id="btnOpenCalendar" style="flex:1;justify-content:center;height:34px;font-size:12px" title="打开交易日历自选日期练习">
+          📅 选择日期练习
+        </button>
+        <button class="btn-sub" id="btnNextRandomDay" style="height:34px;padding:0 12px" title="换一天：随机抽取另一个交易日">
+          🎲 随机换一天
+        </button>
+      </div>
     </div>
     <div class="stats-grid">
       <div class="stat-card">
@@ -670,6 +801,52 @@ document.documentElement.setAttribute("data-theme",_d?"dark":"light");}catch(e){
 </div>
 
 <div id="toast"></div>
+
+<!-- 复盘交易日历选择模态框 -->
+<div id="calendarModal" class="cal-modal">
+  <div class="cal-box">
+    <div class="cal-header">
+      <div class="cal-title-row">
+        <div class="cal-title">📅 选择复盘交易日</div>
+        <button class="cal-close" id="btnCalClose" title="关闭日历">✕</button>
+      </div>
+      <div class="cal-nav-row">
+        <button class="cal-nav-btn" id="btnCalPrevMonth" title="上个月">◀</button>
+        <div class="cal-current-month" id="calCurrentMonthLabel">2026 年 01 月</div>
+        <button class="cal-nav-btn" id="btnCalNextMonth" title="下个月">▶</button>
+      </div>
+      <!-- 快速月份标签条 -->
+      <div class="cal-months-strip" id="calMonthsStrip"></div>
+    </div>
+
+    <!-- 星期表头 -->
+    <div class="cal-weekdays">
+      <span class="weekend">日</span>
+      <span>一</span>
+      <span>二</span>
+      <span>三</span>
+      <span>四</span>
+      <span>五</span>
+      <span class="weekend">六</span>
+    </div>
+
+    <!-- 日期单元格网格 -->
+    <div class="cal-grid" id="calGrid"></div>
+
+    <!-- 底部状态说明与快捷按钮 -->
+    <div class="cal-footer">
+      <div class="cal-summary">
+        <span>数据源: 标普500 ES 5m 连续合约 (191个交易日)</span>
+        <span class="cal-hint-dot">● 交易日可练</span>
+      </div>
+      <div class="cal-actions">
+        <button class="btn-sub" id="btnCalRandom">🎲 随机挑一天</button>
+        <button class="btn-sub primary" id="btnCalGoLatest">📅 跳转最新一天</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <script>
 "use strict";
@@ -1320,114 +1497,340 @@ function updateEmaIncremental(nextBar){
   emaSeries.update({ time: timeSec, value: _lastEmaValue });
 }
 /* ================= 标普500期货 (ES 5m) 真实历史行情抽取 (前 500 根历史大背景 + 今日 78 根实战) ================= */
+/* ================= 标普500期货 (ES 5m 连续合约) 真实行情抽取与自选日期引擎 ================= */
 let _CACHED_ES_BARS = null;
 
-async function loadRandomMarket(){
+// 动态提取/获取全部可用交易日列表
+function getTradingDays(){
+  if(window._ES_TRADING_DAYS && window._ES_TRADING_DAYS.length > 0){
+    return window._ES_TRADING_DAYS;
+  }
+  const bars = window._ES_HISTORICAL_BARS || _CACHED_ES_BARS || [];
+  if(!bars.length) return [];
+  const dtf = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const WEEKDAYS_ZH = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const map = new Map();
+  for(let i = 0; i < bars.length; i++){
+    const b = bars[i];
+    const tsSec = Math.floor(b[0] / 1000);
+    const [dStr, timeStr] = dtf.format(new Date(tsSec * 1000)).split(', ');
+    if(!map.has(dStr)){
+      const [y, m, d] = dStr.split('-').map(Number);
+      map.set(dStr, {
+        date: dStr,
+        dayOfWeek: WEEKDAYS_ZH[new Date(y, m - 1, d).getDay()] || '',
+        startIndex: i,
+        count: 1,
+        firstTime: timeStr,
+        lastTime: timeStr,
+        open: b[1],
+        close: b[4]
+      });
+    } else {
+      const obj = map.get(dStr);
+      obj.count++;
+      obj.lastTime = timeStr;
+      obj.close = b[4];
+    }
+  }
+  window._ES_TRADING_DAYS = Array.from(map.values());
+  return window._ES_TRADING_DAYS;
+}
+
+// 确保行情数据已完全载入
+async function ensureEsBarsLoaded(){
+  let allBars = window._ES_HISTORICAL_BARS || _CACHED_ES_BARS || null;
+  if(allBars && allBars.length >= 200){
+    _CACHED_ES_BARS = allBars;
+    return allBars;
+  }
+
+  toast("🎲 正在从本地与云端载入标普500期货 ES 5m 连续合约数据…");
+  const HOSTS = [
+    window.location.origin,
+    "https://cs.124568.xyz",
+    "https://query1.finance.yahoo.com",
+    "https://query2.finance.yahoo.com"
+  ];
+  const uniqueHosts = [...new Set(HOSTS.filter(Boolean))];
+
+  for(const host of uniqueHosts){
+    try {
+      const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4000);
+
+      let url = "";
+      if(host.includes("query1.finance.yahoo.com") || host.includes("query2.finance.yahoo.com")){
+        url = `${host}/v8/finance/chart/ES=F?range=60d&interval=5m`;
+      } else {
+        url = `${host}/api/kline?symbol=ES&interval=5m&_t=${Date.now()}`;
+      }
+
+      const resp = await fetch(url, { signal: ctl ? ctl.signal : undefined });
+      clearTimeout(tm);
+
+      if(resp.ok){
+        const raw = await resp.json();
+        let parsed = [];
+        if(Array.isArray(raw)){
+          parsed = raw;
+        }
+        if(parsed.length >= 200){
+          allBars = parsed;
+          _CACHED_ES_BARS = parsed;
+          window._ES_HISTORICAL_BARS = parsed;
+          break;
+        }
+      }
+    } catch(err){
+      console.warn("ES fetch fallback error:", host, err);
+    }
+  }
+
+  return allBars;
+}
+
+// 核心跳转函数：跳转到自选指定日期练习
+async function switchToDate(targetDateStr){
+  const allBars = await ensureEsBarsLoaded();
+  const tradingDays = getTradingDays();
+
+  if(!tradingDays || !tradingDays.length || !allBars || !allBars.length){
+    toast("标普500 ES 数据准备中，请稍候…");
+    return false;
+  }
+
+  let targetIdx = tradingDays.findIndex(d => d.date === targetDateStr);
+  if(targetIdx < 0){
+    targetIdx = tradingDays.length - 1;
+    targetDateStr = tradingDays[targetIdx].date;
+  }
+
+  const targetDayObj = tradingDays[targetIdx];
+
+  // 前置 6 个交易日作为宏观历史大背景
+  const histDayIdx = Math.max(0, targetIdx - 6);
+  const histStartIdx = tradingDays[histDayIdx].startIndex;
+  const todayStartIdx = targetDayObj.startIndex;
+  const todayEndIdx = todayStartIdx + targetDayObj.count;
+
+  const selectedRaw = allBars.slice(histStartIdx, todayEndIdx);
+
   S.sym = "ES_F";
   S.tf = "5m";
   S.tickSize = 0.25;
   S.blindId = Math.floor(100 + Math.random() * 900);
   S.isRevealed = false;
+  S.currentPracticeDate = targetDateStr;
+  S.realTimeStr = targetDateStr.replace(/-/g, '/');
 
-  // 点击换行情时自动关闭抽屉
+  S.fullK = selectedRaw.map(b => ({
+    t: b[0],
+    o: Number(b[1]),
+    h: Number(b[2]),
+    l: Number(b[3]),
+    c: Number(b[4])
+  }));
+
+  // 历史宏观大背景根数
+  S.contextBarsCount = todayStartIdx - histStartIdx;
+  S.visibleCount = S.contextBarsCount;
+  S.curK = S.fullK.slice(0, S.visibleCount);
+  S.orders = [];
+  S.positions = [];
+
+  try{ localStorage.setItem("sim_last_practice_date", targetDateStr); }catch(e){}
+
+  updatePracticeDateBadges();
+  updateBlindBoxUI();
+  updateChartCandles(S.curK);
+
+  if(tvChart && tvChart.timeScale && S.curK.length > 0){
+    const total = S.curK.length;
+    tvChart.timeScale().setVisibleLogicalRange({
+      from: Math.max(0, total - 120),
+      to: total + 12
+    });
+  }
+
+  syncTradeLines();
+  closeCalendarModal();
   const sh = $("#shStats"), mk = $("#mask");
   if(sh) sh.classList.remove("on");
   if(mk) mk.classList.remove("on");
 
-  // 1. 优先使用本地预载的海量纯 RTH 标普期货数据 (每天 78 根)
-  let allBars = _CACHED_ES_BARS || (typeof _ES_HISTORICAL_BARS !== "undefined" && _ES_HISTORICAL_BARS.length >= TOTAL_BARS ? _ES_HISTORICAL_BARS : (window._ES_HISTORICAL_BARS || null));
+  toast(`📅 已就绪：${targetDateStr} (${targetDayObj.dayOfWeek}) · 共 ${targetDayObj.count} 根 · 点击右侧推进开启今日 09:30 第 1 根！`);
+  cloudSyncPushProgress();
+  return true;
+}
 
-  if(!allBars || allBars.length < TOTAL_BARS){
-    toast(`🎲 正在加载标普500期货 (ES 5m) 切片 #${S.blindId}…`);
-    const HOSTS = [
-      window.location.origin,
-      "https://cs.124568.xyz",
-      "https://query1.finance.yahoo.com",
-      "https://query2.finance.yahoo.com"
-    ];
-    const uniqueHosts = [...new Set(HOSTS.filter(Boolean))];
+// 随机挑一天练习
+async function loadRandomMarket(){
+  const allBars = await ensureEsBarsLoaded();
+  const tradingDays = getTradingDays();
 
-    for(const host of uniqueHosts){
-      try {
-        const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
-        const tm = setTimeout(() => { try{ ctl && ctl.abort(); }catch(e){} }, 4000);
-
-        let url = "";
-        if(host.includes("query1.finance.yahoo.com") || host.includes("query2.finance.yahoo.com")){
-          url = `${host}/v8/finance/chart/ES=F?range=60d&interval=5m`;
-        } else {
-          url = `${host}/api/kline?symbol=ES&interval=5m&_t=${Date.now()}`;
-        }
-
-        const resp = await fetch(url, { signal: ctl ? ctl.signal : undefined });
-        clearTimeout(tm);
-
-        if(resp.ok){
-          const raw = await resp.json();
-          let parsed = [];
-          if(Array.isArray(raw)){
-            parsed = raw;
-          }
-          if(parsed.length >= TOTAL_BARS){
-            allBars = parsed;
-            _CACHED_ES_BARS = parsed;
-            break;
-          }
-        }
-      } catch(err){
-        console.warn("ES fetch error:", host, err);
-      }
-    }
+  if(tradingDays && tradingDays.length > 0){
+    const randIdx = Math.floor(Math.random() * tradingDays.length);
+    const chosenDate = tradingDays[randIdx].date;
+    return await switchToDate(chosenDate);
   }
 
-  if(allBars && allBars.length >= TOTAL_BARS){
-    _CACHED_ES_BARS = allBars;
-    
-    // 随机选择一个交易日作为「今天」，并向前截取 500 根作为历史大背景 (共 578 根)
-    const totalDays = Math.floor(allBars.length / BARS_PER_DAY);
-    const minDaysNeeded = Math.ceil(TOTAL_BARS / BARS_PER_DAY); // ~8天
-    const maxStartDay = Math.max(0, totalDays - minDaysNeeded);
-    const startDay = Math.floor(Math.random() * (maxStartDay + 1));
-    const startIdx = startDay * BARS_PER_DAY;
-    const selectedRaw = allBars.slice(startIdx, startIdx + TOTAL_BARS);
+  toast("标普500 ES 行情准备中…");
+  setTimeout(loadRandomMarket, 1000);
+}
 
-    S.fullK = selectedRaw.map(b => ({
-      t: b[0],
-      o: Number(b[1]),
-      h: Number(b[2]),
-      l: Number(b[3]),
-      c: Number(b[4])
-    }));
+// 更新界面上的日期标签与徽章
+function updatePracticeDateBadges(){
+  const dateText = S.currentPracticeDate || S.realTimeStr || "自选日期";
+  const badge = $("#curPracticeDateBadge");
+  if(badge) badge.textContent = dateText;
+  const quick = $("#quickDateLabel");
+  if(quick) quick.textContent = dateText.replace(/-/g, '/');
+}
 
-    // 初始展示前 500 根历史大背景
-    S.visibleCount = HISTORICAL_CONTEXT_BARS;
-    S.curK = S.fullK.slice(0, S.visibleCount);
-    S.orders = [];
-    S.positions = [];
+/* ================= 交易日历模态框控制逻辑 ================= */
+let currentCalYear = 2026;
+let currentCalMonth = 1; // 1 ~ 12
 
-    const todayStartTime = new Date(S.fullK[HISTORICAL_CONTEXT_BARS].t);
-    S.realTimeStr = `${todayStartTime.getFullYear()}/${todayStartTime.getMonth()+1}/${todayStartTime.getDate()}`;
-
-    updateBlindBoxUI();
-    updateChartCandles(S.curK);
-
-    if(tvChart && tvChart.timeScale && S.curK.length > 0){
-      const total = S.curK.length;
-      tvChart.timeScale().setVisibleLogicalRange({
-        from: Math.max(0, total - 120),
-        to: total + 12
-      });
-    }
-
-    syncTradeLines();
-    toast(`已就绪：标普500期货 ES 5m (前6天大背景已就绪 · 点下一根开启今日 09:30 开盘第 1 根)`);
-    cloudSyncPushProgress();
+function openCalendarModal(){
+  const tradingDays = getTradingDays();
+  if(!tradingDays || !tradingDays.length){
+    toast("日历数据正在初始化…");
     return;
   }
 
-  // 极罕见异常重试
-  toast("标普500 ES 行情准备中…");
-  setTimeout(loadRandomMarket, 1000);
+  if(S.currentPracticeDate){
+    const [y, m] = S.currentPracticeDate.split('-').map(Number);
+    currentCalYear = y;
+    currentCalMonth = m;
+  } else {
+    const latestDay = tradingDays[tradingDays.length - 1];
+    const [y, m] = latestDay.date.split('-').map(Number);
+    currentCalYear = y;
+    currentCalMonth = m;
+  }
+
+  renderCalendarMonthsStrip();
+  renderCalendarGrid();
+
+  const modal = $("#calendarModal");
+  if(modal){
+    modal.classList.add("show");
+  }
+}
+
+function closeCalendarModal(){
+  const modal = $("#calendarModal");
+  if(modal){
+    modal.classList.remove("show");
+  }
+}
+
+function renderCalendarMonthsStrip(){
+  const strip = $("#calMonthsStrip");
+  if(!strip) return;
+  const tradingDays = getTradingDays();
+  const monthSet = new Set();
+  tradingDays.forEach(d => {
+    const [y, m] = d.date.split('-').map(Number);
+    monthSet.add(`${y}-${m}`);
+  });
+
+  const sortedMonths = Array.from(monthSet).map(s => {
+    const [y, m] = s.split('-').map(Number);
+    return { year: y, month: m };
+  }).sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
+
+  strip.innerHTML = sortedMonths.map(item => {
+    const isActive = item.year === currentCalYear && item.month === currentCalMonth;
+    return `<button class="cal-month-pill ${isActive ? 'active' : ''}" data-y="${item.year}" data-m="${item.month}">
+      ${item.month}月
+    </button>`;
+  }).join('');
+
+  $$("#calMonthsStrip .cal-month-pill").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentCalYear = parseInt(btn.dataset.y, 10);
+      currentCalMonth = parseInt(btn.dataset.m, 10);
+      renderCalendarMonthsStrip();
+      renderCalendarGrid();
+    });
+  });
+}
+
+function renderCalendarGrid(){
+  const label = $("#calCurrentMonthLabel");
+  if(label){
+    label.textContent = `${currentCalYear} 年 ${String(currentCalMonth).padStart(2, '0')} 月`;
+  }
+
+  const grid = $("#calGrid");
+  if(!grid) return;
+
+  const tradingDays = getTradingDays();
+  const dayMap = new Map();
+  tradingDays.forEach(d => dayMap.set(d.date, d));
+
+  const firstDayOfWeek = new Date(currentCalYear, currentCalMonth - 1, 1).getDay();
+  const daysInMonth = new Date(currentCalYear, currentCalMonth, 0).getDate();
+
+  let html = '';
+
+  for(let i = 0; i < firstDayOfWeek; i++){
+    html += `<div class="cal-cell empty"></div>`;
+  }
+
+  for(let d = 1; d <= daysInMonth; d++){
+    const dateStr = `${currentCalYear}-${String(currentCalMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const hasData = dayMap.has(dateStr);
+    const isCurrent = (S.currentPracticeDate === dateStr);
+    const dayObj = dayMap.get(dateStr);
+
+    if(hasData){
+      html += `<div class="cal-cell has-data ${isCurrent ? 'current' : ''}" data-date="${dateStr}" title="${dateStr} (${dayObj.dayOfWeek}) · 共 ${dayObj.count} 根 K 线 · 点击立即开练">
+        <span>${d}</span>
+      </div>`;
+    } else {
+      html += `<div class="cal-cell disabled" title="${dateStr} (休市/无数据)">
+        <span>${d}</span>
+      </div>`;
+    }
+  }
+
+  grid.innerHTML = html;
+
+  $$("#calGrid .cal-cell.has-data").forEach(cell => {
+    cell.addEventListener("click", () => {
+      const date = cell.dataset.date;
+      if(date){
+        switchToDate(date);
+      }
+    });
+  });
+}
+
+function prevCalendarMonth(){
+  currentCalMonth--;
+  if(currentCalMonth < 1){
+    currentCalMonth = 12;
+    currentCalYear--;
+  }
+  renderCalendarMonthsStrip();
+  renderCalendarGrid();
+}
+
+function nextCalendarMonth(){
+  currentCalMonth++;
+  if(currentCalMonth > 12){
+    currentCalMonth = 1;
+    currentCalYear++;
+  }
+  renderCalendarMonthsStrip();
+  renderCalendarGrid();
 }
 
 /* ================= 模拟撮合与推进（彻底消除前视偏差 · 微路径裁决 · 单实体生命周期） ================= */
@@ -1446,7 +1849,7 @@ function getSessionPhase(barIdx){
 // 推进 1 根 K 线
 function stepNextBar(silent = false){
   if(S.visibleCount >= S.fullK.length){
-    if(!silent) toast("🎉 今日 78 根日内训练已圆满结束！请刷新网页开启新的交易日练习 (快捷键 F5 / ⌘R)");
+    if(!silent) toast("🎉 今日日内训练已圆满结束！请点击【自选日期】或【随机换一天】开启新练习！");
     return false;
   }
   
@@ -1456,20 +1859,22 @@ function stepNextBar(silent = false){
   
   matchBar(nextBar);
 
-  const todayBarIdx = S.visibleCount - HISTORICAL_CONTEXT_BARS;
+  const contextCount = S.contextBarsCount || HISTORICAL_CONTEXT_BARS;
+  const todayBarIdx = S.visibleCount - contextCount;
+  const todayTotalBars = S.fullK.length - contextCount;
 
-  // 16:00 收盘自动结算 MOC
+  // 收盘自动结算 MOC
   if(S.visibleCount === S.fullK.length){
     if(S.positions && S.positions.length > 0){
       const openPosList = [...S.positions];
       for(const p of openPosList){
-        finalizeClosePosition(p, "16:00收盘结算", nextBar.c, null);
+        finalizeClosePosition(p, "收盘结算", nextBar.c, null);
       }
       S.positions = [];
     }
-    toast("🔔 今日 16:00 收盘 (第 78 根) · 今日训练已结束！请刷新网页开启新交易日。");
+    toast(`🔔 今日收盘 (共 ${todayTotalBars} 根 · 第 ${todayBarIdx} 根) · 今日训练已结束！可自选新日期。`);
   } else if(todayBarIdx === 1 && !silent){
-    const prevClose = S.fullK[HISTORICAL_CONTEXT_BARS - 1].c;
+    const prevClose = S.fullK[contextCount - 1]?.c || nextBar.o;
     const gapVal = Number((nextBar.o - prevClose).toFixed(2));
     toast(`🌅 今日开盘第 1 根 (Bar 1 · 09:30) 已展开！跳空缺口: ${gapVal >= 0 ? '+' : ''}${gapVal} pts`);
   }
@@ -3205,6 +3610,7 @@ $("#ohGo").addEventListener("click", () => {
 if($("#btnExportCSV")) $("#btnExportCSV").addEventListener("click", exportTradesToCSV);
 $("#bStats").addEventListener("click", () => {
   renderStatsView();
+  updatePracticeDateBadges();
   cloudSyncPull(false); // 展开抽屉时静默拉取最新云端战绩
   $("#shStats").classList.add("on");
   $("#mask").classList.add("on");
@@ -3219,8 +3625,37 @@ $$("[data-close]").forEach(b => b.addEventListener("click", () => {
 }));
 $("#btnResetStats").addEventListener("click", resetAllStats);
 
+// 日历弹窗与自选日期交互事件监听
+$("#btnOpenCalendar")?.addEventListener("click", openCalendarModal);
+$("#bCalendarQuick")?.addEventListener("click", openCalendarModal);
+$("#btnNextRandomDay")?.addEventListener("click", loadRandomMarket);
+$("#btnCalClose")?.addEventListener("click", closeCalendarModal);
+$("#calendarModal")?.addEventListener("click", e => {
+  if(e.target === $("#calendarModal")) closeCalendarModal();
+});
+$("#btnCalPrevMonth")?.addEventListener("click", prevCalendarMonth);
+$("#btnCalNextMonth")?.addEventListener("click", nextCalendarMonth);
+$("#btnCalRandom")?.addEventListener("click", () => {
+  loadRandomMarket();
+  closeCalendarModal();
+});
+$("#btnCalGoLatest")?.addEventListener("click", () => {
+  const days = getTradingDays();
+  if(days.length){
+    switchToDate(days[days.length - 1].date);
+  }
+  closeCalendarModal();
+});
+
 // 快捷键支持
 addEventListener("keydown", e => {
+  if($("#calendarModal.show")){
+    if(e.key === "Escape"){
+      e.preventDefault();
+      closeCalendarModal();
+    }
+    return;
+  }
   if(document.querySelector(".sheet.on")) return;
 
   if(e.code === "Space" || e.key === "ArrowRight"){
@@ -3229,6 +3664,9 @@ addEventListener("keydown", e => {
   }else if(e.key === "r" || e.key === "R" || e.key === "n" || e.key === "N"){
     e.preventDefault();
     loadRandomMarket();
+  }else if(e.key === "d" || e.key === "D"){
+    e.preventDefault();
+    openCalendarModal();
   }else if(e.key === "v" || e.key === "V"){
     e.preventDefault();
     toggleReveal();
@@ -3237,6 +3675,7 @@ addEventListener("keydown", e => {
     else{
       $$(".sheet").forEach(s => s.classList.remove("on"));
       $("#mask").classList.remove("on");
+      closeCalendarModal();
     }
   }else if(e.key === "o" || e.key === "O"){
     F.on ? endFlow() : startFlow();
@@ -3268,14 +3707,13 @@ function cycleTheme(){
   toast("配色：" + (THMODE==="light"?"日间暖羊皮纸":(THMODE==="dark"?"夜间温润暖灰":"跟随系统")));
 }
 
-
 $("#btnViewCandle")?.addEventListener("click", () => setChartType("candle"));
-  $("#btnViewBar")?.addEventListener("click", () => setChartType("bar"));
-  $("#btnViewLine")?.addEventListener("click", () => setChartType("line"));
-  $("#btnColorMono")?.addEventListener("click", () => setKlineColorMode("mono"));
-  $("#btnColorGreenRed")?.addEventListener("click", () => setKlineColorMode("color"));
-  $("#btnQuickBuy")?.addEventListener("click", () => quickOrder("buy"));
-  $("#btnQuickSell")?.addEventListener("click", () => quickOrder("sell"));
+$("#btnViewBar")?.addEventListener("click", () => setChartType("bar"));
+$("#btnViewLine")?.addEventListener("click", () => setChartType("line"));
+$("#btnColorMono")?.addEventListener("click", () => setKlineColorMode("mono"));
+$("#btnColorGreenRed")?.addEventListener("click", () => setKlineColorMode("color"));
+$("#btnQuickBuy")?.addEventListener("click", () => quickOrder("buy"));
+$("#btnQuickSell")?.addEventListener("click", () => quickOrder("sell"));
 
 /* ================= 启动系统 ================= */
 async function boot(){
@@ -3283,8 +3721,15 @@ async function boot(){
   applyTheme();
   loadStats();
   cloudSyncPull(false);
-  await loadRandomMarket();
-  
+
+  // 尝试恢复上一次练习的自选日期，无记录则加载最新或随机日期
+  const lastDate = localStorage.getItem("sim_last_practice_date");
+  const days = getTradingDays();
+  if(lastDate && days.some(d => d.date === lastDate)){
+    await switchToDate(lastDate);
+  } else {
+    await loadRandomMarket();
+  }
 }
 boot();
 </script>
