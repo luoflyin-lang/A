@@ -73,16 +73,8 @@
       user-select: none;
       pointer-events: auto;
       cursor: pointer;
-      background: rgba(255, 255, 255, 0.88);
-      padding: 1px 6px;
-      border-radius: 4px;
-      transition: background-color 0.2s, color 0.2s;
-    }
-
-    /* 倒计时剩 2 分钟时黑白反色高亮 3 秒 */
-    #global-countdown.is-alerting {
-      background: #000000 !important;
-      color: #ffffff !important;
+      background: transparent;
+      padding: 0;
     }
 
     #global-countdown.is-offline {
@@ -768,17 +760,9 @@
       });
     }
 
-    // 触发 2 分钟收盘提醒：声音 + 倒计时黑白反色高亮 3 秒
+    // 触发 2 分钟收盘提醒：纯音频鸣响 3 秒，绝不触碰任何画面，保持屏幕零闪烁
     function triggerTwoMinuteAlert() {
       playCloseAlertSound();
-
-      var countdownEl = document.getElementById("global-countdown");
-      if (countdownEl) {
-        countdownEl.classList.add("is-alerting");
-        setTimeout(function() {
-          countdownEl.classList.remove("is-alerting");
-        }, 3000);
-      }
     }
 
     // 点击右上角倒计时手动试听测试
