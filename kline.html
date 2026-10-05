@@ -71,9 +71,18 @@
       color: #000000;
       letter-spacing: 0.5px;
       user-select: none;
-      pointer-events: none;
-      background: transparent;
-      padding: 0;
+      pointer-events: auto;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.88);
+      padding: 1px 6px;
+      border-radius: 4px;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    /* 倒计时剩 2 分钟时黑白反色高亮 3 秒 */
+    #global-countdown.is-alerting {
+      background: #000000 !important;
+      color: #ffffff !important;
     }
 
     #global-countdown.is-offline {
@@ -282,8 +291,8 @@
     </div>
   </div>
 
-  <!-- 全屏右上角全局统一收盘倒计时 -->
-  <div id="global-countdown">--:--</div>
+  <!-- 全屏右上角全局统一收盘倒计时 (点击可测试收盘前2分钟提示音) -->
+  <div id="global-countdown" onclick="testAlertSound()" title="点击测试收盘前2分钟提示音">--:--</div>
 
   <!-- 竖屏 8 分屏网格 (2 列 × 4 行) -->
   <div id="grid-container">
@@ -697,6 +706,87 @@
       }
     }
 
+    // ========================================================
+    // 收盘前 2 分钟提示音引擎 (Web Audio API)
+    // 零外部资源依赖，离线可用，毫秒级响应，响铃 3 秒 (3 声空灵风铃音)
+    // ========================================================
+    var audioCtx = null;
+    var lastAlertCandleKey = -1;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      return audioCtx;
+    }
+
+    // 只要用户在屏幕上有任何点击或轻触，立即激活浏览器音频上下文权限
+    function unlockAudio() {
+      var ctx = getAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume();
+      }
+    }
+
+    // 播放约 3 秒清晰悠扬提示音 (0s, 1s, 2s 各一声纯净正弦波风铃音)
+    function playCloseAlertSound() {
+      var ctx = getAudioContext();
+      if (!ctx) return;
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
+      var now = ctx.currentTime;
+      var chimes = [
+        { offset: 0.0, freq: 880.00, dur: 0.65 }, // A5
+        { offset: 1.0, freq: 880.00, dur: 0.65 }, // A5
+        { offset: 2.0, freq: 1174.66, dur: 0.85 } // D6 (更高明亮音，收尾确认)
+      ];
+
+      chimes.forEach(function(c) {
+        try {
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(c.freq, now + c.offset);
+
+          // 渐入渐出平滑包络：杜绝破音，声音温润清晰
+          gain.gain.setValueAtTime(0.0001, now + c.offset);
+          gain.gain.exponentialRampToValueAtTime(0.38, now + c.offset + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + c.offset + c.dur);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now + c.offset);
+          osc.stop(now + c.offset + c.dur);
+        } catch(e) {}
+      });
+    }
+
+    // 触发 2 分钟收盘提醒：声音 + 倒计时黑白反色高亮 3 秒
+    function triggerTwoMinuteAlert() {
+      playCloseAlertSound();
+
+      var countdownEl = document.getElementById("global-countdown");
+      if (countdownEl) {
+        countdownEl.classList.add("is-alerting");
+        setTimeout(function() {
+          countdownEl.classList.remove("is-alerting");
+        }, 3000);
+      }
+    }
+
+    // 点击右上角倒计时手动试听测试
+    function testAlertSound() {
+      unlockAudio();
+      triggerTwoMinuteAlert();
+    }
+
     function updateCountdown() {
       var countdownEl = document.getElementById("global-countdown");
       if (!countdownEl) return;
@@ -707,8 +797,19 @@
       }
 
       var now = new Date();
+      var totalSec = Math.floor(now.getTime() / 1000);
+      var currentCandleKey = Math.floor(totalSec / 900); // 15分钟 K线唯一批次ID
       var elapsedInCandle = (now.getUTCMinutes() * 60 + now.getUTCSeconds()) % 900;
       var remainingSeconds = 900 - elapsedInCandle;
+
+      // 还剩 2 分钟 (120 秒) 时准时响铃 3 秒
+      // 容差区间 [118, 120]，防止某秒定时器极微小漂移
+      if (remainingSeconds <= 120 && remainingSeconds >= 118) {
+        if (lastAlertCandleKey !== currentCandleKey) {
+          lastAlertCandleKey = currentCandleKey;
+          triggerTwoMinuteAlert();
+        }
+      }
 
       var mins = Math.floor(remainingSeconds / 60);
       var secs = remainingSeconds % 60;
@@ -722,6 +823,11 @@
       initCharts();
       updateCountdown();
       setInterval(updateCountdown, 1000);
+
+      // 监听屏幕任意点击/轻触，自动激活浏览器音频播放权限
+      window.addEventListener("click", unlockAudio, { passive: true });
+      window.addEventListener("touchstart", unlockAudio, { passive: true });
+      window.addEventListener("pointerdown", unlockAudio, { passive: true });
 
       window.addEventListener("offline", function() {
         setNetworkState(false);
